@@ -1,0 +1,109 @@
+{% extends 'base/base.html' %}
+
+{% load crispy_forms_tags %}
+{% block contenido %}
+<br><br>
+            <div class="row">
+               
+                    <div class="card">
+                        <div class="cardbody">
+                            <h2>Ingreso de Guías</h2>
+                            <hr>
+                    <form method="POST">
+
+                        {% csrf_token %}
+                        <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
+                        <div class="form-row">
+                          <div class="form-group col-md-6 mb-2">
+                            {{ form.no_guia|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-2">
+                            {{ form.fecha|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-2">
+                            {{ form.no_manifiesto|as_crispy_field }}
+                          </div>
+                        </div>
+                        <!-- Datos Remitente -->
+                        <div class="form-row">
+                          <div class="form-group col-md-6 mb-4">
+                            {{ form.codigo_cliente|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.remitente|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.dirrem|as_crispy_field }}
+                          </div>    
+                        </div>
+                          
+                        <div class="form-row" style="grid-template-columns: repeat(5, 1fr);">
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.tel|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.zona|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.muni|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.origen|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.ruta|as_crispy_field }}
+                          </div>
+                        </div>
+                         <!-- Inicia los datos del destinatario --> 
+                         <div class="form-row">
+                          <div class="form-group col-md-6 mb-4">
+                            {{ form.codigo_cliente|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.destinatario|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.dirdes|as_crispy_field }}
+                          </div>    
+                        </div>
+                        <div class="form-row" style="grid-template-columns: repeat(5, 1fr);">
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.teldes|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.zonades|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.munides|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.destino|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.ruta|as_crispy_field }}
+                          </div>
+                        </div>
+                        <!-- Forma de pago -->
+                        <div class="form-row">
+                          <div class="form-group col-md-6 mb-4">
+                            {{ form.codigo_cliente|as_crispy_field }}
+                          </div>
+                          <div class="form-group col-md-6 mb-0">
+                            {{ form.nombre|as_crispy_field }}
+                          </div> 
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <input type="submit" value="Guardar" class="btn btn-primary">
+                            &nbsp;
+                            <input type="reset" value="Cancelar" class="btn btn-secondary">
+                        </div>
+                        
+                    </form>
+                    {{ mensaje }}
+            </div>
+
+
+    </div>
+</div>
+
+{% endblock %}

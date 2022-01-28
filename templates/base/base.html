@@ -1,0 +1,207 @@
+ {% load static %}
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Transportes JR</title>
+        
+        {% load static %}
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+        
+        
+        {% block css %}
+        <link rel="stylesheet" href="{% static 'base/css/estilo.css' %}">
+        <link rel="stylesheet" href="{% static 'base/css/estiloo.css' %}">
+        <link rel="stylesheet" href="{% static 'base/vendor/datatables/dataTables.bootstrap4.min.css' %}">
+
+        {% endblock %}
+        
+    </head>
+    <body>
+        <header>         
+            <nav>
+                <img src="https://transportesjrgt.com/imgs/imagen.png" alt="">  
+            </nav>
+
+        </div>
+
+    </header>
+        <div class="navigation">
+            <div class="toggle" ><span></span></div>
+            <ul>
+                     {% if user.is_authenticated %}
+                        <li>
+                            <a href="{% url 'bases:logout' %}">Cerrar Sesión</a>
+                        </li>
+                        <li>
+                            <a href="#">@{{ user.username }}</a>
+                        </li>
+                     {% else %}
+                        <li>
+                            <a href="{% url 'bases:login' %}">Iniciar Sesión</a>
+                        </li>
+                        <li>
+                            <a href="{% url 'link:registro' %}">Registrate</a>
+                        </li>
+                     {% endif %}
+                {% if perms.link %}
+                <li>
+                    
+                    <a href="#" id="left" onclick="uno()">Bodega</a>
+                    {% if perms.link.view_bodega %}
+                    <div id="despliegue" class="despliegue">
+                        <a href="{% url 'link:ingreso_bodega' %}">Ingreso Bodega</a>
+                         <a href="{% url 'link:salida_bodega' %}">Salida Bodega</a>
+                    {% endif %}
+                       
+                        <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                    </div>
+                </li>
+                {% endif %}
+                {% if perms.link %}
+                <li>
+                    <a href="#" id="left" onclick="dos()">Guias</a>
+                    <div id="despliegue2" class="despliegue">
+                        <a href="{% url 'link:ingreso_guias' %}">Ingreso de Guías</a>
+                        <a href="#">Modificación de Guías</a>
+                        <a href="#">Emilinación de Guías</a>
+                        <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                    </div>
+                </li>
+                {% endif %}
+                {% if perms.link %}
+                <li>
+                    <a href="#" id="left" onclick="tres()">P.O.D</a>
+                    <div id="despliegue3" class="despliegue">
+                    
+                        <a href="#">Ingreso P.O.D</a>
+                        <a href="#">Modificación P.O.D</a>
+                        <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                    </div>
+                </li>
+                {% endif %}
+                {% if perms.link %}
+                <li>
+                    <a href="#" id="left" onclick="cuatro()">Generar Reportes</a>
+                    <div id="despliegue4" class="despliegue">
+                        <a href="#">Reporte por Fecha</a>
+                        <a href="#">Reporte por Forma de pago</a>
+                        <a href="#">Reporte por Cliente</a>
+                        <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                    </div>
+                </li>
+                {% endif %}
+                {% if perms.link %}
+                <li>
+                    <a href="#" id="left" onclick="cinco()">Herramientas</a>
+                   
+                    <div id="despliegue5" class="despliegue">
+                        <a href="#">Crear Nuevo Cliente</a>
+                        <a href="{% url 'link:pilotos' %}">Registras Pilotos</a>
+                        <a href="{% url 'link:boletas' %}">Registrar Boletas de Deposito</a>
+                        <a href="{% url 'link:departamento_list' %}">Registrar Departamento</a>
+                        <a href="{% url 'link:municipio_list' %}">Registrar Municipio</a>
+                        <a href="#">Resgistrar Rutas</a>
+                        <!-- AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA -->
+                        {% if perms.zelda.add_registro %}
+                        <a href="{% url 'zelda:control' %}" id="left" onmouseover="seis()">Control de combustible</a>
+                        {% endif %}
+                        <div id="despliegue6" class="despliegue_sub">
+                            {% if perms.zelda.view_registro %}
+                            <a href="{% url 'zelda:listar' %}">Listar</a>
+                            {% endif %}
+                        </div>
+                        {% if perms.link.view_vendedores %}
+                        <a href="{% url 'link:vendedores_list' %}">Registrar Vendedor</a>
+                        {% endif %}
+                        <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                    </div>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        <section id="home"></section>
+        <script>
+            const navigation  = document.querySelector('.navigation');
+            const despliegue = document.querySelector('.despliegue');
+            document.querySelector('.toggle').onclick = function() {
+                this.classList.toggle('active');
+                navigation.classList.toggle('active');
+            };
+            document.querySelector('.left').onclick = function () {
+                despliegue.classList.toggle('active');
+            }
+            /*Cuando se hace click en el botón, muestra el submenu*/
+            function uno() {
+                //Añade una clase al elemento que tenga el id myDropdown
+                document.getElementById("despliegue").classList.toggle("show");
+            }
+            function dos() {
+                //Añade una clase al elemento que tenga el id myDropdown
+                document.getElementById("despliegue2").classList.toggle("show");
+            }
+            function tres() {
+                //Añade una clase al elemento que tenga el id myDropdown
+                document.getElementById("despliegue3").classList.toggle("show");
+            }
+            function cuatro() {
+                //Añade una clase al elemento que tenga el id myDropdown
+                document.getElementById("despliegue4").classList.toggle("show");
+            }
+            function cinco() {
+                //Añade una clase al elemento que tenga el id myDropdown
+                document.getElementById("despliegue5").classList.toggle("show");
+            }
+            function seis() {
+                //Añade una clase al elemento que tenga el id myDropdown
+                document.getElementById("despliegue6").classList.toggle("show");
+            }
+        </script>
+        <script>
+            $(document).on("click", function (e) {
+                var container = $(".navigation");
+    
+                if (!container.is(e.target) && container.has(e.target).length === 0) {
+                    navigation.classList.remove("active");
+                    document.querySelector(".toggle").classList.remove("active");
+                }
+                });
+        </script>
+    
+        {% block contenido %}
+        {% endblock %}
+        
+<!-- Bootstrap core JavaScript-->
+<script src="{% static  'base/vendor/jquery/jquery.min.js' %}"></script>
+<script src="{% static  'base/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
+<!-- Core plugin JavaScript-->
+<script src="{% static  'base/vendor/jquery-easing/jquery.easing.min.js' %}"></script>
+
+<!-- Custom scripts for all pages-->
+<script src="{% static  'base/js/sb-admin-2.min.js' %}"></script>
+
+<!-- Page level plugins -->
+<script src="{% static 'base/vendor/datatables/jquery.dataTables.min.js'%}"></script>
+<script src="{% static 'base/vendor/datatables/dataTables.bootstrap4.min.js' %}"></script>
+
+<script src="{% static 'base/vendor/jquery_confirm/jquery-confirm.min.js' %}"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-datetimepicker/2.5.20/jquery.datetimepicker.full.min.js" integrity="sha256-FEqEelWI3WouFOo2VWP/uJfs1y8KJ++FLh2Lbqc8SJk=" crossorigin="anonymous"></script>  
+
+<script src="https://unpkg.com/bootstrap-table@1.15.3/dist/bootstrap-table.min.js"></script>
+<script src="https://unpkg.com/bootstrap-table@1.15.3/dist/bootstrap-table-locale-all.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.8/js/select2.min.js"></script>
+
+<script src="{% static  'base/js/jquery.chained.min.js' %}"></script>
+
+
+{% block js %} {% endblock %}
+
+
+    </body>
+</html>
