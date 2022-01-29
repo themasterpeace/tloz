@@ -172,7 +172,8 @@ h2{
 }
 .box{
     position: relative;
-    width: 60%;
+    width: 100%;
+    max-width: 30%;
     padding: 50px;
     height: 480px;
     margin: auto;

@@ -586,3 +586,19 @@ input#id_guias{
     text-align: center;
     font-weight: bold;
 }
+th.sorting_asc,
+th.sorting,
+th.all_sorting{
+    font-size: 18px;
+}
+label{
+    font-size: 18px;
+}
+tr.odd,
+tr.even{
+    color: #000 !important;
+}
+tr.odd td,
+tr.even td{
+    font-size: 18px;
+}

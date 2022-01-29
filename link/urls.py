@@ -13,7 +13,7 @@ urlpatterns = [
     path('departamento/list', departamentoview.as_view(), name="departamento_list"),
     path('departamento/new', departamentonew.as_view(), name="departamento_new"),
     path('departamento/edit<int:pk>', departamentoedit.as_view(), name="departamento_edit"),
-    path('departamento/inactivar<int:id>', departamentoinactivar, name="departamento_inactivar"),
+    path('departamento/inactivar<int:pk>', departamentoinactivar, name="departamento_inactivar"),
     path('departamento/delete<int:pk>', departamentodel.as_view(), name="eliminar"),
 
     path('municipio/list', municipioview.as_view(), name="municipio_list"),
