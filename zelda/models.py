@@ -1,13 +1,8 @@
 from django.db import models
 from django.db.models.fields import IntegerField
-
+from bases.models import ClaseModelo
 # Create your models here.
 
-#class placas(models.Model):
-   # placa=models.CharField(max_length=50)
-    
-    #def __str__(self):
-     #   return self.placa
 ruta=[
     [0, "BAR1"],
     [1, "BAR2"],
@@ -35,7 +30,7 @@ placas=[
     [5,"C910BNX"],
     [6,"C306BPR"],
 ]  
-class Registro(models.Model):
+class Registro(ClaseModelo):
     fecha=models.DateField(verbose_name="Fecha llenado")
     hora_llenado=models.TimeField(verbose_name="Hora llenado")
     placa=models.IntegerField(verbose_name="Placa", choices=placas)
@@ -56,5 +51,12 @@ class Registro(models.Model):
     observaciones=models.TextField(verbose_name="Observaciones")
     
     def __str__(self):
-        return self.serie
+        return '{}'.format(self.serie)
+    
+    def save(self):
+        self.serie = self.serie.upper()
+        super(Registro, self).save()
+
+    class Meta:
+        verbose_name_plural = "Registros"
     

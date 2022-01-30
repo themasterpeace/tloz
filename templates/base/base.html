@@ -109,11 +109,11 @@
                         
                         <!-- AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA -->
                         {% if perms.zelda.add_registro %}
-                        <a href="{% url 'zelda:control' %}" id="left" onmouseover="seis()"> <i class="fas fa-gas-pump"></i> Control </a>
+                        <a href="{% url 'zelda:registro_list' %}" id="left" onmouseover="seis()"> <i class="fas fa-gas-pump"></i> Listado de Facturas </a>
                         {% endif %}
                         <div id="despliegue6" class="despliegue_sub">
                             {% if perms.zelda.view_registro %}
-                            <a href="{% url 'zelda:listar' %}">Listar</a>
+                            <a href="{% url 'zelda:registro_new' %}">Ingreso de Facturas Combustible</a>
                             {% endif %}
                         </div>
                        

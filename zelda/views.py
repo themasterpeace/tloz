@@ -1,65 +1,48 @@
-#from django.http import response
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import TemplateView, ListView,CreateView,UpdateView,DeleteView
-from .forms import *
+from re import template
+from django.http import request 
+from django.shortcuts import redirect, render, get_object_or_404
 from .models import *
-from openpyxl import Workbook
-from django.http.response import HttpResponse
+from .forms import *
+from django.urls import reverse_lazy
+from django.views import generic
+from django.views.generic import TemplateView
 from django.contrib import messages
+from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
+from django.http import HttpResponse
+from django.contrib.auth.mixins import LoginRequiredMixin
 # Create your views here.
 
-@permission_required('zelda.add_registro')
-def control(request):
-    data ={
-        'form': RegistroForm()
-    }
-    
-    if request.method == 'POST':
-        formulario= RegistroForm(data=request.POST, files=request.FILES)
-        if formulario.is_valid():
-            formulario.save()
-            messages.success(request, "Registro Guardado correctamente")
-        else:
-            data["form"] = formulario
-            
-    return render(request, 'zelda/home.html', data)
+class combustiblenew(LoginRequiredMixin, generic.CreateView):
+    model = Registro
+    template_name="zelda/registro_new.html"
+    context_object_name="obj"
+    form_class = RegistroForm
+    success_url=reverse_lazy("zelda:registro_list")
+    login_url = "registration:login"
 
-@permission_required('zelda.view_registro')
-def listar(request):
-    
-    registros = Registro.objects.all()
-    
-    data ={
-        'registros': registros
-    }
-    return render(request, 'zelda/listar.html', data)
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
 
-@permission_required('zelda.change_registro')
-def modificar(request, id):
-    
-    registro = get_object_or_404(Registro, id=id)
-    
-    data={
-        'form': RegistroForm(instance=registro)
-    }
-    
-    if request.method == 'POST':
-        formulario = RegistroForm(data=request.POST, instance=registro, files=request.FILES)
-        if formulario.is_valid():
-            formulario.save()
-            messages.success(request, "Registro modificado correctamente")
-            return redirect(to="listar")
-        data["form"] = formulario
-    
-    return render(request, 'zelda/modificar.html', data)
+class combustibleview(LoginRequiredMixin, generic.ListView):
+    model =  Registro
+    template_name="zelda/registro_list.html"
+    context_object_name = "obj"
+    login = "registration:login"
 
-@permission_required('zelda.delete_registro')
-def eliminar(request, id):
-    producto=get_object_or_404(Registro, id=id)
-    producto.delete()
-    messages.success(request, "Registro Eliminado Exitosamente")
-    return redirect(to="listar")
+class combustibledit(LoginRequiredMixin, generic.UpdateView):
+    model = Registro
+    template_name="link/registro_new.html"
+    context_object_name="obj"
+    form_class = RegistroForm
+    success_url=reverse_lazy("link:registro_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.um = self.request.user
+        return super().form_valid(form)
+
 
 
 class ReporteRegistrosExcel(TemplateView):

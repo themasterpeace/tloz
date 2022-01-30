@@ -16,6 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.db.models import enums
 from django.urls import path, include
+
 urlpatterns = [
     path('', include(('bases.urls','bases'), namespace='bases')),
     path('link/', include(('link.urls','link'), namespace='link')),

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'zelda',
     'crispy_forms',
     'django_userforeignkey',
+    'django.contrib.humanize',
 
 ]
 
