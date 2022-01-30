@@ -77,15 +77,15 @@
                     <a href="#" id="left" onclick="tres()">P.O.D</a>
                     <div id="despliegue3" class="despliegue">
                     
-                        <a href="#">Ingreso P.O.D</a>
-                        <a href="#">Modificación P.O.D</a>
-                        <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                        <a href="#"> <i class="fas fa-plus-square"></i>  P.O.D</a>
+                        <a href="#"> <i class="far fa-edit"></i>  P.O.D</a>
+                        <a href="{% url 'link:consulta' %}"> <i class="fas fa-search"></i></a>
                     </div>
                 </li>
                 {% endif %}
                 {% if perms.link %}
                 <li>
-                    <a href="#" id="left" onclick="cuatro()">Generar Reportes</a>
+                    <a href="#" id="left" onclick="cuatro()"><i class="fas fa-chart-bar"></i> </a>
                     <div id="despliegue4" class="despliegue">
                         <a href="#">Reporte por Fecha</a>
                         <a href="#">Reporte por Forma de pago</a>
@@ -96,27 +96,27 @@
                 {% endif %}
                 {% if perms.link %}
                 <li>
-                    <a href="#" id="left" onclick="cinco()">Herramientas</a>
+                    <a href="#" id="left" onclick="cinco()"><i class="fas fa-cogs"></i></a>
                    
                     <div id="despliegue5" class="despliegue">
-                        <a href="#">Crear Nuevo Cliente</a>
-                        <a href="{% url 'link:pilotos' %}">Registras Pilotos</a>
-                        <a href="{% url 'link:boletas' %}">Registrar Boletas de Deposito</a>
-                        <a href="{% url 'link:departamento_list' %}">Registrar Departamento</a>
-                        <a href="{% url 'link:municipio_list' %}">Registrar Municipio</a>
-                        <a href="#">Resgistrar Rutas</a>
+                        <a href="{% url 'link:departamento_list' %}"><i class="fas fa-plus"></i> Departamento</a>
+                        <a href="{% url 'link:municipio_list' %}"><i class="fas fa-plus"></i> Municipio</a>
+                        <a href="#"> <i class="fas fa-plus"></i> Rutas</a>
+                        <a href="{% url 'link:pilotos' %}"> <i class="fas fa-plus"></i> Pilotos</a>
+                        <a href="{% url 'link:vendedores_list' %}"> <i class="fas fa-plus"></i> Vendedor</a>
+                        <a href="#"> <i class="fas fa-plus"></i> Cliente</a>
+                        <a href="{% url 'link:boletas' %}"> <i class="fas fa-plus"></i> Boletas de Deposito</a>
+                        
                         <!-- AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA -->
                         {% if perms.zelda.add_registro %}
-                        <a href="{% url 'zelda:control' %}" id="left" onmouseover="seis()">Control de combustible</a>
+                        <a href="{% url 'zelda:control' %}" id="left" onmouseover="seis()"> <i class="fas fa-gas-pump"></i> Control </a>
                         {% endif %}
                         <div id="despliegue6" class="despliegue_sub">
                             {% if perms.zelda.view_registro %}
                             <a href="{% url 'zelda:listar' %}">Listar</a>
                             {% endif %}
                         </div>
-                        {% if perms.link.view_vendedores %}
-                        <a href="{% url 'link:vendedores_list' %}">Registrar Vendedor</a>
-                        {% endif %}
+                       
                         <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
                     </div>
                 </li>
