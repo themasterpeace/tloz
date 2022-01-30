@@ -179,7 +179,7 @@ def departamentoinactivar(request, id):
         return redirect("link:departamento_list")
 
     return render(request, template_name, contexto)
-<<<<<<< HEAD
+
     
 def municipioactivar(request, id):
     depto = Departamento.objects.filter(pk=id).first()
@@ -199,7 +199,7 @@ def municipioactivar(request, id):
 
     return render(request, template_name, contexto)
         
-=======
+
 
 def municipioinactivar(request, id):
     muni = Municipio.objects.filter(pk=id).first()
@@ -218,4 +218,3 @@ def municipioinactivar(request, id):
         return redirect("link:municipio_list")
 
     return render(request, template_name, contexto)
->>>>>>> origin/master
