@@ -1,35 +1,34 @@
 {% extends 'base/base.html' %}
 
-{% block js %}
-<script>
-    function eliminarRegistro(id){
-        Swal.fire({
-            "title":"¿Seguro que desea Elimiar el registro?",
-            "text":"Esta accion no se puede revertir",
-            "icon":"question",
-            "showCancelButton":true,
-            "cancelButtonText":"No, Cancelar",
-            "confirmButtonText":"Si, Eliminar",
-            "reverseButtons":true,
-            "confirmButtonColor":"#DC3545"
-        })
-        .then(function(result){
-            if(result.isConfirmed){
-                window.location.href= "/eliminar/"+id+"/"
-            }
-        })
-    }
-</script>
-{% endblock %}
-
 {% block contenido %}
 {% load humanize %}
+<br><br>
+<div class="card shadow mb-4">
+    <!-- Card Header - Dropdown -->
+    <div
+        class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+        <h6 class="m-0 font-weight-bold bg-white text-primary">Listado de Facturas de Combustible </h6>
+        <div class="dropdown no-arrow">
+            <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+            </a>
+            <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                <div class="dropdown-header">Acciones:</div>
+                <a class="dropdown-item" onclick="return abrir_modal('{% url 'link:departamento_new' %}')" href="#"><i class="far fa-calendar-plus"></i> Nuevo Departamento</a>
+                <a class="dropdown-item" href="#"></a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#"></a>
+            </div>
+        </div>
+    </div>
 
 <div class="card">
     <div class="card-body">
-        <h2>Listado de Registro de Combustible</h2>
-        <br><br><br>
-        <table class="table table-striped table-hover table-responsive-sm" style="position: relative; left:-3%;">
+        {% if not obj %}
+       <div class="alert alert-info">No hay facturas de Combustible Registradas</div>
+       {% else %}
+        <table class="table table-striped table-hover">
             <tr>
                 <th>Fecha</th>
                 <th>Hora Llenado</th>
@@ -52,41 +51,42 @@
                 <th>Opciones</th>
             </tr>
                
-               {% for p in registro %} 
+               {% for item in obj %} 
                <tr>
-                   <td> {{ p.fecha | date:'d-m-y'}}</td>
-                   <td> {{ p.hora_llenado | title}}</td>
-                   <td> {{ p.placa | title}}</td>
-                   <td> {{ p.piloto | title}}</td>
-                   <td> {{ p.ruta | title}}</td>
-                   <td> {{ p.serie | title}}</td>
-                   <td> {{ p.no_factura | title}}</td>
-                   <td> Q. {{ p.total | intcomma }}</td>
-                   <td> {{ p.galones | title}}</td>
-                   <td> {{ p.tipo_combustible | title}}</td>
-                   <td> {{ p.bomnba | title}}</td>
-                   <td> Q. {{ p.precioxgalon | intcomma }}</td>
-                   <td> {{ p.kminicial | title}}</td>
-                   <td> {{ p.kmfinal | title}}</td>
-                   <td> {{ p.recorrido | title}}</td>
-                   <td> {{ p.rendimiento | title}}</td>
-                   <td> {{ p.manifiesto | title}}</td>
-                   <td> {{ p.observaciones | title}}</td>
+                   <td> {{ item.fecha | date:'d-m-y'}}</td>
+                   <td> {{ item.hora_llenado | title}}</td>
+                   <td> {{ item.placa | title}}</td>
+                   <td> {{ item.piloto | title}}</td>
+                   <td> {{ item.ruta | title}}</td>
+                   <td> {{ item.serie | title}}</td>
+                   <td> {{ item.no_factura | title}}</td>
+                   <td> Q. {{ item.total | intcomma }}</td>
+                   <td> {{ item.galones | title}}</td>
+                   <td> {{ item.tipo_combustible | title}}</td>
+                   <td> {{ item.bomnba | title}}</td>
+                   <td> Q. {{ item.precioxgalon | intcomma }}</td>
+                   <td> {{ item.kminicial | title}}</td>
+                   <td> {{ item.kmfinal | title}}</td>
+                   <td> {{ item.recorrido | title}}</td>
+                   <td> {{ item.rendimiento | title}}</td>
+                   <td> {{ item.manifiesto | title}}</td>
+                   <td> {{ item.observaciones | title}}</td>
                     <td>
-                    {% if perms.zelda.change_registro %}
-                    <a href="{% url 'modificar' p.id %}" class="btn btn-info btn-sm">modificar</a>
-                    {% endif %}
-                    {% if perms.zelda.delete_registro %}
-                    <a href="#" onclick="eliminarRegistro({{ p.id }})" class="btn btn-danger btn-sm">eliminar</a>
-                    {% endif %}
+                    
                     </td>
                </tr>
                {% endfor %}
         </table>
+        {% endif %}
         <a href="{% url 'zelda:reporte_registro_excel' %}" class="btn btn-success btn-sm">Generar Reporte</a>
     </div>
 </div>
-
-
-
 {% endblock %}
+{% block js %}
+<script>
+    $(document).ready(function(){
+        $('.table').DataTable();
+    });
+</script>
+
+{% endblock%}
