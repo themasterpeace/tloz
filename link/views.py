@@ -90,7 +90,7 @@ class municipionew(LoginRequiredMixin, generic.CreateView):
     template_name="link/municipio_new.html"
     context_object_name="obj"
     form_class = MunicipioForm
-    success_url=reverse_lazy("link:municipio_list")
+    success_url=reverse_lazy("link:municipio_new")
     login_url = "registration:login"
 
     def form_valid(self, form):
@@ -206,7 +206,6 @@ def municipioactivar(request, id):
         return redirect("link:municipio_list")
 
     return render(request, template_name, contexto)
-        
 
 def municipioinactivar(request, id):
     muni = Municipio.objects.filter(pk=id).first()
@@ -225,4 +224,3 @@ def municipioinactivar(request, id):
         return redirect("link:municipio_list")
 
     return render(request, template_name, contexto)
-

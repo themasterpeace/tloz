@@ -24,6 +24,9 @@ urlpatterns = [
 
     path('municipio/inactivar<int:id>', municipioinactivar, name="municipio_inactivar"),
 
+    path('municipio/inactivar<int:id>', municipioactivar, name="municipio_inactivar"),
+    path('municipio/inactivar<int:id>', municipioinactivar, name="municipio_inactivar"),
+
     path('municipio/delete<int:pk>', municipiodel.as_view(), name="eliminar"),
     
     path('pilotos', pilotos, name="pilotos"),
