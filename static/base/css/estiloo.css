@@ -41,7 +41,6 @@ body{
     background-repeat: no-repeat;
     background-attachment: fixed;
     overflow-x: hidden;
-    zoom: 80%;
 }
 body:before {
     content: "";
