@@ -11,6 +11,8 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
+from openpyxl import Workbook
+from openpyxl.writer.excel import save_virtual_workbook
 # Create your views here.
 
 class combustiblenew(LoginRequiredMixin, generic.CreateView):
@@ -43,6 +45,30 @@ class combustibledit(LoginRequiredMixin, generic.UpdateView):
         form.instance.um = self.request.user
         return super().form_valid(form)
 
+@login_required(login_url="/login/")
+@permission_required("zelda.change_registro",login_url="/login/")
+def registroinactivar(request, id):
+    fac = Registro.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+    
+    if request.method=='POST':
+        if fac:
+            fac.estado= not fac.estado
+            fac.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
 
 
 class ReporteRegistrosExcel(TemplateView):

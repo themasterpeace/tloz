@@ -1,104 +1,43 @@
-
-{% extends 'base/base.html' %}
-
-{% block contenido %}
-
-{% load crispy_forms_tags %}
-
-<div>
-</div>
-
-<br><br>
-<div class="row">
-    <div class="col-12 col-md-6 offset-md-3">
-        <div class="card">
-            <div class="card_body">
-                <h2>Registro de Facturas Consumo de Combustible</h2>
-        <hr>
-        <form action="" method="POST" enctype="multipart/form-data">
-    
-            {% csrf_token %}
-        
-            <div class="form-row">
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.fecha|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.hora_llenado|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.placa|as_crispy_field }}
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.piloto|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.ruta|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.serie|as_crispy_field }}
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.no_factura|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.total|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.galones|as_crispy_field }}
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.tipo_combustible|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.bomnba|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.precioxgalon|as_crispy_field }}
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.kminicial|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.kmfinal|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.recorrido|as_crispy_field }}
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.rendxgalon|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.manifiesto|as_crispy_field }}
-                </div>
-                <div class="form-group col-md-6 mb-0">
-                    {{ form.observaciones|as_crispy_field }}
-                </div>
-            </div>
-            <br>
-            <hr>
-            <div class="d-flex justify-content-end">
-                
-                <button type="submit" id="btnGuardar" class="btn btn-primary">Guardar</button>
-                &nbsp;
-                <button type="reset" id="btnCancelar" class="btn btn-secondary">Cancelar</button>
-            </div> 
+<div class="modal-dialog modal_lg">
+    <div class="modal-content">
+        {% if obj %}
+        <form method="POST" role="form" class="form-inline" action="{% url 'zelda:registro_edit' obj.pk %}">
+        {% else %}
+        <form method="POST" role="form" class="form-inline" action="{% url 'zelda:registro_new' %}">
+        {% endif %}
             
-        </form>
-        {{ mensaje }}
+            <div class="col-xl-12 col-md-12 mb-12">
+                {% if obj %}
+                <div class="card border-left-warning shadow h-100 py-2">
+                {% else %}
+                <div class="card border-left-success shadow h-100 py-2">
+                {% endif %}
+                    <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% if obj %} Editar {% else %} Nueva {% endif %} Factura
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            {% csrf_token %}
+                            <div class="row">
+                                {{ form.as_p }}
+                            </div>
+                            <div class="dropdown-divider"></div>
+                                <div class="row">
+                                <div class="col">
+                                    <button type="submit" class="btn btn-danger"><span class="fa fa-save"></span> Guardar</button>
+                                    <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
+                                    <button type="button" class="btn btn-success" onclick="return cerrar_modal()">
+                                     Cancelar   
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-        
+        </form>
     </div>
 </div>
 <script>
@@ -129,4 +68,3 @@
         });
 
 </script>
-{% endblock %}
