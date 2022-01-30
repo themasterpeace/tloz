@@ -149,7 +149,6 @@ body:before {
 }
 .show{
     display: block;
-    background: red;
 }
 h2{
     text-align: center;
