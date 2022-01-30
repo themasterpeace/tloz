@@ -7,7 +7,7 @@
     <!-- Card Header - Dropdown -->
     <div
         class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-        <h6 class="m-0 font-weight-bold text-primary">Listado de Departamentos</h6>
+        <h6 class="m-0 font-weight-bold bg-white text-primary">Listado de Departamentos</h6>
         <div class="dropdown no-arrow">
             <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -44,7 +44,7 @@
             <tbody>
                 {% for item in obj %}
                 <tr>
-                    <td>{{item.id}}</td>
+                    <td>{{ item.id }}</td>
                     
                     <td>{{ item.nombre}}</td>
                     <td>{{ item.iniciales}}</td>
@@ -62,7 +62,7 @@
                     <td>
                         <button class="btn btn-warning btn-circle" onclick="return abrir_modal('{% url 'link:departamento_edit' item.id %}')">
                         <i class="far fa-edit"></i></button>
-                        <a href="{% url 'link:departamento_inactivar' item.id %}" class="btn btn-danger btn-circle" role="button"><i class="far fa-thumbs-down"></i></a>
+                        <!--<a href="{% url 'link:departamento_inactivar' item.id %}" class="btn btn-danger btn-circle" role="button"><i class="far fa-thumbs-down"></i></a>-->
                     </td>
                 </tr>
                 {% endfor %}
@@ -79,7 +79,7 @@
     {
         var data = {id:id}
         data = JSON.stringify(data); 
-        var token = '{{csrf_token}}'
+        var token = '{{csrf_token}}';
         //0alert(token);
         //alert(id);
         
@@ -89,7 +89,7 @@
             url:"/link/departamento/estado/"+id,
             data: data,
             success: function(response){
-                if(reponse==="OK")
+                if(response==="OK")
                 {
                     location.reload(true);
                 }

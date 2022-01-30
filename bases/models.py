@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from django_userforeignkey.models.fields import UserForeignKey
 
 
-class ClaseModelo(models.Model):
+
+class ClaseModelo2(models.Model):
     estado = models.BooleanField(default=True)
     fc = models.DateTimeField(auto_now_add=True)
     fm = models.DateTimeField(auto_now=True)
@@ -15,7 +16,7 @@ class ClaseModelo(models.Model):
         abstract=True
 
 
-class ClaseModelo2(models.Model):
+class ClaseModelo(models.Model):
     estado = models.BooleanField(default=True)
     fc = models.DateTimeField(auto_now_add=True)
     fm = models.DateTimeField(auto_now=True)

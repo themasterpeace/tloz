@@ -41,7 +41,6 @@ body{
     background-repeat: no-repeat;
     background-attachment: fixed;
     overflow-x: hidden;
-    zoom: 80%;
 }
 body:before {
     content: "";
@@ -585,20 +584,4 @@ input#id_guias{
     font-size: 50px;
     text-align: center;
     font-weight: bold;
-}
-th.sorting_asc,
-th.sorting,
-th.all_sorting{
-    font-size: 18px;
-}
-label{
-    font-size: 10px;
-}
-tr.odd,
-tr.even{
-    color: #000 !important;
-}
-tr.odd td,
-tr.even td{
-    font-size: 18px;
 }
