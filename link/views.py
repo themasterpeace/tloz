@@ -42,7 +42,7 @@ def nuevo_cliente(request):
         'form': NuevoClienteForm()
     }
     return render(request, 'link/nuevo_cliente.html', data)
-
+#------------------SECCION DEPARTAMENTOS  CRUD---------------------------#
 class departamentoview(LoginRequiredMixin, generic.ListView):
     model =  Departamento
     template_name="link/departamento_list.html"
@@ -79,6 +79,32 @@ class departamentodel(LoginRequiredMixin, generic.DeleteView):
     context_object_name='obj'
     success_url=reverse_lazy("link:departamento_list")
 
+@login_required(login_url="/login/")
+@permission_required("link.change_departamento",login_url="/login/")
+def departamentoinactivar(request, id):
+    depto = Departamento.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+    
+    if request.method=='POST':
+        if depto:
+            depto.estado= not depto.estado
+            depto.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
+
+#---------------SECCION DE MUNICIPIOS CRUD----------------------#
 class municipioview(LoginRequiredMixin, generic.ListView):
     model =  Municipio
     template_name="link/municipio_list.html"
@@ -90,7 +116,7 @@ class municipionew(LoginRequiredMixin, generic.CreateView):
     template_name="link/municipio_new.html"
     context_object_name="obj"
     form_class = MunicipioForm
-    success_url=reverse_lazy("link:municipio_new")
+    success_url=reverse_lazy("link:municipio_list")
     login_url = "registration:login"
 
     def form_valid(self, form):
@@ -106,7 +132,7 @@ class municipioedit(LoginRequiredMixin, generic.UpdateView):
     login_url = "registration:login"
 
     def form_valid(self, form):
-        form.instance.um = self.request.user.id
+        form.instance.um = self.request.user
         return super().form_valid(form)
 
 class municipiodel(LoginRequiredMixin, generic.DeleteView):
@@ -114,6 +140,50 @@ class municipiodel(LoginRequiredMixin, generic.DeleteView):
     template_name='link/eliminar.html'
     context_object_name='obj'
     success_url=reverse_lazy("link:municipio_list")
+
+'''def municipioactivar(request, id):
+    depto = Departamento.objects.filter(pk=id).first()
+    contexto={}
+    template_name = "link/eliminar.html"
+
+    if not depto:
+        return redirect("link:municipio_list")
+
+    if request.method=='GET':
+        contexto={'obj':depto}
+    
+    if request.method=='POST':
+        depto.estado=False
+        depto.save()
+        return redirect("link:municipio_list")
+
+    return render(request, template_name, contexto)'''
+
+@login_required(login_url="/login/")
+@permission_required("link.change_municipio",login_url="/login/")
+def municipioinactivar(request, id):
+    muni = Municipio.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+    
+    if request.method=='POST':
+        if muni:
+            muni.estado = not muni.estado
+            muni.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
+
 
 def pilotos(request):
     data = {
@@ -162,65 +232,3 @@ def registro(request):
             return redirect(to="home")
         data["form"]= formulario
     return render(request, 'registration/registro.html', data)
-
-@login_required(login_url="/login/")
-@permission_required("link.change_departamento",login_url="/login/")
-def departamentoinactivar(request, id):
-    depto = Departamento.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
-    
-    if request.method=='POST':
-        if depto:
-            depto.estado= not depto.estado
-            depto.save()
-            return HttpResponse("OK")
-        return HttpResponse("FAIL")
-
-
-    return HttpResponse("FAIL")
-
-    return render(request, template_name, contexto)
-
-    
-def municipioactivar(request, id):
-    depto = Departamento.objects.filter(pk=id).first()
-    contexto={}
-    template_name = "link/eliminar.html"
-
-    if not depto:
-        return redirect("link:municipio_list")
-
-    if request.method=='GET':
-        contexto={'obj':depto}
-    
-    if request.method=='POST':
-        depto.estado=False
-        depto.save()
-        return redirect("link:municipio_list")
-
-    return render(request, template_name, contexto)
-
-def municipioinactivar(request, id):
-    muni = Municipio.objects.filter(pk=id).first()
-    contexto={}
-    template_name = "link/eliminar.html"
-
-    if not muni:
-        return redirect("link:municipio_list")
-
-    if request.method=='GET':
-        contexto={'obj':muni}
-    
-    if request.method=='POST':
-        muni.estado=False
-        muni.save()
-        return redirect("link:municipio_list")
-
-    return render(request, template_name, contexto)

@@ -48,7 +48,13 @@
                     <td>{{item.id}}</td>
                     <td>{{ item.muni}}</td>
                     <td>{{ item.iniciales}}</td>
-                    <td>{{ item.estado|yesno:"Activo,Inactivo" }}</td>
+                    <td onclick="inactivarmun({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
+                        {% if item.estado %}
+                        <i class="far fa-thumbs-up text-primary"></i>
+                        {% else %}
+                        <i class="far fa-thumbs-down text-danger"></i>
+                        {% endif %}
+                    </td>
                     <td>{{ item.uc }}</td>
                     <td>{{ item.um }}</td>
                     <td>{{ item.fc|date:"d/m/Y H:i:s" }}</td>
@@ -68,6 +74,39 @@
 {% endblock %}
 {% block js %}
 <script>
+    //inactivar registro
+    function inactivarmun(id)
+    {
+        var data = {id:id}
+        data = JSON.stringify(data); 
+        var token = '{{csrf_token}}';
+        //alert(token);
+        //alert(id);
+        
+        $.ajax({
+            headers : {"X-CSRFToken": token},
+            type:"POST",
+            url:"/link/municipio/estado/"+id,
+            data: data,
+            success: function(response){
+                if(response==="OK")
+                {
+                    location.reload(true);
+                }
+                else{
+                    mensaje("Error Intentando Cambiar Estado")
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrow){
+                console.log(textStatus, errorThrow);
+                mensaje(errorThrow,'blue');
+                cerrar_modal(); 
+            }
+        });
+    }
+    //llamado a datatables
+
+
     $(document).ready(function() {
         $('.table').DataTable();
     });
