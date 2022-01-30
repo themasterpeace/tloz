@@ -154,6 +154,7 @@ nav ul li a:hover{
 }
 .show{
     display: block;
+    background: red;
 }
 h2{
     text-align: center;
