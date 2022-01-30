@@ -8,6 +8,7 @@ from django.views import generic
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, permission_required
+from django.http import HttpResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
 
 # Create your views here.
@@ -162,23 +163,27 @@ def registro(request):
         data["form"]= formulario
     return render(request, 'registration/registro.html', data)
 
+@login_required(login_url="/login/")
+@permission_required("link.change_departamento",login_url="/login/")
 def departamentoinactivar(request, id):
     depto = Departamento.objects.filter(pk=id).first()
-    contexto={}
-    template_name = "link/eliminar.html"
+    #contexto={}
+    #template_name = "link/eliminar.html"
 
-    if not depto:
-        return redirect("link:departamento_list")
+    #if not depto:
+    #    return redirect("link:departamento_list")
 
-    if request.method=='GET':
-        contexto={'obj':depto}
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
     
     if request.method=='POST':
-        depto.estado=False
-        depto.save()
-        return redirect("link:departamento_list")
+        if depto:
+            depto.estado= not depto.estado
+            depto.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
 
-    return render(request, template_name, contexto)
+    return HttpResponse("FAIL")
 
 def municipioinactivar(request, id):
     muni = Municipio.objects.filter(pk=id).first()
