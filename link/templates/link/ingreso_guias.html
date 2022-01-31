@@ -3,9 +3,9 @@
 {% load crispy_forms_tags %}
 {% block contenido %}
 <br><br>
-            <div class="row">
+            <div class="row ing_gui">
                
-                    <div class="card">
+                    <div class="card ing_gui">
                         <div class="cardbody">
                             <h2>Ingreso de Guías</h2>
                             <hr>
@@ -14,81 +14,81 @@
                         {% csrf_token %}
                         <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
                         <div class="form-row">
-                          <div class="form-group col-md-6 mb-2">
+                          <div class="form-group col-md-6 mb-2 centerInput">
                             {{ form.no_guia|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-2">
+                          <div class="form-group col-md-6 mb-2 centerInput">
                             {{ form.fecha|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-2">
+                          <div class="form-group col-md-6 mb-2 centerInput">
                             {{ form.no_manifiesto|as_crispy_field }}
                           </div>
                         </div>
                         <!-- Datos Remitente -->
                         <div class="form-row">
-                          <div class="form-group col-md-6 mb-4">
+                          <div class="form-group col-md-6 mb-4 centerInput">
                             {{ form.codigo_cliente|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.remitente|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.dirrem|as_crispy_field }}
                           </div>    
                         </div>
                           
-                        <div class="form-row" style="grid-template-columns: repeat(5, 1fr);">
-                          <div class="form-group col-md-6 mb-0">
+                        <div class="form-row dat_remi2">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.tel|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.zona|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.muni|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.origen|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.ruta|as_crispy_field }}
                           </div>
                         </div>
                          <!-- Inicia los datos del destinatario --> 
                          <div class="form-row">
-                          <div class="form-group col-md-6 mb-4">
+                          <div class="form-group col-md-6 mb-4 centerInput">
                             {{ form.codigo_cliente|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.destinatario|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.dirdes|as_crispy_field }}
                           </div>    
                         </div>
-                        <div class="form-row" style="grid-template-columns: repeat(5, 1fr);">
-                          <div class="form-group col-md-6 mb-0">
+                        <div class="form-row dat_desti2">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.teldes|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.zonades|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.munides|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.destino|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.ruta|as_crispy_field }}
                           </div>
                         </div>
                         <!-- Forma de pago -->
                         <div class="form-row">
-                          <div class="form-group col-md-6 mb-4">
+                          <div class="form-group col-md-6 mb-4 centerInput">
                             {{ form.codigo_cliente|as_crispy_field }}
                           </div>
-                          <div class="form-group col-md-6 mb-0">
+                          <div class="form-group col-md-6 mb-0 centerInput">
                             {{ form.nombre|as_crispy_field }}
                           </div> 
                         </div>
