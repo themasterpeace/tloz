@@ -28,7 +28,7 @@ urlpatterns = [
     path('piloto/estado/<int:id>', pilotoinactivar, name="piloto_inactivar"),
 
     path('ruta/list', rutaview.as_view(), name="ruta_list"),
-
-
+    path('ruta/new', rutanew.as_view(), name="ruta_new"),
+    
     
 ]
