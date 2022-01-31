@@ -585,3 +585,44 @@ input#id_guias{
     text-align: center;
     font-weight: bold;
 }
+th.sorting_asc,
+th.sorting,
+th.all_sorting{
+    font-size: 16px;
+}
+tr.odd td,
+tr.even td{
+    font-size: 15px;
+}
+.card.border-left-success.shadow.h-100.py-2,
+.card.border-left-warning.shadow.h-100.py-2{
+    margin-top: 0;
+    border: none;
+}
+.form-control:focus{
+    background: transparent;
+    border-color: #9b6868;
+    box-shadow: 0 0 9px 0.25rem rgb(255 0 0 / 25%);
+}
+.form-control{
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    appearance: auto;
+}
+input#id_estado{
+    width: 20px;
+	height: 20px;
+}
+.text-primary{
+    color: rgba(255, 255, 255, 0.719) !important;
+}
+.dropdown-toggle::after{
+    border: none;
+}
+i.fas.fa-pencil-alt{
+    color: rgba(255, 255, 255, 0.719);
+}
+a{
+    color: #fff;
+    text-decoration: none;
+}
