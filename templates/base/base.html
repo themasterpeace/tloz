@@ -53,8 +53,8 @@
                     <a href="#" id="left" onclick="uno()">Bodega</a>
                     {% if perms.link.view_bodega %}
                     <div id="despliegue" class="despliegue">
-                        <a href="{% url 'link:ingreso_bodega' %}">Ingreso Bodega</a>
-                         <a href="{% url 'link:salida_bodega' %}">Salida Bodega</a>
+                        <a href="#">Ingreso Bodega</a>
+                         <a href="#">Salida Bodega</a>
                     {% endif %}
                        
                         <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
@@ -65,7 +65,7 @@
                 <li>
                     <a href="#" id="left" onclick="dos()">Guias</a>
                     <div id="despliegue2" class="despliegue">
-                        <a href="{% url 'link:ingreso_guias' %}">Ingreso de Guías</a>
+                        <a href="#">Ingreso de Guías</a>
                         <a href="#">Modificación de Guías</a>
                         <a href="#">Emilinación de Guías</a>
                         <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
@@ -105,7 +105,7 @@
                         <a href="{% url 'link:ruta_list' %}"> <i class="fas fa-plus"></i> Rutas</a>
                         <a href="{% url 'link:vendedores_list' %}"> <i class="fas fa-plus"></i> Vendedor</a>
                         <a href="#"> <i class="fas fa-plus"></i> Cliente</a>
-                        <a href="{% url 'link:boletas' %}"> <i class="fas fa-plus"></i> Boletas de Deposito</a>
+                        <a href="#"> <i class="fas fa-plus"></i> Boletas de Deposito</a>
                         
                         <!-- AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA -->
                         {% if perms.zelda.add_registro %}
