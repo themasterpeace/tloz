@@ -183,7 +183,9 @@ h2{
 .row{
     --bs-gutter-x: -1.5rem;
 }
-
+.row.ing_gui{
+    justify-content: center
+}
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300&display=swap');
 *{
     margin: 0;
@@ -242,6 +244,9 @@ a.btn.btn-success.btn-sm {
     width: 100%;
     margin-top: 15px;
     left: 0%;
+}
+.card.ing_gui{
+    width: 50%;
 }
 .box::after{
     content: '';
@@ -453,6 +458,10 @@ label[for="no_guia"]{
     grid-template-columns: 1fr 1fr 1fr;
     gap: 15px;
 }
+.form-row.dat_remi2,
+.form-row.dat_desti2{
+    grid-template-columns: 1fr 1fr 1fr;
+}
 .form-group.col-md-6.mb-0 {
     width: 100%;
 }
@@ -625,17 +634,25 @@ tr.even td{
     margin-top: 0;
     border: none;
 }
+input[type="text"]:focus,
+select:focus-visible,
 .form-control:focus{
     background: transparent;
     border-color: #9b6868;
     box-shadow: 0 0 9px 0.25rem rgb(255 0 0 / 25%);
     color: #fff;
 }
+input[type="text"],
+select,
 .form-control{
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.375rem 0.75rem;
     appearance: auto;
     color: rgba(255, 255, 255, 0.911);
+    outline: none;
+    transition: .4s;
+    border-radius: 0.25rem;
 }
 input#id_estado{
     width: 20px;
@@ -666,4 +683,16 @@ i.far.fa-thumbs-down{
 a{
     color: #fff;
     text-decoration: none;
+}
+/** RESPOSIVE **/
+@media screen and (max-width: 360px) {
+    .card.ing_gui {
+        width: 100%;
+    }
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    .centerInput{
+        margin: auto;
+    }
 }
