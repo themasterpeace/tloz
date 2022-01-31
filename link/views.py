@@ -257,7 +257,7 @@ class rutanew(LoginRequiredMixin, generic.CreateView):
     
 class rutaedit(LoginRequiredMixin, generic.UpdateView):
     model = Ruta
-    template_name="link/ruta_new.html"
+    template_name="link/ruta_edit.html"
     context_object_name="obj"
     form_class = DepartamentoForm
     success_url=reverse_lazy("link:ruta_list")
