@@ -29,6 +29,6 @@ urlpatterns = [
 
     path('ruta/list', rutaview.as_view(), name="ruta_list"),
     path('ruta/new', rutanew.as_view(), name="ruta_new"),
-    
+    path('ruta/edit<int:pk>', rutaedit.as_view(), name="ruta_edit"),
     
 ]
