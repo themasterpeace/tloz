@@ -48,7 +48,13 @@
                     
                     <td>{{ item.nombre}}</td>
                     <td>{{ item.iniciales}}</td>
-                    <td>{{ item.estado|yesno:"Activo,Inactivo" }}</td>
+                    <td onclick="inactivar({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
+                        {% if item.estado %}
+                        <i class="far fa-thumbs-up text-primary"></i>
+                        {% else %}
+                        <i class="far fa-thumbs-down text-danger"></i>
+                        {% endif %}
+                    </td>
                     <td>{{ item.uc }}</td>
                     <td>{{ item.um }}</td>
                     <td>{{ item.fc|date:"d/m/Y H:i:s" }}</td>
@@ -56,7 +62,9 @@
                     <td>
                         <button class="btn btn-warning btn-circle" onclick="return abrir_modal('{% url 'link:departamento_edit' item.id %}')">
                         <i class="far fa-edit"></i></button>
+
                         <a href="{% url 'link:departamento_inactivar' item.id %}" class="btn btn-danger btn-circle" role="button"><i class="fas fa-trash-alt    "></i></a>
+
                     </td>
                 </tr>
                 {% endfor %}
@@ -68,6 +76,37 @@
 {% endblock %}
 {% block js %}
 <script>
+    //inactivar registro
+    function inactivar(id)
+    {
+        var data = {id:id}
+        data = JSON.stringify(data); 
+        var token = '{{csrf_token}}';
+        //alert(token);
+        //alert(id);
+        
+        $.ajax({
+            headers : {"X-CSRFToken": token},
+            type:"POST",
+            url:"/link/departamento/estado/"+id,
+            data: data,
+            success: function(response){
+                if(response==="OK")
+                {
+                    location.reload(true);
+                }
+                else{
+                    mensaje("Error Intentando Cambiar Estado")
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrow){
+                console.log(textStatus, errorThrow);
+                mensaje(errorThrow,'blue');
+                cerrar_modal(); 
+            }
+        });
+    }
+    //llamado a datatables
     $(document).ready(function() {
         $('.table').DataTable();
     });

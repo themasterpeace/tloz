@@ -58,11 +58,22 @@ class MunicipioForm(forms.ModelForm):
         self.fields['depto'].empty_label = "Seleccione Departamento"
 
 
-class PilotosForm(forms.ModelForm):
+class PilotoForm(forms.ModelForm):
     
     class Meta:
         model = Piloto
-        fields ='__all__'
+        fields = ['id', 'nombre','telefono','estado']
+        labels = {
+                  'nombre':'Nombre Piloto',
+                  'telefono':'Telefono',
+                  'estado':'Estado'}
+    
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class':'form-control'
+            })
 
 class RutaForm(forms.ModelForm):
     depto = forms.ModelChoiceField(

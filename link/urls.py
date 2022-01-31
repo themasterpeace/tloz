@@ -22,7 +22,13 @@ urlpatterns = [
     path('municipio/estado/<int:id>', municipioinactivar, name="municipio_inactivar"),
     path('municipio/delete<int:pk>', municipiodel.as_view(), name="eliminar"),
     
-    path('pilotos', pilotos, name="pilotos"),
+    path('piloto/list', pilotoview.as_view(), name="piloto_list"),
+    path('piloto/new', pilotonew.as_view(), name="piloto_new"),
+    path('piloto/edit<int:pk>', pilotoedit.as_view(), name="piloto_edit"),
+    path('piloto/estado/<int:id>', pilotoinactivar, name="piloto_inactivar"),
+
+    
+
     path('ingreso_guias', ingresogui, name='ingreso_guias'),
     path('ingreso_bodega', ingresobod, name='ingreso_bodega'),
     path('boletas', boletadeposito, name='boletas'),

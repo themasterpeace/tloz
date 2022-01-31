@@ -31,11 +31,7 @@ class VendedorView(LoginRequiredMixin, generic.ListView):
     context_object_name="obj"
     login = "registration:login"
 
-def rutas(request):
-    data = {
-        'form': RutasForm()
-    }
-    return render(request, 'link/rutas.html', data)
+
 
 def nuevo_cliente(request):
     data ={
@@ -184,12 +180,59 @@ def municipioinactivar(request, id):
 
     return render(request, template_name, contexto)
 
+#-----------Seccion de pilotos CRUD---------------------#
+class pilotoview(LoginRequiredMixin, generic.ListView):
+    model = Piloto
+    template_name = "link/piloto_list.html"
+    context_object_name="obj"
+    login = "registration:login"
 
-def pilotos(request):
-    data = {
-        'form': PilotosForm()
-    }
-    return render(request, 'link/pilotos.html', data)
+class pilotonew(LoginRequiredMixin, generic.CreateView):
+    model = Piloto
+    template_name="link/piloto_new.html"
+    context_object_name="obj"
+    form_class = PilotoForm
+    success_url=reverse_lazy("link:piloto_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
+
+class pilotoedit(LoginRequiredMixin, generic.UpdateView):
+    model = Piloto
+    template_name="link/piloto_new.html"
+    context_object_name="obj"
+    form_class = DepartamentoForm
+    success_url=reverse_lazy("link:piloto_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.um = self.request.user.id
+        return super().form_valid(form)
+
+def pilotoinactivar(request, id):
+    piloto = Piloto.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+    
+    if request.method=='POST':
+        if piloto:
+            piloto.estado = not piloto.estado
+            piloto.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
 
 def ingresogui(request):
     data = {

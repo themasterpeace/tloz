@@ -141,7 +141,7 @@ class Ingreso_bodega(ClaseModelo):
     bodega=models.CharField(max_length=50, verbose_name="Nombre de Bodega")
     fecha=models.DateTimeField(auto_now=False, auto_now_add=False, verbose_name="Fecha ingreso Bodega")
     ruta=models.ForeignKey(Ruta, verbose_name="Ruta Entrega", on_delete=models.PROTECT)
-    piloto=models.ForeignKey(Pilotos, on_delete=models.PROTECT, verbose_name="Piloto de ruta")
+    piloto=models.ForeignKey(Piloto, on_delete=models.PROTECT, verbose_name="Piloto de ruta")
     auxliar=models.CharField(max_length=50, verbose_name="Auxiliar de ruta")
     personalrecibe=models.CharField(max_length=50, verbose_name="Personal Que Recibe")
     noguia= models.CharField(verbose_name="Numero de guia", max_length=6)
