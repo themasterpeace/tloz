@@ -62,7 +62,7 @@ class Piloto(ClaseModelo):
     telefono = models.CharField(max_length=9)
     
     def __str__(self):
-        return '{}'.format(self.ruta)
+        return '{}'.format(self.nombre)
     
     def save(self):
         self.nombre = self.nombre.upper()
@@ -81,7 +81,7 @@ class Ruta(ClaseModelo):
     placa = models.CharField(max_length=7)
     
     def __str__(self):
-        return '{}:{}'.format(self.depto.nombre, self.ruta)
+        return '{}:{}:{}'.format(self.depto.nombre, self.piloto.nombre,self.ruta)
     
     def save(self):
         self.ruta = self.ruta.upper()
@@ -89,7 +89,7 @@ class Ruta(ClaseModelo):
     
     class Meta:
         verbose_name_plural = "Rutas"
-        unique_together = ('depto', 'ruta')
+        unique_together = ('depto', 'ruta', 'piloto')
 
 class Vendedor(ClaseModelo):
     codigo = models.CharField(max_length=3, unique=True)

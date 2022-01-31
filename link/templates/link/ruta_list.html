@@ -34,6 +34,8 @@
                 <th>Ruta</th>
                 <th>Piloto</th>
                 <th>Departamento</th>
+                <th>Placa</th>
+                <th>Estado</th>
                 <th>Usuario crea</th>
                 <th>Usuario Modifica</th>
                 <th>F. Creado</th>
@@ -46,7 +48,7 @@
                     <td>{{item.id}}</td>
                     <td>{{ item.ruta}}</td>
                     <td>{{ item.piloto}}</td>
-                    <td>{{ item.nombre}}</td>
+                    <td>{{ item.depto}}</td>
                     <td>{{ item.placa}}</td>
                     <td onclick="inactivarpil({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
                         {% if item.estado %}
