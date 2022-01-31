@@ -80,8 +80,25 @@ class RutaForm(forms.ModelForm):
         queryset=Departamento.objects.filter(estado=True)
         .order_by('nombre')
     )
-    
-
+    class Meta:
+        model = Ruta
+        fields =['ruta','piloto','depto', 'placa', 'estado']
+        labels = {
+            'ruta':'Ruta',
+            'nombre':'Nombre Piloto',
+            'nombre':'Nombre Departamento',
+            'placa':'No. Placa',
+            'estado':'Estado'
+        }
+        
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class':'form-control'
+            })
+        self.fields['depto'].empty_label = "Seleccione Departamento"
+        self.fields['piloto'].empty_label = "Seleccione Piloto"
 
 
 class VendedorForm(forms.ModelForm):

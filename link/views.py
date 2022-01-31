@@ -211,6 +211,8 @@ class pilotoedit(LoginRequiredMixin, generic.UpdateView):
         form.instance.um = self.request.user.id
         return super().form_valid(form)
 
+@login_required(login_url="/login/")
+@permission_required("link.change_piloto", login_url="/login/")
 def pilotoinactivar(request, id):
     piloto = Piloto.objects.filter(pk=id).first()
     #contexto={}
@@ -234,44 +236,10 @@ def pilotoinactivar(request, id):
 
     return render(request, template_name, contexto)
 
-def ingresogui(request):
-    data = {
-        'form': IngresoForm()
-    }
-    if request.method == 'POST':
-        formulario = IngresoForm(data=request.POST, files=request.FILES)
-        if formulario.is_valid():
-            formulario.save()
-            data["mensaje"] = "Guia ingresada correctamente"
-        else:
-            data["form"] = formulario
-    return render(request, 'link/ingreso_guias.html', data)
-
-def ingresobod(request):
-    data = {
-        'form': IngresoBodegaForm()
-    }
-    return render(request, 'link/ingreso_bod.html', data)
-
-def boletadeposito(request):
-    data = {
-        'form':BoletaForm()
-    }
-    return render(request, 'link/boletas.html', data)
-
-def registro(request):
-    data = {
-        'form': CustomUserCreationForm()
-    }
+#----------------SECCION RUTAS CRUD----------------------#
+class rutaview(LoginRequiredMixin, generic.ListView):
+    model = Ruta
+    template_name = "link/ruta_list.html"
+    context_object_name = "obj"
+    login = "registration:login"
     
-    if request.method == 'POST':
-        formulario = CustomUserCreationForm(data=request.POST)
-        if formulario.is_valid():
-            formulario.save()
-            user = authenticate(username=formulario.cleaned_data["username"], password=formulario.cleaned_data["password1"])
-            login(request, user)
-            messages.success(request, "Te has registrado exitosamente")
-            #redirigir al home 
-            return redirect(to="home")
-        data["form"]= formulario
-    return render(request, 'registration/registro.html', data)

@@ -27,11 +27,8 @@ urlpatterns = [
     path('piloto/edit<int:pk>', pilotoedit.as_view(), name="piloto_edit"),
     path('piloto/estado/<int:id>', pilotoinactivar, name="piloto_inactivar"),
 
-    
+    path('ruta/list', rutaview.as_view(), name="ruta_list"),
 
-    path('ingreso_guias', ingresogui, name='ingreso_guias'),
-    path('ingreso_bodega', ingresobod, name='ingreso_bodega'),
-    path('boletas', boletadeposito, name='boletas'),
-    path('registro/', registro, name='registro'),
+
     
 ]
