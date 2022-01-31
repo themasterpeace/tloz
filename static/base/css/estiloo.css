@@ -603,11 +603,13 @@ tr.even td{
     background: transparent;
     border-color: #9b6868;
     box-shadow: 0 0 9px 0.25rem rgb(255 0 0 / 25%);
+    color: #fff;
 }
 .form-control{
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.2);
     appearance: auto;
+    color: rgba(255, 255, 255, 0.911);
 }
 input#id_estado{
     width: 20px;
@@ -621,6 +623,19 @@ input#id_estado{
 }
 i.fas.fa-pencil-alt{
     color: rgba(255, 255, 255, 0.719);
+}
+i.fas.fa-pencil-alt:hover{
+    color: #fff;
+}
+i.far.fa-thumbs-down,
+i.far.fa-thumbs-up{
+    cursor: pointer;
+}
+i.far.fa-thumbs-up{
+    color: #055800 !important;
+}
+i.far.fa-thumbs-down{
+    color: #8d000d !important;
 }
 a{
     color: #fff;
