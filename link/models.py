@@ -18,6 +18,54 @@ banco=[
     [6, "VIVIBANCO"],
 ]    
 
+
+    
+class Departamento(ClaseModelo):
+    #codigo = models.CharField(max_length=2)
+    nombre = models.CharField(max_length=50,
+    unique=True
+    )
+    iniciales = models.CharField(max_length=10)
+    
+    def __str__(self):
+        return '{}'.format(self.nombre)
+    
+    def save(self):
+        self.nombre = self.nombre.upper()
+        super(Departamento, self).save()
+
+    class Meta:
+        verbose_name_plural = "Departamentos"
+    
+class Municipio(ClaseModelo):
+    depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
+    muni = models.CharField(max_length=100,
+    help_text='Nombre Municipio')
+    #ruta = models.CharField(max_length=50)
+    #porcentaje = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return '{}:{}'.format(self.depto.nombre, self.muni)
+
+    def save(self):
+        self.muni = self.muni.upper()
+        super(Municipio, self).save()
+    
+    class Meta:
+        verbose_name_plural = "Municipios"
+        unique_together = ('depto', 'muni')
+
+class Rutas(ClaseModelo):
+    codigo = models.CharField(max_length=15)
+    nombre = models.CharField(max_length=50)
+    vendedor = models.CharField(max_length=15)
+    #distancia = models.DecimalField(max_digits=11, decimal_places=0)
+    depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
+    #deptodesti = models.DecimalField(max_digits=11, decimal_places=0)
+    placa = models.CharField(max_length=15)
+    
+    def __str__(self):
+        return '{}:{}'.format(self.depto.nombre, self.codigo)
 class Vendedor(ClaseModelo):
     codigo = models.CharField(max_length=3, unique=True)
     nombre = models.CharField(max_length=75)
@@ -37,53 +85,6 @@ class Vendedor(ClaseModelo):
 
     class Meta:
         verbose_name_plural = "Vendedores"
-    
-class Departamento(ClaseModelo):
-    #codigo = models.CharField(max_length=2)
-    nombre = models.CharField(max_length=50,
-    unique=True
-    )
-    iniciales = models.CharField(max_length=10)
-    
-    def __str__(self):
-        return '{}'.format(self.nombre)
-    
-    def save(self):
-        self.nombre = self.nombre.upper()
-        super(Departamento, self).save()
-
-    class Meta:
-        verbose_name_plural = "Departamentos"
-    
-class Rutas(ClaseModelo):
-    codigo = models.CharField(max_length=15)
-    nombre = models.CharField(max_length=50)
-    vendedor = models.CharField(max_length=15)
-    distancia = models.DecimalField(max_digits=11, decimal_places=0)
-    depto = models.DecimalField(max_digits=11, decimal_places=0)
-    deptodesti = models.DecimalField(max_digits=11, decimal_places=0)
-    placa = models.CharField(max_length=15)
-    
-    def __str__(self):
-        return self.nombre
-
-class Municipio(ClaseModelo):
-    depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
-    muni = models.CharField(max_length=100,
-    help_text='Nombre Municipio')
-    #ruta = models.CharField(max_length=50)
-    #porcentaje = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    def __str__(self):
-        return '{}:{}'.format(self.depto.nombre, self.muni)
-
-    def save(self):
-        self.muni = self.muni.upper()
-        super(Municipio, self).save()
-    
-    class Meta:
-        verbose_name_plural = "Municipios"
-        unique_together = ('depto', 'muni')
 
 class Clientes(ClaseModelo):
     codigo_cliente = models.CharField(max_length=8, unique=True, verbose_name="Codigo Cliente")
