@@ -6,32 +6,8 @@ from link.models import *
 from bases.models import ClaseModelo
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+ 
 
-class VendedorForm(forms.ModelForm):
-    
-    class Meta:
-        model = Vendedor
-        fields = ['codigo','nombre','porcentaje',
-                 'telefono','placa']
-        labels = {'codigo':"Codigo Vendedor", 'nombre':"Nombre Vendedor",
-                 'porcentaje':"Porcentaje de venta",
-                 'telefono':"No. Telefono",'placa':"No. de Placa"}
-        widget = {
-            'codigo':forms.TextInput
-        }
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        for field in iter(self.fields):
-            self.fields[field].widget.attrs.update({
-                'class':'form-control'
-            })
-        
-class RutaForm(forms.ModelForm):
-    
-    class Meta:
-        model = Ruta
-        fields = '__all__'
-        
 class NuevoClienteForm(forms.ModelForm):
     
     class Meta:
@@ -80,12 +56,38 @@ class MunicipioForm(forms.ModelForm):
                 'class':'form-control'
             })
         self.fields['depto'].empty_label = "Seleccione Departamento"
-        
+
+class RutaForm(forms.ModelForm):
+    depto = forms.ModelChoiceField(
+        queryset=Departamento.objects.filter(estado=True)
+        .order_by('nombre')
+    )
+    
+
 class PilotosForm(forms.ModelForm):
     
     class Meta:
         model = Pilotos
         fields ='__all__'
+
+class VendedorForm(forms.ModelForm):
+    
+    class Meta:
+        model = Vendedor
+        fields = ['codigo','nombre','porcentaje',
+                 'telefono','placa']
+        labels = {'codigo':"Codigo Vendedor", 'nombre':"Nombre Vendedor",
+                 'porcentaje':"Porcentaje de venta",
+                 'telefono':"No. Telefono",'placa':"No. de Placa"}
+        widget = {
+            'codigo':forms.TextInput
+        }
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class':'form-control'
+            })
 
 class IngresoForm(forms.ModelForm):
     

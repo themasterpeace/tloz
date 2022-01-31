@@ -57,22 +57,28 @@ class Municipio(ClaseModelo):
         verbose_name_plural = "Municipios"
         unique_together = ('depto', 'muni')
 
-class Pilotos(ClaseModelo):
-    ruta = models.CharField(max_length=10)
-    descripcio = models.CharField(max_length=75)
-    responsabl = models.CharField(max_length=75)
+class Piloto(ClaseModelo):
+    nombre = models.CharField(max_length=50, unique=True)
+    telefono = models.CharField(max_length=9)
     
     def __str__(self):
-        return self.ruta
+        return '{}'.format(self.ruta)
+    
+    def save(self):
+        self.nombre = self.nombre.upper()
+        super(Piloto, self).save()
+    
+    class Meta:
+        verbose_name_plural = "Pilotos"
 
 class Ruta(ClaseModelo):
-    ruta = models.CharField(max_length=15)
-    nombre = models.CharField(max_length=50)
-    vendedor = models.CharField(max_length=15)
+    ruta = models.CharField(max_length=3)
+    piloto = models.ForeignKey(Piloto, on_delete=models.CASCADE)
+    #vendedor = models.CharField(max_length=15)
     #distancia = models.DecimalField(max_digits=11, decimal_places=0)
     depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
     #deptodesti = models.DecimalField(max_digits=11, decimal_places=0)
-    placa = models.CharField(max_length=15)
+    placa = models.CharField(max_length=7)
     
     def __str__(self):
         return '{}:{}'.format(self.depto.nombre, self.ruta)
