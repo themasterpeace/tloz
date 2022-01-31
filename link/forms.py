@@ -26,10 +26,10 @@ class VendedorForm(forms.ModelForm):
                 'class':'form-control'
             })
         
-class RutasForm(forms.ModelForm):
+class RutaForm(forms.ModelForm):
     
     class Meta:
-        model = Rutas
+        model = Ruta
         fields = '__all__'
         
 class NuevoClienteForm(forms.ModelForm):

@@ -1,3 +1,5 @@
+from enum import unique
+from tabnanny import verbose
 from django.db.models.deletion import PROTECT
 from django.db.models.enums import Choices
 from django.db.models.fields import IntegerField
@@ -55,8 +57,16 @@ class Municipio(ClaseModelo):
         verbose_name_plural = "Municipios"
         unique_together = ('depto', 'muni')
 
-class Rutas(ClaseModelo):
-    codigo = models.CharField(max_length=15)
+class Pilotos(ClaseModelo):
+    ruta = models.CharField(max_length=10)
+    descripcio = models.CharField(max_length=75)
+    responsabl = models.CharField(max_length=75)
+    
+    def __str__(self):
+        return self.ruta
+
+class Ruta(ClaseModelo):
+    ruta = models.CharField(max_length=15)
     nombre = models.CharField(max_length=50)
     vendedor = models.CharField(max_length=15)
     #distancia = models.DecimalField(max_digits=11, decimal_places=0)
@@ -65,7 +75,16 @@ class Rutas(ClaseModelo):
     placa = models.CharField(max_length=15)
     
     def __str__(self):
-        return '{}:{}'.format(self.depto.nombre, self.codigo)
+        return '{}:{}'.format(self.depto.nombre, self.ruta)
+    
+    def save(self):
+        self.ruta = self.ruta.upper()
+        super(Ruta, self).save()
+    
+    class Meta:
+        verbose_name_plural = "Rutas"
+        unique_together = ('depto', 'ruta')
+
 class Vendedor(ClaseModelo):
     codigo = models.CharField(max_length=3, unique=True)
     nombre = models.CharField(max_length=75)
@@ -110,18 +129,12 @@ class Clientes(ClaseModelo):
     def __str__(self):
         return self.codigo
     
-class Pilotos(ClaseModelo):
-    ruta = models.CharField(max_length=10)
-    descripcio = models.CharField(max_length=75)
-    responsabl = models.CharField(max_length=75)
-    
-    def __str__(self):
-        return self.ruta
+
     
 class Ingreso_bodega(ClaseModelo):
     bodega=models.CharField(max_length=50, verbose_name="Nombre de Bodega")
     fecha=models.DateTimeField(auto_now=False, auto_now_add=False, verbose_name="Fecha ingreso Bodega")
-    ruta=models.ForeignKey(Rutas, verbose_name="Ruta Entrega", on_delete=models.PROTECT)
+    ruta=models.ForeignKey(Ruta, verbose_name="Ruta Entrega", on_delete=models.PROTECT)
     piloto=models.ForeignKey(Pilotos, on_delete=models.PROTECT, verbose_name="Piloto de ruta")
     auxliar=models.CharField(max_length=50, verbose_name="Auxiliar de ruta")
     personalrecibe=models.CharField(max_length=50, verbose_name="Personal Que Recibe")

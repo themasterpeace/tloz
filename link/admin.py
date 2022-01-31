@@ -4,7 +4,7 @@ from .models import*
 
 # Register your models here.
 
-admin.site.register(Rutas)
+admin.site.register(Ruta)
 admin.site.register(Departamento)
 admin.site.register(Municipio)
 admin.site.register(Clientes)
