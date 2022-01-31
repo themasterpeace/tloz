@@ -243,3 +243,14 @@ class rutaview(LoginRequiredMixin, generic.ListView):
     context_object_name = "obj"
     login = "registration:login"
     
+class rutanew(LoginRequiredMixin, generic.CreateView):
+    model = Ruta
+    template_name="link/ruta_new.html"
+    context_object_name="obj"
+    form_class = RutaForm
+    success_url=reverse_lazy("link:ruta_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
