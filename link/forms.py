@@ -57,6 +57,13 @@ class MunicipioForm(forms.ModelForm):
             })
         self.fields['depto'].empty_label = "Seleccione Departamento"
 
+
+class PilotosForm(forms.ModelForm):
+    
+    class Meta:
+        model = Piloto
+        fields ='__all__'
+
 class RutaForm(forms.ModelForm):
     depto = forms.ModelChoiceField(
         queryset=Departamento.objects.filter(estado=True)
@@ -64,11 +71,7 @@ class RutaForm(forms.ModelForm):
     )
     
 
-class PilotosForm(forms.ModelForm):
-    
-    class Meta:
-        model = Pilotos
-        fields ='__all__'
+
 
 class VendedorForm(forms.ModelForm):
     
