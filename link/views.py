@@ -259,10 +259,29 @@ class rutaedit(LoginRequiredMixin, generic.UpdateView):
     model = Ruta
     template_name="link/ruta_edit.html"
     context_object_name="obj"
-    form_class = DepartamentoForm
+    form_class = RutaForm
     success_url=reverse_lazy("link:ruta_list")
     login_url = "registration:login"
 
     def form_valid(self, form):
         form.instance.um = self.request.user.id
         return super().form_valid(form)
+    
+
+def registro(request):
+    data = {
+        'form': CustomUserCreationForm()
+    }
+
+    if request.method == 'POST':
+        formulario = CustomUserCreationForm(data=request.POST)
+        if formulario.is_valid():
+            formulario.save()
+            user = authenticate(
+                username=formulario.cleaned_data["username"], password=formulario.cleaned_data["password1"])
+            login(request, user)
+            messages.success(request, "Te has registrado exitosamente")
+            #redirigir al home
+            return redirect(to="home")
+        data["form"] = formulario
+    return render(request, 'registration/registro.html', data)
