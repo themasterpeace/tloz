@@ -100,6 +100,22 @@ class RutaForm(forms.ModelForm):
         self.fields['depto'].empty_label = "Seleccione Departamento"
         self.fields['piloto'].empty_label = "Seleccione Piloto"
 
+class TarifarioForm(forms.ModelForm):
+    
+    class Meta:
+        model = Tarifario
+        fields = ['id','descripcion','precio','estado']
+        labels = {
+                 'descripcion':'Descripcion ',
+                 'precio':'Precio Producto',
+                 'estado':'Estado'}
+        
+    def __int__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class':'form-control'
+            })
 
 class VendedorForm(forms.ModelForm):
     

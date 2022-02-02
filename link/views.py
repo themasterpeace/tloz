@@ -292,6 +292,62 @@ def rutainactivar(request, id):
 
     return render(request, template_name, contexto)
 
+class tarifarioview(LoginRequiredMixin, generic.ListView):
+    model = Tarifario
+    template_name = "link/tarifario_list.html"
+    contect_object_name = "obj"
+    login = "registration:login"
+
+class tarifarionew(LoginRequiredMixin, generic.CreateView):
+    model = Tarifario
+    template_name = "link/tarifario_new.html"
+    context_object_name = "obj"
+    form_class = TarifarioForm
+    success_url=reverse_lazy("link:tarifario_list")
+    login_url = "registration:login"
+    
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
+
+class tarifarioedit(LoginRequiredMixin, generic.UpdateView):
+    model = Tarifario
+    template_name="link/tarifario_new.html"
+    context_object_name="obj"
+    form_class = TarifarioForm
+    success_url=reverse_lazy("link:tarifario_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.um = self.request.user.id
+        return super().form_valid(form)
+
+
+@login_required(login_url="/login/")
+@permission_required("link.change_piloto", login_url="/login/")
+def tarifarioinactivar(request, id):
+    descripcion = Tarifario.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+
+    if request.method == 'POST':
+        if descripcion:
+            descripcion.estado = not descripcion.estado
+            descripcion.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
+
+
 def registro(request):
     data = {
         'form': CustomUserCreationForm()

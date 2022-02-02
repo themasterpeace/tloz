@@ -136,6 +136,19 @@ class Clientes(ClaseModelo):
         return self.codigo
     
 
+class Tarifario(ClaseModelo):
+    descripcion = models.CharField(max_length=150, verbose_name="Descripcion Envio", unique=True)
+    precio = models.FloatField(default=0)
+    
+    def __str__(self):
+        return '{}'.format(self.descripcion)
+    
+    def save(self):
+        self.descripcion = self.descripcion.upper()
+        super(Tarifario, self).save()
+    
+    class Meta:
+        verbose_name_plural = "Tarifarios"
     
 class Ingreso_bodega(ClaseModelo):
     bodega=models.CharField(max_length=50, verbose_name="Nombre de Bodega")
@@ -153,11 +166,6 @@ class Ingreso_bodega(ClaseModelo):
     def __str__(self):
         return self.bodega
 
-
-class Tarifario(ClaseModelo):
-    tipo_envio = models.IntegerField(unique=True, verbose_name="Codigo")
-    descripcion = models.CharField(max_length=150, verbose_name="Descripcion Envio", unique=True )
-    precio = models.FloatField(default=0)
 
 class Ingreso_guias(ClaseModelo):
     no_guia = models.CharField(unique=True,max_length=6,verbose_name="No. Guia")
