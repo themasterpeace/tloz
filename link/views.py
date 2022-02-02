@@ -268,6 +268,30 @@ class rutaedit(LoginRequiredMixin, generic.UpdateView):
         return super().form_valid(form)
     
 
+@login_required(login_url="/login/")
+@permission_required("link.change_ruta", login_url="/login/")
+def rutainactivar(request, id):
+    ruta = Ruta.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+
+    if request.method == 'POST':
+        if ruta:
+            ruta.estado = not ruta.estado
+            ruta.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
+
 def registro(request):
     data = {
         'form': CustomUserCreationForm()

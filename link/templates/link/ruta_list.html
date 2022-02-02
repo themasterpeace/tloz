@@ -50,7 +50,7 @@
                     <td>{{ item.piloto}}</td>
                     <td>{{ item.depto}}</td>
                     <td>{{ item.placa}}</td>
-                    <td onclick="inactivarpil({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
+                    <td onclick="inactivarrut({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
                         {% if item.estado %}
                         <i class="far fa-thumbs-up text-primary"></i>
                         {% else %}
@@ -76,7 +76,7 @@
 {% endblock %}
 {% block js %}
 <script>
-    function inactivarpil(id)
+    function inactivarrut(id)
     {
         var data = {id:id}
         data = JSON.stringify(data); 
