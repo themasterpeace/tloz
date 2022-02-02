@@ -15,7 +15,7 @@
             </a>
             <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
                 <div class="dropdown-header">Acciones:</div>
-                <a class="dropdown-item" onclick="return abrir_modal('{% url 'link:tarifario_new' %}')" href="#"><i class="far fa-calendar-plus"></i> Nuevo Departamento</a>
+                <a class="dropdown-item" onclick="return abrir_modal('{% url 'link:tarifario_new' %}')" href="#"><i class="far fa-calendar-plus"></i> Nuevo Producto</a>
                 <a class="dropdown-item" href="#"></a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="#"></a>
@@ -32,7 +32,7 @@
             <thead>
                 <th>Id</th>
                 <th>Descripcion</th>
-                <th>Tarifa</th>
+                <th>Precio</th>
                 <th>Estado</th>
                 <th>Usuario crea</th>
                 <th>Usuario Modifica</th>
@@ -44,7 +44,6 @@
                 {% for item in obj %}
                 <tr>
                     <td>{{item.id}}</td>
-                    
                     <td>{{ item.descripcion}}</td>
                     <td>{{ item.precio}}</td>
                     <td onclick="inactivartar({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
@@ -61,9 +60,7 @@
                     <td>
                         <button class="btn btn-warning btn-circle" onclick="return abrir_modal('{% url 'link:tarifario_edit' item.id %}')">
                         <i class="far fa-edit"></i></button>
-
-                        <a href="{% url 'link:tarifario_inactivar' item.id %}" class="btn btn-danger btn-circle" role="button"><i class="fas fa-trash-alt    "></i></a>
-
+                        
                     </td>
                 </tr>
                 {% endfor %}
@@ -75,7 +72,6 @@
 {% endblock %}
 {% block js %}
 <script>
-    //inactivar registro
     function inactivartar(id)
     {
         var data = {id:id}
@@ -106,6 +102,7 @@
         });
     }
     //llamado a datatables
+
     $(document).ready(function() {
         $('.table').DataTable();
     });

@@ -20,7 +20,6 @@ banco=[
     [6, "VIVIBANCO"],
 ]    
 
-
     
 class Departamento(ClaseModelo):
     #codigo = models.CharField(max_length=2)
