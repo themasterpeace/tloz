@@ -295,7 +295,7 @@ def rutainactivar(request, id):
 class tarifarioview(LoginRequiredMixin, generic.ListView):
     model = Tarifario
     template_name = "link/tarifario_list.html"
-    contect_object_name = "obj"
+    context_object_name = "obj"
     login = "registration:login"
 
 class tarifarionew(LoginRequiredMixin, generic.CreateView):
