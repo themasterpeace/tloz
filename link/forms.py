@@ -8,16 +8,11 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
  
 
-class NuevoClienteForm(forms.ModelForm):
+class ClienteForm(forms.ModelForm):
     
     class Meta:
         model = Clientes
-        fields = ['codigo_cliente','nit','nombre',
-                    'direccion','depto', 'municipio',
-                    'contacto','rutadestin','ruta',
-                    'observa']
-        labels={'codigo_cliente':"Codigo de Cliente",
-                'nit':"No. de Nit"}
+        fields = '__all__'
         
 class DepartamentoForm(forms.ModelForm):
     
