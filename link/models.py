@@ -41,7 +41,7 @@ class Departamento(ClaseModelo):
 class Municipio(ClaseModelo):
     depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
     muni = models.CharField(max_length=100,
-    help_text='Nombre Municipio')
+    help_text='Nombre Municipio', unique=True)
     #ruta = models.CharField(max_length=50)
     #porcentaje = models.DecimalField(max_digits=10, decimal_places=2)
     
@@ -71,7 +71,7 @@ class Piloto(ClaseModelo):
         verbose_name_plural = "Pilotos"
 
 class Ruta(ClaseModelo):
-    ruta = models.CharField(max_length=3)
+    ruta = models.CharField(max_length=3, unique=True)
     piloto = models.ForeignKey(Piloto, on_delete=models.CASCADE)
     #vendedor = models.CharField(max_length=15)
     #distancia = models.DecimalField(max_digits=11, decimal_places=0)
@@ -97,7 +97,7 @@ class Vendedor(ClaseModelo):
     #fechaingre = models.DateTimeField(auto_now_add=True)
     telefono = models.CharField(max_length=10)
     #porcentaj2 = models.DecimalField(max_digits=10, decimal_places=2)
-    placa = models.CharField(max_length=20)
+    #placa = models.CharField(max_length=20)
     #foto = models.CharField(max_length=50)
     
     def __str__(self):

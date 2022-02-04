@@ -7,8 +7,10 @@ urlpatterns = [
     path('salida_bodega/', salida_bodega, name="salida_bodega"),
     path('consulta/', consulta, name="consulta"),
     
-    path('vendedores/',VendedorView.as_view(),name="vendedores_list"),
-    #path('vendedores/', vendedores, name="vendedores"),
+    path('vendedor/list', vendedorview.as_view(), name="vendedor_list"),
+    path('vendedor/new', vendedornew.as_view(), name="vendedor_new"),
+    path('vendedor/edit<int:pk>', vendedoredit.as_view(), name="vendedor_edit"),
+    path('vendedor/estado/<int:id>', vendedorinactivar, name="vendedor_inactivar"),
     
     path('departamento/list', departamentoview.as_view(), name="departamento_list"),
     path('departamento/new', departamentonew.as_view(), name="departamento_new"),

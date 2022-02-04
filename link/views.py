@@ -25,11 +25,7 @@ def salida_bodega(request):
 def consulta(request):
     return render(request, 'link/consulta.html')
 
-class VendedorView(LoginRequiredMixin, generic.ListView):
-    model = Vendedor
-    template_name = "link/vendedores_list.html"
-    context_object_name="obj"
-    login = "registration:login"
+
 
 
 
@@ -319,7 +315,7 @@ class tarifarioedit(LoginRequiredMixin, generic.UpdateView):
     login_url = "registration:login"
 
     def form_valid(self, form):
-        form.instance.um = self.request.user.id
+        form.instance.um = self.request.user
         return super().form_valid(form)
 
 
@@ -365,3 +361,61 @@ def registro(request):
             return redirect(to="home")
         data["form"] = formulario
     return render(request, 'registration/registro.html', data)
+
+#----------------------SECCION DE VENDEDORES CRUD---------------------------#
+
+class vendedorview(LoginRequiredMixin, generic.ListView):
+    model = Vendedor
+    template_name = "link/vendedor_list.html"
+    context_object_name="obj"
+    login = "registration:login"
+
+class vendedornew(LoginRequiredMixin, generic.CreateView):
+    model = Vendedor
+    template_name = "link/vendedor_new.html"
+    context_object_name = "obj"
+    form_class = VendedorForm
+    success_url=reverse_lazy("link:vendedor_list")
+    login_url = "registration:login"
+    
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
+
+class vendedoredit(LoginRequiredMixin, generic.UpdateView):
+    model = Vendedor
+    template_name="link/vendedor_new.html"
+    context_object_name="obj"
+    form_class = VendedorForm
+    success_url=reverse_lazy("link:vendedor_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.um = self.request.user
+        return super().form_valid(form)
+
+
+@login_required(login_url="/login/")
+@permission_required("link.change_vendedor", login_url="/login/")
+def vendedorinactivar(request, id):
+    nombre = Vendedor.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+
+    if request.method == 'POST':
+        if nombre:
+            nombre.estado = not nombre.estado
+            nombre.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
+

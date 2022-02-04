@@ -121,14 +121,13 @@ class VendedorForm(forms.ModelForm):
     
     class Meta:
         model = Vendedor
-        fields = ['codigo','nombre','porcentaje',
-                 'telefono','placa']
+        fields = ['id','codigo','nombre','porcentaje',
+                 'telefono','estado']
         labels = {'codigo':"Codigo Vendedor", 'nombre':"Nombre Vendedor",
                  'porcentaje':"Porcentaje de venta",
-                 'telefono':"No. Telefono",'placa':"No. de Placa"}
-        widget = {
-            'codigo':forms.TextInput
-        }
+                 'telefono':"No. Telefono",
+                 'estado':'estado'}
+        
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         for field in iter(self.fields):
