@@ -25,15 +25,6 @@ def salida_bodega(request):
 def consulta(request):
     return render(request, 'link/consulta.html')
 
-
-
-
-
-def nuevo_cliente(request):
-    data ={
-        'form': NuevoClienteForm()
-    }
-    return render(request, 'link/nuevo_cliente.html', data)
 #------------------SECCION DEPARTAMENTOS  CRUD---------------------------#
 class departamentoview(LoginRequiredMixin, generic.ListView):
     model =  Departamento
@@ -75,14 +66,6 @@ class departamentodel(LoginRequiredMixin, generic.DeleteView):
 @permission_required("link.change_departamento",login_url="/login/")
 def departamentoinactivar(request, id):
     depto = Departamento.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
     
     if request.method=='POST':
         if depto:
@@ -127,42 +110,10 @@ class municipioedit(LoginRequiredMixin, generic.UpdateView):
         form.instance.um = self.request.user
         return super().form_valid(form)
 
-class municipiodel(LoginRequiredMixin, generic.DeleteView):
-    model = Municipio
-    template_name='link/eliminar.html'
-    context_object_name='obj'
-    success_url=reverse_lazy("link:municipio_list")
-
-'''def municipioactivar(request, id):
-    depto = Departamento.objects.filter(pk=id).first()
-    contexto={}
-    template_name = "link/eliminar.html"
-
-    if not depto:
-        return redirect("link:municipio_list")
-
-    if request.method=='GET':
-        contexto={'obj':depto}
-    
-    if request.method=='POST':
-        depto.estado=False
-        depto.save()
-        return redirect("link:municipio_list")
-
-    return render(request, template_name, contexto)'''
-
 @login_required(login_url="/login/")
 @permission_required("link.change_municipio",login_url="/login/")
 def municipioinactivar(request, id):
     muni = Municipio.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
     
     if request.method=='POST':
         if muni:
@@ -211,14 +162,6 @@ class pilotoedit(LoginRequiredMixin, generic.UpdateView):
 @permission_required("link.change_piloto", login_url="/login/")
 def pilotoinactivar(request, id):
     piloto = Piloto.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
     
     if request.method=='POST':
         if piloto:
@@ -268,14 +211,6 @@ class rutaedit(LoginRequiredMixin, generic.UpdateView):
 @permission_required("link.change_ruta", login_url="/login/")
 def rutainactivar(request, id):
     ruta = Ruta.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
 
     if request.method == 'POST':
         if ruta:
@@ -323,14 +258,6 @@ class tarifarioedit(LoginRequiredMixin, generic.UpdateView):
 @permission_required("link.change_piloto", login_url="/login/")
 def tarifarioinactivar(request, id):
     descripcion = Tarifario.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
 
     if request.method == 'POST':
         if descripcion:
@@ -399,14 +326,6 @@ class vendedoredit(LoginRequiredMixin, generic.UpdateView):
 @permission_required("link.change_vendedor", login_url="/login/")
 def vendedorinactivar(request, id):
     nombre = Vendedor.objects.filter(pk=id).first()
-    #contexto={}
-    #template_name = "link/eliminar.html"
-
-    #if not depto:
-    #    return redirect("link:departamento_list")
-
-    #if request.method=='GET':
-    #    contexto={'obj':depto}
 
     if request.method == 'POST':
         if nombre:
@@ -419,3 +338,54 @@ def vendedorinactivar(request, id):
 
     return render(request, template_name, contexto)
 
+#---------------------------SECCION CLIENTES CRUD----------------------------#
+
+
+class clienteview(LoginRequiredMixin, generic.ListView):
+    model = Clientes
+    template_name = "link/cliente_list.html"
+    context_object_name = "obj"
+    login = "registration:login"
+
+
+class clientenew(LoginRequiredMixin, generic.CreateView):
+    model = Clientes
+    template_name = "link/cliente_new.html"
+    context_object_name = "obj"
+    form_class = ClienteForm
+    success_url = reverse_lazy("link:cliente_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
+
+
+class clienteedit(LoginRequiredMixin, generic.UpdateView):
+    model = Clientes
+    template_name = "link/cliente_new.html"
+    context_object_name = "obj"
+    form_class = ClienteForm
+    success_url = reverse_lazy("link:cliente_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.um = self.request.user
+        return super().form_valid(form)
+
+
+@login_required(login_url="/login/")
+@permission_required("link.change_cliente", login_url="/login/")
+def clienteinactivar(request, id):
+    codigo = Clientes.objects.filter(pk=id).first()
+
+    if request.method == 'POST':
+        if codigo:
+            codigo.estado = not codigo.estado
+            codigo.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)
