@@ -20,6 +20,17 @@ banco=[
     [6, "VIVIBANCO"],
 ]    
 
+fpago=[
+    [0,"POR COBRAR"],
+    [1, "CONTADO"],
+    [2,"CREDITO"],
+    [3,"PREPAGO"] ,   
+    [4, "CONTRA ENTREGA"],
+    [5,"CREDITO X COBRAR"],
+    [6,"CONTADO X COBRAR"],
+    
+]
+
     
 class Departamento(ClaseModelo):
     #codigo = models.CharField(max_length=2)
@@ -122,6 +133,7 @@ class Clientes(ClaseModelo):
     municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
     depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
     minimofac = models.DecimalField(max_digits=10, decimal_places=2)
+    fpago = models.IntegerField(choices=fpago, verbose_name="FORMA DE PAGO")
     vendedor =models.ForeignKey(Vendedor, on_delete=models.CASCADE)
     observa = models.TextField(verbose_name="Oboservaciones")
     
