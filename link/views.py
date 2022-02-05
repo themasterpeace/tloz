@@ -338,7 +338,6 @@ def vendedorinactivar(request, id):
 
     return render(request, template_name, contexto)
 
-<<<<<<< HEAD
 #---------------------------SECCION CLIENTES CRUD----------------------------#
 
 
@@ -349,7 +348,6 @@ class clienteview(LoginRequiredMixin, generic.ListView):
     login = "registration:login"
 
 
-=======
 #--------------------------------SECCION CLIENTE CRUD-------------------------------#
 class clienteview(LoginRequiredMixin, generic.ListView):
     model = Clientes
@@ -357,26 +355,23 @@ class clienteview(LoginRequiredMixin, generic.ListView):
     context_object_name="obj"
     login = "registration:login"
 
->>>>>>> 85537f9ec793ef7e2c270a97dad849692e34d2c5
+
 class clientenew(LoginRequiredMixin, generic.CreateView):
     model = Clientes
     template_name = "link/cliente_new.html"
     context_object_name = "obj"
     form_class = ClienteForm
-<<<<<<< HEAD
+
     success_url = reverse_lazy("link:cliente_list")
     login_url = "registration:login"
 
-=======
     success_url=reverse_lazy("link:cliente_list")
     login_url = "registration:login"
     
->>>>>>> 85537f9ec793ef7e2c270a97dad849692e34d2c5
     def form_valid(self, form):
         form.instance.uc = self.request.user
         return super().form_valid(form)
 
-<<<<<<< HEAD
 
 class clienteedit(LoginRequiredMixin, generic.UpdateView):
     model = Clientes
@@ -384,14 +379,13 @@ class clienteedit(LoginRequiredMixin, generic.UpdateView):
     context_object_name = "obj"
     form_class = ClienteForm
     success_url = reverse_lazy("link:cliente_list")
-=======
+
 class clienteedit(LoginRequiredMixin, generic.UpdateView):
     model = Clientes
     template_name="link/cliente_new.html"
     context_object_name="obj"
     form_class = ClienteForm
     success_url=reverse_lazy("linkclienter_list")
->>>>>>> 85537f9ec793ef7e2c270a97dad849692e34d2c5
     login_url = "registration:login"
 
     def form_valid(self, form):
@@ -402,10 +396,7 @@ class clienteedit(LoginRequiredMixin, generic.UpdateView):
 @login_required(login_url="/login/")
 @permission_required("link.change_cliente", login_url="/login/")
 def clienteinactivar(request, id):
-<<<<<<< HEAD
     codigo = Clientes.objects.filter(pk=id).first()
-=======
-    codigo =Clientes.objects.filter(pk=id).first()
     #contexto={}
     #template_name = "link/eliminar.html"
 
@@ -414,7 +405,6 @@ def clienteinactivar(request, id):
 
     #if request.method=='GET':
     #    contexto={'obj':depto}
->>>>>>> 85537f9ec793ef7e2c270a97dad849692e34d2c5
 
     if request.method == 'POST':
         if codigo:
@@ -425,8 +415,6 @@ def clienteinactivar(request, id):
 
     return HttpResponse("FAIL")
 
-<<<<<<< HEAD
     return render(request, template_name, contexto)
-=======
+
     return render(request, template_name, contexto)
->>>>>>> 85537f9ec793ef7e2c270a97dad849692e34d2c5
