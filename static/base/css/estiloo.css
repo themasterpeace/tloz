@@ -1,34 +1,8 @@
-nav{
-    position: relative;
-    left: 45%;
-    display: flex;
-}
-nav img{
-    left: -40%;
-    position: relative;
-}
-nav ul{
-    display: flex;
-    list-style: none;
-    position: relative;
-    margin: auto 0;
-}
-nav ul li{
-    padding: 5px;
-}
-header{
-    background-color: #00330073;
-    position: relative;
-    
-}
-nav ul li a{
-    text-decoration: none;
-    color: white;
-
-}
-nav ul li a:hover{
-    color: red;
-    font-weight: bold;
+:root {
+    --background: #5e5e5e;
+    --bar-color: #003300;
+    --bar-after: #071A2C;
+    --clr: #071A2C;
 }
 *{
     margin: 0;
@@ -50,27 +24,29 @@ body:before {
     position: fixed;
     opacity: 0.87;
 }
-.navigation{
+#navbar {
+    background: var(--bar-color);
     position: absolute;
-    height: 50px;
-    width: 330px;
-    background: #071A2C;
-    transition: 0.5s;
-    z-index: 10000;
-    overflow: hidden;
+    width: 5rem;
+    padding-top: 0.5rem;
+    padding-left: 0.2rem;
+    padding-right: 0.8rem;
+    border-radius: 0em  0em 2em;
+    font-size: 25px;
+    transition: 1s ease-in-out;
+    /* transition-delay: .3s; */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    justify-content: end;
+    /* overflow: hidden; */
 }
-.navigation.active{
-    height: max-content;
+#navbar .user,
+#navbar .elements{
+    height: fit-content;
+    color: #fff;
 }
-
-.navigation .toggle{
-    position: relative;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 50px;
-    background: #071A2C;
-    color: #FFF;
+#navbar .user{
+  justify-content: end;
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -78,103 +54,163 @@ body:before {
     font-size: 20px;
     cursor: pointer;
 }
-.navigation .toggle::before{
-    content: 'Menu';
-    margin-right: 10px;
+#navbar .user #userName{
+  opacity: 0;
+  visibility: hidden;
+  transition: .8s;
 }
-.navigation .toggle.active::before{
-    content: 'Close';
-    margin-right: 10px;
+#navbar .elements{
+    text-align: left;
 }
-.navigation .toggle span{
-    position: relative;
-    width: 20px;
-    height: 50px;
+#navbar .user{
+    color: #fff;
+    padding-right: 0.6rem;
 }
-.navigation .toggle span::before{
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: 0;
+#navbar .user i{
+  padding-right: 10px;
+}
+#navbar .user span{
+    font-family: Arial, Helvetica, sans-serif;
+}
+#navbar:hover {
     width: 100%;
-    height: 2px;
-    background: #FFF;
-    transition: 0.5s;
-}
-.navigation .toggle span::after{
-    content: '';
-    position: absolute;
-    bottom: 20px;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: #FFF;
-    transition: 0.5s;
-}
-.navigation .toggle.active span::before{
-    transform: rotate(225deg);
-    top: 24px;
-}
-.navigation .toggle.active span::after{
-    transform: rotate(135deg);
-    bottom: 24px;
+    border-radius: 0em;
 }
 .navigation ul{
-    position: relative;
-    background: #003300;
-    max-height: 40.6em;
-    overflow: scroll;
-    overflow-x: hidden;
+  display:flex;
+  margin: 0;
 }
-.navigation ul li{
-    list-style: none;
+.navigation ul li.list{
+  position:relative;
+  list-style:none;
+  width:70px;
+  z-index:1;
+  opacity: 0;
+  visibility: hidden;
+  transition: 1s;
 }
-.navigation ul li a{
-    position: relative;
-    text-decoration: none;
-    display: block;
-    padding: 10px 20px;
-    height: 50px;
-    color: #FFF;
-    font-size: 18px;
+.navigation ul li.list:nth-child(1){
+    opacity: 0;
+    visibility: hidden;
     transition: 1s;
 }
-.navigation ul::-webkit-scrollbar{
-    width: 8px;
+.navigation ul li.list:nth-child(2){
+    opacity: 0;
+    visibility: hidden;
+    transition: 0.8s;
 }
-.navigation ul::-webkit-scrollbar-track {
-    background-color: #003300;
+.navigation ul li.list:nth-child(3){
+    opacity: 0;
+    visibility: hidden;
+    transition: .6s;
 }
-.navigation ul::-webkit-scrollbar-thumb {
-    background-color: #071A2C;
-    border: 1px solid rgba(255, 255, 255, 0.562);
-    border-radius: 10px;
+.navigation ul li.list:nth-child(4){
+    opacity: 0;
+    visibility: hidden;
+    transition: .4s;
 }
-.navigation ul li{
-    list-style: none;
+.navigation ul li.list:nth-child(5){
+    opacity: 0;
+    visibility: hidden;
+    transition: .2s;
+}
+.navigation ul li.list:nth-child(6){
+    opacity: 0;
+    visibility: hidden;
+    transition: .0s;
+}
+.navigation ul li.list:nth-child(7){
+    opacity: 0;
+    visibility: hidden;
+    transition: .02s;
 }
 .navigation ul li a{
-    position: relative;
-    text-decoration: none;
-    display: block;
-    padding: 10px 20px;
-    height: 50px;
-    color: #FFF;
-    font-size: 18px;
-    transition: 1s;
+  position:relative;
+  display:flex;
+
+  flex-direction:column;
+  width:100%;
 }
-.navigation ul li a:hover{
-    transition: 0s;
-    background: #cc0000;
+.navigation ul li a .icon{
+  position:relative;
+  font-size:25px;
+  text-align:center;
+  transition:0.5s;
+  color: #fff;
 }
-.despliegue{
-    display: none;
-    position: relative;
-    left: 50px;
+.navigation ul li.active a .icon{
+  transform: translatey(-5px)
 }
-.show{
-    display: block;
+.indicator{
+  position:absolute;
+  top:0%;
+  width:70px;
+  height:46px;
+  background:var(--bar-after);
+  border-radius: 100px 100px 0 0;
+  border:6px solid var(--bar-after);
+  transition:0.4s;
 }
+.indicator{
+  opacity: 0;
+  visibility: hidden;
+  transition: .5s;
+}
+.navigation ul li.list:nth-child(1).active ~ .indicator{
+  transform: translateX(calc(70px * 0));
+}
+.navigation ul li.list:nth-child(2).active ~ .indicator{
+  transform: translateX(calc(70px * 1));
+}
+.navigation ul li.list:nth-child(3).active ~ .indicator{
+  transform: translateX(calc(70px * 2));
+}
+.navigation ul li.list:nth-child(4).active ~ .indicator{
+  transform: translateX(calc(70px * 3));
+}
+.navigation ul li.list:nth-child(5).active ~ .indicator{
+  transform: translateX(calc(70px * 4));
+}
+.navigation ul li.list:nth-child(6).active ~ .indicator{
+  transform: translateX(calc(70px * 5));
+}
+.navigation ul li.list:nth-child(7).active ~ .indicator{
+  transform: translateX(calc(70px * 6));
+}
+.navigation .list.cogs ul.despliegue{
+  visibility: hidden;
+  opacity: 0;
+  display: none;
+}
+.navigation .list.cogs ul.despliegue li{
+  visibility: hidden;
+  opacity: 0;
+  display: none;
+}
+.navigation .list.cogs.des1 ul{
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  top: 100%;
+  background: #003000;
+  visibility: visible;
+  opacity: 1;
+}
+.navigation .list.cogs.des1 ul.despliegue li{
+  width: 100%;
+  display: flex;
+  padding: 10px;
+  transition: 1s ease-out;
+  color: #fff;
+  font-size: 18px;
+  visibility: visible;
+  opacity: 1;
+}
+.navigation ul.despliegue li:hover{
+  background: #cc0000;
+}
+
 h2{
     text-align: center;
     color: #071A2C;
