@@ -116,12 +116,13 @@ class Clientes(ClaseModelo):
     razonsoc = models.CharField(max_length=150, verbose_name="Razon Social")
     nombrecom = models.CharField(max_length=150, verbose_name="Nombre Cliente")
     direccion = models.CharField(max_length=75)
-    telefono = models.CharField(max_length=70)
-    email = models.CharField(max_length=50)
+    telefono = models.CharField(max_length=9)
+    email = models.EmailField(max_length=50)
     nit = models.CharField(max_length=10)
     municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
     depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
     minimofac = models.DecimalField(max_digits=10, decimal_places=2)
+    vendedor =models.ForeignKey(Vendedor, on_delete=models.CASCADE)
     observa = models.TextField(verbose_name="Oboservaciones")
     
     def __str__(self):

@@ -177,18 +177,22 @@ body:before {
 .navigation ul li.list:nth-child(7).active ~ .indicator{
   transform: translateX(calc(70px * 6));
 }
-.navigation .list.cogs ul.despliegue{
+.navigation .list.cogs ul.despliegue,
+.navigation .list.home ul.despliegue{
   visibility: hidden;
   opacity: 0;
   display: none;
 }
-.navigation .list.cogs ul.despliegue li{
+.navigation .list.cogs ul.despliegue li,
+.navigation .list.home ul.despliegue li{
   visibility: hidden;
   opacity: 0;
   display: none;
 }
-.navigation .list.cogs.des1 ul{
+.navigation .list.cogs.des1 ul,
+.navigation .list.home.des1 ul{
   position: absolute;
+  padding: 0;
   display: flex;
   flex-direction: column;
   width: max-content;
@@ -197,7 +201,8 @@ body:before {
   visibility: visible;
   opacity: 1;
 }
-.navigation .list.cogs.des1 ul.despliegue li{
+.navigation .list.cogs.des1 ul.despliegue li,
+.navigation .list.home.des1 ul.despliegue li{
   width: 100%;
   display: flex;
   padding: 10px;
@@ -207,8 +212,16 @@ body:before {
   visibility: visible;
   opacity: 1;
 }
+.navigation .list.cogs.des1 ul.despliegue li a,
+.navigation .list.home.des1 ul.despliegue li a{
+    flex-direction: row;
+    width: auto;
+}
 .navigation ul.despliegue li:hover{
   background: #cc0000;
+}
+.navigation ul.despliegue li a:hover{
+  color: #FFF;
 }
 
 h2{
@@ -220,7 +233,11 @@ h2{
     --bs-gutter-x: -1.5rem;
 }
 .row.ing_gui{
-    justify-content: center
+    justify-content: center;
+}
+.row p{
+    display: flex;
+    flex-direction: column
 }
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300&display=swap');
 *{
@@ -671,6 +688,9 @@ tr.even td{
     border: none;
 }
 input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+textarea:focus,
 select:focus-visible,
 .form-control:focus{
     background: transparent;
@@ -679,6 +699,9 @@ select:focus-visible,
     color: #fff;
 }
 input[type="text"],
+input[type="email"],
+input[type="number"],
+textarea,
 select,
 .form-control{
     background: transparent;
@@ -689,6 +712,13 @@ select,
     outline: none;
     transition: .4s;
     border-radius: 0.25rem;
+}
+select option{
+    color: #000;
+}
+textarea{
+    height: 70px;
+    resize: none;
 }
 input#id_estado{
     width: 20px;

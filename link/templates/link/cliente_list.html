@@ -39,7 +39,9 @@
                 <th>Telefono</th>
                 <th>Email</th>
                 <th>Nit</th>
+                <th>Vendedor</th>
                 <th>Minimo Facturacion</th>
+                <th>Observaciones</th>
                 <th>Estado</th>
                 <th>F. Creado</th>
                 <th class="all">Acciones</th>
@@ -56,6 +58,7 @@
                     <td>{{ item.telefono}}</td>
                     <td>{{ item.email}}</td>
                     <td>{{ item.nit}}</td>
+                    <td>{{ item.vendedor}}</td>
                     <td>{{ item.minimofac}}</td>
                     <td>{{ item.observa}}</td>
                     <td onclick="inactivarcli({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
@@ -81,6 +84,8 @@
 {% endblock %}
 {% block js %}
 <script>
+
+    
     function inactivarcli(id)
     {
         var data = {id:id}
@@ -115,5 +120,6 @@
     $(document).ready(function() {
         $('.table').DataTable();
     });
+
 </script>
 {% endblock %}

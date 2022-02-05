@@ -25,15 +25,6 @@ def salida_bodega(request):
 def consulta(request):
     return render(request, 'link/consulta.html')
 
-
-
-
-
-def nuevo_cliente(request):
-    data ={
-        'form': NuevoClienteForm()
-    }
-    return render(request, 'link/nuevo_cliente.html', data)
 #------------------SECCION DEPARTAMENTOS  CRUD---------------------------#
 class departamentoview(LoginRequiredMixin, generic.ListView):
     model =  Departamento
@@ -428,7 +419,7 @@ class clienteview(LoginRequiredMixin, generic.ListView):
 
 class clientenew(LoginRequiredMixin, generic.CreateView):
     model = Clientes
-    template_name = "linkcliente_new.html"
+    template_name = "link/cliente_new.html"
     context_object_name = "obj"
     form_class = ClienteForm
     success_url=reverse_lazy("link:cliente_list")
