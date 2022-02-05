@@ -117,11 +117,33 @@
         </div> -->
         <div id="navbar">
             <div class="elements">
+              <!-- {% if perms.link %}
+              <li>
+                  
+                  <a href="#" id="left" onclick="uno()">Bodega</a>
+                  {% if perms.link.view_bodega %}
+                  <div id="despliegue" class="despliegue">
+                      <a href="#">Ingreso Bodega</a>
+                       <a href="#">Salida Bodega</a>
+                  {% endif %}
+                     
+                      <a href="{% url 'link:consulta' %}">Consulta de Guías</a>
+                  </div>
+              </li>
+              {% endif %} -->
                 <div class="navigation">
                     <ul>
+                      
                       <li class="list active">
                         <a href="#">
                           <span class="icon"><i class="fas fa-home"></i></span>
+                         
+                          <ul class="despliegue">
+                            <li>Ingreso Bodega</li>
+                            <li>Salida Bodega</li>
+                       
+                            <li><a href="{% url 'link:consulta' %}">Consulta de Guías</a></li>
+                          </ul>
                         </a>
                       </li>
                       <li class="list">
@@ -148,18 +170,23 @@
                         <a href="#">
                           <span class="icon"><i class="fas fa-cogs"></i></span>
                           <ul class="despliegue">
-                            <li>Lorem, ipsum. sadsadsa</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
+                            <li>
+                              <a href="{% url 'link:departamento_list' %}"><i class="fas fa-plus"></i> Departamento</a>
+                              <a href="{% url 'link:municipio_list' %}"><i class="fas fa-plus"></i> Municipio</a>
+                              <a href="{% url 'link:piloto_list' %}"> <i class="fas fa-plus"></i> Pilotos</a>
+                              <a href="{% url 'link:ruta_list' %}"> <i class="fas fa-plus"></i> Rutas</a>
+                              <a href="{% url 'link:tarifario_list' %}"> <i class="fas fa-plus"></i> Tarifario </a>
+                              <a href="{% url 'link:vendedor_list' %}"> <i class="fas fa-plus"></i> Vendedor</a>
+                              <a href="{% url 'link:cliente_list' %}"> <i class="fas fa-plus"></i> Cliente</a>
+                              <a href="#"> <i class="fas fa-plus"></i> Boletas de Deposito</a>
+                            </li>
                           </ul>
                         </a>
                       </li>
                       <li class="list">
                         <a href="#">
                           <span class="icon"><i class="fas fa-box"></i></span>
+                          
                         </a>
                       </li>
                    <div class="indicator"></div>

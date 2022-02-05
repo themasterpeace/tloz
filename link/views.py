@@ -419,3 +419,58 @@ def vendedorinactivar(request, id):
 
     return render(request, template_name, contexto)
 
+#--------------------------------SECCION CLIENTE CRUD-------------------------------#
+class clienteview(LoginRequiredMixin, generic.ListView):
+    model = Clientes
+    template_name = "link/cliente_list.html"
+    context_object_name="obj"
+    login = "registration:login"
+
+class clientenew(LoginRequiredMixin, generic.CreateView):
+    model = Clientes
+    template_name = "linkcliente_new.html"
+    context_object_name = "obj"
+    form_class = ClienteForm
+    success_url=reverse_lazy("link:cliente_list")
+    login_url = "registration:login"
+    
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
+
+class clienteedit(LoginRequiredMixin, generic.UpdateView):
+    model = Clientes
+    template_name="link/cliente_new.html"
+    context_object_name="obj"
+    form_class = ClienteForm
+    success_url=reverse_lazy("linkclienter_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.um = self.request.user
+        return super().form_valid(form)
+
+
+@login_required(login_url="/login/")
+@permission_required("link.change_cliente", login_url="/login/")
+def clienteinactivar(request, id):
+    codigo =Clientes.objects.filter(pk=id).first()
+    #contexto={}
+    #template_name = "link/eliminar.html"
+
+    #if not depto:
+    #    return redirect("link:departamento_list")
+
+    #if request.method=='GET':
+    #    contexto={'obj':depto}
+
+    if request.method == 'POST':
+        if codigo:
+            codigo.estado = not codigo.estado
+            codigo.save()
+            return HttpResponse("OK")
+        return HttpResponse("FAIL")
+
+    return HttpResponse("FAIL")
+
+    return render(request, template_name, contexto)

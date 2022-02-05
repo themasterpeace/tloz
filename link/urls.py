@@ -12,6 +12,11 @@ urlpatterns = [
     path('vendedor/edit<int:pk>', vendedoredit.as_view(), name="vendedor_edit"),
     path('vendedor/estado/<int:id>', vendedorinactivar, name="vendedor_inactivar"),
     
+    path('cliente/list', clienteview.as_view(), name="cliente_list"),
+    path('cliente/new', clientenew.as_view(), name="cliente_new"),
+    path('cliente/edit<int:pk>', clienteedit.as_view(), name="cliente_edit"),
+    path('cliente/estado/<int:id>', clienteinactivar, name="cliente_inactivar"),
+
     path('departamento/list', departamentoview.as_view(), name="departamento_list"),
     path('departamento/new', departamentonew.as_view(), name="departamento_new"),
     path('departamento/edit<int:pk>', departamentoedit.as_view(), name="departamento_edit"),

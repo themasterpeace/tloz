@@ -118,7 +118,7 @@ class Clientes(ClaseModelo):
     direccion = models.CharField(max_length=75)
     telefono = models.CharField(max_length=70)
     email = models.CharField(max_length=50)
-    nit = models.CharField(max_length=15)
+    nit = models.CharField(max_length=10)
     municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
     depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
     minimofac = models.DecimalField(max_digits=10, decimal_places=2)
