@@ -1,4 +1,4 @@
-<div class="modal-dialog modal_lg">
+<div class="modal-dialog modal_lg cli_new">
     <div class="modal-content">
         {% if obj %}
         <form method="POST" role="form" class="form-inline" action="{% url 'link:cliente_edit' obj.pk %}">
@@ -20,7 +20,7 @@
                             </div>
                             <div class="dropdown-divider"></div>
                             {% csrf_token %}
-                            <div class="row">
+                            <div class="row cli_new">
                                 {{ form.as_p }} 
                             </div>
                             <div class="dropdown-divider"></div>

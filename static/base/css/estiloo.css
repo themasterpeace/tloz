@@ -235,6 +235,11 @@ h2{
 .row.ing_gui{
     justify-content: center;
 }
+.row.cli_new {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
 .row p{
     display: flex;
     flex-direction: column
@@ -690,6 +695,7 @@ tr.even td{
 input[type="text"]:focus,
 input[type="email"]:focus,
 input[type="number"]:focus,
+input[type="tel"]:focus,
 textarea:focus,
 select:focus-visible,
 .form-control:focus{
@@ -701,6 +707,7 @@ select:focus-visible,
 input[type="text"],
 input[type="email"],
 input[type="number"],
+input[type="tel"],
 textarea,
 select,
 .form-control{
@@ -749,6 +756,9 @@ i.far.fa-thumbs-down{
 a{
     color: #fff;
     text-decoration: none;
+}
+.modal-dialog.modal_lg.cli_new {
+    max-width: fit-content;
 }
 /** RESPOSIVE **/
 @media screen and (max-width: 360px) {

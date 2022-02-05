@@ -121,5 +121,10 @@
         $('.table').DataTable();
     });
 
+    // Cambia el type="text" a type="tel"
+    $(document).mousemove(function(){
+        $("input#id_telefono").get(0).type = 'tel';
+    });
+
 </script>
 {% endblock %}
