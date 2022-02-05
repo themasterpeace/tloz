@@ -20,10 +20,7 @@
             <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
                 <div class="dropdown-header">Acciones:</div>
 
-                <a class="dropdown-item" onclick="return abrir_modal('{% url 'link:piloto_new' %}')" href="#"><i class="far fa-calendar-plus"></i> Nuevo Cliente</a>
-
                 <a class="dropdown-item" onclick="return abrir_modal('{% url 'link:cliente_new' %}')" href="#"><i class="far fa-calendar-plus"></i> Nuevo Cliente</a>
-
                 <a class="dropdown-item" href="#"></a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="#"></a>
@@ -49,6 +46,7 @@
                 <th>Nit</th>
                 <th>Vendedor</th>
                 <th>Minimo Facturacion</th>
+                <th>FORMA DE PAGO</th>
                 <th>Observaciones</th>
                 <th>Estado</th>
                 <th>F. Creado</th>
@@ -69,6 +67,7 @@
                     <td>{{ item.nit}}</td>
                     <td>{{ item.vendedor}}</td>
                     <td>{{ item.minimofac}}</td>
+                    <td>{{ item.fpago }}</td>
                     <td>{{ item.observa}}</td>
                     <td onclick="inactivarcli({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
                         {% if item.estado %}

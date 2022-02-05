@@ -385,7 +385,7 @@ class clienteedit(LoginRequiredMixin, generic.UpdateView):
     template_name="link/cliente_new.html"
     context_object_name="obj"
     form_class = ClienteForm
-    success_url=reverse_lazy("linkclienter_list")
+    success_url=reverse_lazy("link:cliente_list")
     login_url = "registration:login"
 
     def form_valid(self, form):
