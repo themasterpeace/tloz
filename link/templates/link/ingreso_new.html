@@ -1,36 +1,200 @@
 {% extends 'base/base.html' %}
 
-
 {% block contenido %}
-<br><br>
-            <div class="row ing_gui">
-               
-                    <div class="card ing_gui">
-                        <div class="cardbody">
-                            <h2>Ingreso de Guías</h2>
-                            <hr>
-                    <form method="POST">
+    <br><br>
+    <div class="row ing_gui">
 
-                        {% csrf_token %}
-                        <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
-                        
-                        {{ form.as_p}} 
-                        
-                    </form>
-                    {{ mensaje }}
+        <div class="card ing_gui">
+            <div class="cardbody">
+                <h2>Ingreso de Guías</h2>
+                <hr>
+                <form method="POST">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
+                    <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
+                    <div class="ing_guiGrid col3">
+                        <p>
+                            <label for="id_no_guia">No. Guia:</label>
+                            <input type="text" name="no_guia" maxlength="6" required="required" id="id_no_guia">
+                        </p>
+                        <p>
+                            <label for="id_fecha">Fecha:</label>
+                            <input type="text" name="fecha" required="required" id="id_fecha">
+                        </p>
+                        <p>
+                            <label for="id_no_manifiesto">No manifiesto:</label>
+                            <input type="text" name="no_manifiesto" maxlength="5" required="required" id="id_no_manifiesto">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col2">
+                        <p>
+                            <label for="id_codigo_cliente">Codigo cliente:</label>
+                            <input type="text" name="codigo_cliente" required="required" id="id_codigo_cliente">
+                        </p>
+                        <p>
+                            <label for="id_remitente">Nombre Remitente:</label>
+                            <input type="text" name="remitente" maxlength="200" required="required" id="id_remitente">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col1">
+                        <p>
+                            <label for="id_dirrem">Direccion Remitente:</label>
+                            <input type="text" name="dirrem" maxlength="300" required="required" id="id_dirrem">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col4">
+                        <p>
+                            <label for="id_tel">No. Telefono:</label>
+                            <input type="text" name="tel" maxlength="9" required="required" id="id_tel">
+                        </p>
+                        <p>
+                            <label for="id_zona">Zona:</label>
+                            <input type="text" name="zona" maxlength="2" required="required" id="id_zona">
+                        </p>
+                        <p>
+                            <label for="id_muni">Municipio:</label>
+                            <input type="text" name="muni" maxlength="50" required="required" id="id_muni">
+                        </p>
+                        <p>
+                            <label for="id_origen">Origen:</label>
+                            <input type="text" name="origen" maxlength="3" required="required" id="id_origen">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col2">
+                        <p>
+                            <label for="id_ruta">Ruta:</label>
+                            <input type="text" name="ruta" maxlength="50" required="required" id="id_ruta">
+                        </p>
+                        <p>
+                            <label for="id_destinatario">Nombre Destinatario:</label>
+                            <input type="text" name="destinatario" maxlength="100" required="required" id="id_destinatario">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col1">
+                        <p>
+                            <label for="id_dirdes">Direccion Destinatario:</label>
+                            <input type="text" name="dirdes" maxlength="300" required="required" id="id_dirdes">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col4">
+                        <p>
+                            <label for="id_teldes">No. Telefono:</label>
+                            <input type="text" name="teldes" maxlength="9" required="required" id="id_teldes">
+                        </p>
+                        <p>
+                            <label for="id_zonades">Zona:</label>
+                            <input type="text" name="zonades" maxlength="2" required="required" id="id_zonades">
+                        </p>
+                        <p>
+                            <label for="id_munides">Municipio:</label>
+                            <input type="text" name="munides" maxlength="50" required="required" id="id_munides">
+                        </p>
+                        <p>
+                            <label for="id_destino">Codigo Destino:</label>
+                            <input type="text" name="destino" maxlength="3" required="required" id="id_destino">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col6">
+                        <p>
+                            <label for="id_observa">Observaciones:</label>
+                            <textarea name="observa" cols="40" rows="10" maxlength="500" required="required" id="id_observa"></textarea>
+                        </p>
+                        <p>
+                            <label for="id_tipo_envio">Tipo envio:</label>
+                            <select name="tipo_envio" required="required" id="id_tipo_envio"></select>
+                        </p>
+                        <p>
+                            <label for="id_descripcion">Descripcion:</label>
+                            <input type="text" name="descripcion" maxlength="150" required="required" id="id_descripcion">
+                        </p>
+                        <p>
+                            <label for="id_cantidad">Cantidad:</label>
+                            <input type="number" name="cantidad" value="0" required="required" id="id_cantidad">
+                        </p>
+                        <p>
+                            <label for="id_peso">Peso:</label>
+                            <input type="number" name="peso" value="0" step="any" required="required" id="id_peso">
+                        </p>
+                        <p>
+                            <label for="id_precio">Tarifa:</label>
+                            <input type="number" name="precio" value="0" step="any" required="required" id="id_precio">
+                        </p>
+                    </div>
+                    <!-- <p>
+                        <label for="id_nombre">Nombre:</label>
+                        <input type="text" name="nombre" maxlength="100" required="required" id="id_nombre">
+                    </p> -->
+                </form>
+                {{ mensaje }}
             </div>
-
-
+        </div>
     </div>
-</div>
-
 {% endblock %}
-{% block js %}
-<script>
-    $('#id_codigo_cliente').select2({
-        placeholder: "Seleccione Cliente",
-        allowClear: true
-    });
-</script>
 
+{% block js %}
+    <script>
+        function buscarCliente()
+        {    
+            var codigo = $("#id_codigo_cliente").val();
+            if(codigo===""){
+                return false;
+            }
+    
+            var path = "{% url 'api:cliente_list' %}" + codigo;
+            $.ajax({
+                type:"GET",
+                url: path,
+                success: function(r){
+                    console.log(r);
+                    //console.log(r.existencia);
+                    console.log(r.estado);
+    
+                    if(!r.estado){
+                        mensaje("Cliente inexistente o inactivo",'orange');
+                        $("#id_codigo_cliente").val("");
+                        $("#id_remitente").val("");
+                        $("#id_dirrem").val("");
+                        $("#id_codigo_cliente").focus();
+                        return false;
+                    }else{
+                    $("#id_codigo_cliente").val(r.codigo_cliente);
+                    $("#id_remitente").val(r.razonsoc);
+                    $("#id_dirrem").val(r.direccion);
+                    $("#id_tel").val(r.telefono);
+                    $("#id_muni").val(r.municipio);
+                    $("#id_codigo_cliente").focus();
+                    }
+    
+                },
+                error: function(a,b,c){
+                    console.log(a);
+                    // console.log(b);
+                    // console.log(c);
+                    // console.log(a.status)
+                    // console.log(a.responseText.detail);
+                    // a.responseText["detail"]
+                    // mensaje(c,'red');
+                    if(a.status==404){
+                        mensaje("Cliente -" + codigo_cliente + "- no encontrado o inexistente",'red');
+                        $("#id_codigo_cliente").val("");
+                        $("#id_remitente").val("");
+                        $("#id_dirrem").val("");
+                        $("#id_codigo_cliente").focus();
+                    }
+    
+                }
+    
+            });
+
+           
+        }
+        
+        $(function(){
+           $("#id_codigo_cliente").keypress(function(e){
+                if(e.keyCode===13){
+                    buscarCliente();
+                }
+           });
+        });
+        
+    </script>
 {% endblock %}

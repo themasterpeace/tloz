@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'django_userforeignkey',
     'django.contrib.humanize',
     'django_select2',
+    'rest_framework',
+    
 
 ]
 

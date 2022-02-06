@@ -22,6 +22,6 @@ urlpatterns = [
     path('link/', include(('link.urls','link'), namespace='link')),
     path('zelda/', include(('zelda.urls','zelda'), namespace='zelda')),
     path("select2/", include("django_select2.urls")),
-
+    path('api/', include(('api.urls','api'), namespace='api')),
     path('admin/', admin.site.urls),
 ]

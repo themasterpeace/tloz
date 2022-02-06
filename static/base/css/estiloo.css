@@ -309,7 +309,35 @@ a.btn.btn-success.btn-sm {
     left: 0%;
 }
 .card.ing_gui{
-    width: 50%;
+    width: 60%;
+}
+.ing_guiGrid{
+    display: grid;
+    gap: 20px;
+}
+.ing_guiGrid.col6{
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+}
+.ing_guiGrid.col6 input,
+.ing_guiGrid.col6 textarea{
+    width: 100%;
+}
+.ing_guiGrid input{
+    width: 100%;
+}
+.ing_guiGrid.col4{
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+.ing_guiGrid.col3{
+    grid-template-columns: 1fr 1fr 1fr;
+}
+.ing_guiGrid.col2{
+    grid-template-columns: 1fr 7fr;
+}
+.ing_guiGrid.col1{
+    margin-left: auto;
+    width: 85%;
+    grid-template-columns: 1fr;
 }
 .box::after{
     content: '';
@@ -704,7 +732,7 @@ input[type="tel"]:focus,
 textarea:focus,
 select:focus-visible,
 .form-control:focus{
-    background: transparent;
+    background: rgba(255, 255, 255, 0.05);
     border-color: #9b6868;
     box-shadow: 0 0 9px 0.25rem rgb(255 0 0 / 25%);
     color: #fff;
@@ -716,7 +744,7 @@ input[type="tel"],
 textarea,
 select,
 .form-control{
-    background: transparent;
+    background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.2);
     padding: 0.375rem 0.75rem;
     appearance: auto;
