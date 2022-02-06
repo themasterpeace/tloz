@@ -40,9 +40,11 @@ INSTALLED_APPS = [
     'bases',
     'link',
     'zelda',
+
     'crispy_forms',
     'django_userforeignkey',
     'django.contrib.humanize',
+    'django_select2',
 
 ]
 
@@ -139,3 +141,4 @@ LOGOUT_REDIRECT_URL = '/login/'
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+

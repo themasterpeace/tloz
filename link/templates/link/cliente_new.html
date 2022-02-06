@@ -35,6 +35,31 @@
                             </div>
                         </div>
                     </div>
+                    <script>
+                        // Funcion que agrega guión(-) al escribir 3 caracteres
+                        var idco = $("input#id_codigo_cliente");
+                        var idtel = $("input#id_telefono");
+                        // Código Cliente Funcion
+                        idco.keyup(function(event) {
+                            if (event.keyCode !== 8) {
+                                value = idco.val()
+
+                                if (value.length == 3) {
+                                    idco.val(value + '-');
+                                }
+                            }
+                        })
+                        // Telefono Funcion
+                        idtel.keyup(function(event) {
+                            if (event.keyCode !== 8) {
+                                value = idtel.val()
+
+                                if (value.length == 4) {
+                                    idtel.val(value + '-');
+                                }
+                            }
+                        })
+                    </script>
                     </div>
                 </div>
             </div>

@@ -18,7 +18,18 @@ banco=[
     [4, "BAC CREDOMATIC"],
     [5, "BANCO DE ANTIGUA"],
     [6, "VIVIBANCO"],
-]    
+]  
+
+fpago=[
+    [0, "POR COBRAR"],
+    [1, "CONTADO"],
+    [2, "CREDITO"],
+    [3, "PREPAGO"],
+    [4, "CREDITO X COBRAR"],
+    [5, "CONTADO X COBRAR"],
+    [6, "CREDITO X CREDITO"],
+    [7, "CORTESIA"]
+]
 
     
 class Departamento(ClaseModelo):
@@ -121,12 +132,20 @@ class Clientes(ClaseModelo):
     nit = models.CharField(max_length=10)
     municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
     depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
+    fpago= models.IntegerField(choices=fpago, verbose_name="FORMA DE PAGO")
     minimofac = models.DecimalField(max_digits=10, decimal_places=2)
     vendedor =models.ForeignKey(Vendedor, on_delete=models.CASCADE)
     observa = models.TextField(verbose_name="Oboservaciones")
     
     def __str__(self):
-        return self.codigo
+        return '{}'.format(self.codigo_cliente)
+    
+    def save(self):
+        self.codigo_cliente = self.codigo_cliente.upper()
+        super(Clientes, self).save()
+
+    class Meta:
+        verbose_name_plural = "Clientes"
     
 
 class Tarifario(ClaseModelo):
@@ -161,7 +180,7 @@ class Ingreso_bodega(ClaseModelo):
 
 
 class Ingreso_guias(ClaseModelo):
-    no_guia = models.CharField(unique=True,max_length=6,verbose_name="No. Guia")
+    no_guia = models.CharField(unique=True, max_length=6,verbose_name="No. Guia")
     fecha = models.DateTimeField()
     no_manifiesto = models.CharField(max_length=5, unique=True)
     

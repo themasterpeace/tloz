@@ -465,3 +465,25 @@ def clienteinactivar(request, id):
     return HttpResponse("FAIL")
 
     return render(request, template_name, contexto)
+
+#----------------------------SECCION INGRESO DE GUIAS---------------------------#
+class ingresonew(LoginRequiredMixin, generic.CreateView):
+    model = Ingreso_guias
+    template_name = "link/ingreso_new.html"
+    context_object_name = "obj"
+    form_class = IngresoForm
+    success_url=reverse_lazy("link:ingreso_new")
+    login_url = "registration:login"
+    
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
+
+'''@login_required(login_url="/login/")
+@permission_required("link.change_ingreso_guias", login_url="/login/")
+def ingresonew(request,id=None):
+    template_name='link/ingreso_new.html'
+    clientes = Clientes.objects.filter(estado=True)
+    contexto = {'clientes':clientes}
+    
+    return render(request, template_name,contexto)'''

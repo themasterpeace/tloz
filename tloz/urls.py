@@ -21,7 +21,7 @@ urlpatterns = [
     path('', include(('bases.urls','bases'), namespace='bases')),
     path('link/', include(('link.urls','link'), namespace='link')),
     path('zelda/', include(('zelda.urls','zelda'), namespace='zelda')),
-    #path('accounts/', include('django.contrib.auth.urls')),
+    path("select2/", include("django_select2.urls")),
 
     path('admin/', admin.site.urls),
 ]

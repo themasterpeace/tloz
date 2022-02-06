@@ -43,6 +43,9 @@ urlpatterns = [
     path('tarifario/new', tarifarionew.as_view(), name="tarifario_new"),
     path('tarifario/edit<int:pk>', tarifarioedit.as_view(), name="tarifario_edit"),
     path('tarifario/estado/<int:id>', tarifarioinactivar, name="tarifario_inactivar"),
+
+    path('ingreso/new', ingresonew.as_view(), name="ingreso_new"),
     
     path('registro/', registro, name='registro'),
+    
 ]

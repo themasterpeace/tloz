@@ -1,6 +1,7 @@
 from django import forms
 from django.db.models import fields
 from django.forms import widgets
+from django_select2 import forms as s2forms
 
 from link.models import *
 from bases.models import ClaseModelo
@@ -12,8 +13,27 @@ class ClienteForm(forms.ModelForm):
     
     class Meta:
         model = Clientes
-        fields = '__all__'
-        
+        fields = ['id', 'codigo_cliente', 'contacto',
+                 'razonsoc', 'nombrecom', 'direccion',
+                 'telefono', 'email', 'nit', 'depto',
+                 'municipio','fpago', 'minimofac', 'vendedor',
+                 'observa', 'estado'
+                 ]
+        labels = {
+                  'codigo_cliente':'Codigo Cliente','contacto':'Contacto',
+                  'razonsoc':'Razon Social','nombrecom':'Nombre Comercial',
+                  'direccion':'Direccion','telefono':'Telefono','email':'Email',
+                  'nit':'Nit','depto':'Departamento','municipio':'Municipio',
+                  'fpago':'Forma de Pago', 'minimofac':'Minimo Facturacion',
+                  'vendedor':'Vendedor', 'observa':'Observaciones','estado':'Estado'
+                   }
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class':'form-control'
+            })
+            
 class DepartamentoForm(forms.ModelForm):
     
     class Meta:
@@ -130,12 +150,22 @@ class VendedorForm(forms.ModelForm):
                 'class':'form-control'
             })
 
+class ClienteWidget(s2forms.ModelSelect2MultipleWidget):
+    search_fields = [
+        "username__icontains",
+        "email__icontains",
+    ]
+
+
 class IngresoForm(forms.ModelForm):
     
     class Meta:
         model = Ingreso_guias
         fields = '__all__'
-    
+        widgets = {
+            "cliente": ClienteWidget,
+            
+        }
 class IngresoBodegaForm(forms.ModelForm):
     
     class Meta:

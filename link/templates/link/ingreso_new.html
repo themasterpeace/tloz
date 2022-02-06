@@ -1,0 +1,36 @@
+{% extends 'base/base.html' %}
+
+
+{% block contenido %}
+<br><br>
+            <div class="row ing_gui">
+               
+                    <div class="card ing_gui">
+                        <div class="cardbody">
+                            <h2>Ingreso de Guías</h2>
+                            <hr>
+                    <form method="POST">
+
+                        {% csrf_token %}
+                        <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
+                        
+                        {{ form.as_p}} 
+                        
+                    </form>
+                    {{ mensaje }}
+            </div>
+
+
+    </div>
+</div>
+
+{% endblock %}
+{% block js %}
+<script>
+    $('#id_codigo_cliente').select2({
+        placeholder: "Seleccione Cliente",
+        allowClear: true
+    });
+</script>
+
+{% endblock %}

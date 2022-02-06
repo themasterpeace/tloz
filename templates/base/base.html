@@ -16,10 +16,10 @@
         <link rel="stylesheet" href="{% static 'base/css/estilo.css' %}">
         <link rel="stylesheet" href="{% static 'base/css/estiloo.css' %}">
         <link rel="stylesheet" href="{% static 'base/vendor/datatables/dataTables.bootstrap4.min.css' %}">
-
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
         {% endblock %}
         <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.js'></script>
-        
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     </head>
     <body>
 
@@ -129,9 +129,15 @@
                           </ul>
                         </a>
                       </li>
-                      <li class="list">
+                      <li class="list file">
                         <a href="#">
-                          <span class="icon"><i class="fas fa-user-alt-slash"></i></span>
+                          <span class="icon"><i class="fas fa-file"></i></span>
+                          <ul class="despliegue">
+                            <li><a href="{% url 'link:ingreso_new' %}"> <i></i> Ingreso de Guías</a></li>
+                            <li><a href="#">Modificación de Guías</a></li>
+                            <li><a href="#">Emilinación de Guías</a></li>
+                            <li><a href="{% url 'link:consulta' %}">Consulta de Guías</a></li>
+                          </ul>
                         </a>
                       </li>
                       <li class="list">
@@ -228,10 +234,15 @@
           // Se agrega la clase .des1 cuando se clickea en el list con despliegue
           document.querySelector("li.list.cogs").classList.toggle("des1");
         });
+        $("li.list.file").on("click",function() {
+          // Se agrega la clase .des1 cuando se clickea en el list con despliegue
+          document.querySelector("li.list.file").classList.toggle("des1");
+        });
         // Se elimina la clase .des1 cuando se clickea fuera de él
         $(document).on("click",function(e) {
           const cogs = $("li.list.cogs");
           const home = $("li.list.home");
+          const file = $("li.list.file");
 
           if (!cogs.is(e.target) && cogs.has(e.target).length === 0) { 
             document.querySelector("li.list.cogs").classList.remove("des1");
@@ -239,15 +250,18 @@
           if(!home.is(e.target) && home.has(e.target).length === 0){
             document.querySelector("li.list.home").classList.remove("des1");
           }
+          if(!file.is(e.target) && file.has(e.target).length === 0){
+            document.querySelector("li.list.file").classList.remove("des1");
+          }
         });
         // Se elimina la clase .des1 al ocultarse el navbar
-        $("#navbar").on("mouseleave",function(e) {
+/*         $("#navbar").on("mouseleave",function(e) {
           const container = $("li.list.cogs");
 
           if (!container.is(e.target) && container.has(e.target).length === 0) { 
             document.querySelector("li.list.cogs").classList.remove("des1");
           }
-        });
+        }); */
         </script>
     </div>
     
@@ -277,8 +291,9 @@
 
 <script src="https://unpkg.com/bootstrap-table@1.15.3/dist/bootstrap-table.min.js"></script>
 <script src="https://unpkg.com/bootstrap-table@1.15.3/dist/bootstrap-table-locale-all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.8/js/select2.min.js"></script>
+
 
 <script src="{% static  'base/js/jquery.chained.min.js' %}"></script>
 
