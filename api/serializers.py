@@ -10,3 +10,4 @@ class ClienteSerializer(serializers.ModelSerializer):
         model= Clientes
         fields = '__all__'
         
+        

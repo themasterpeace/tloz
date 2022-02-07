@@ -57,7 +57,7 @@ class Municipio(ClaseModelo):
     #porcentaje = models.DecimalField(max_digits=10, decimal_places=2)
     
     def __str__(self):
-        return '{}:{}'.format(self.depto.nombre, self.muni)
+        return '{}'.format(self.muni)
 
     def save(self):
         self.muni = self.muni.upper()
@@ -91,7 +91,7 @@ class Ruta(ClaseModelo):
     placa = models.CharField(max_length=7)
     
     def __str__(self):
-        return '{}:{}:{}'.format(self.depto.nombre, self.piloto.nombre,self.ruta)
+        return '{}'.format(self.ruta)
     
     def save(self):
         self.ruta = self.ruta.upper()
@@ -130,8 +130,8 @@ class Clientes(ClaseModelo):
     telefono = models.CharField(max_length=9)
     email = models.EmailField(max_length=50)
     nit = models.CharField(max_length=10)
-    municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
-    depto = models.ForeignKey(Departamento, on_delete=models.CASCADE)
+    municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE, related_name='+')
+    depto = models.ForeignKey(Departamento, on_delete=models.CASCADE, related_name='+')
     fpago= models.IntegerField(choices=fpago, verbose_name="FORMA DE PAGO")
     minimofac = models.DecimalField(max_digits=10, decimal_places=2)
     vendedor =models.ForeignKey(Vendedor, on_delete=models.CASCADE)

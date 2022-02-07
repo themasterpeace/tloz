@@ -93,6 +93,10 @@
                             <input type="text" name="destino" maxlength="3" required="required" id="id_destino">
                         </p>
                     </div>
+                    <p>
+                        <label for="id_nombre">Forma De Pago:</label>
+                        <input type="text" name="nombre" maxlength="100" required="required" id="id_nombre">
+                    </p>
                     <div class="ing_guiGrid col6">
                         <p>
                             <label for="id_observa">Observaciones:</label>
@@ -119,10 +123,16 @@
                             <input type="number" name="precio" value="0" step="any" required="required" id="id_precio">
                         </p>
                     </div>
-                    <!-- <p>
-                        <label for="id_nombre">Nombre:</label>
-                        <input type="text" name="nombre" maxlength="100" required="required" id="id_nombre">
-                    </p> -->
+                    <div class="row">
+                        <div class="col">
+                            <button type="submit" class="btn btn-danger"><span class="fa fa-save"></span> Guardar</button>
+                            <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
+                            <button type="button" class="btn btn-success"><i class="fa fa-undo"></i>
+                             Cancelar   
+                            </button>
+                        </div>
+                    </div>
+                    
                 </form>
                 {{ mensaje }}
             </div>

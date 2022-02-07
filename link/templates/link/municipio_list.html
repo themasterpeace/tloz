@@ -30,10 +30,10 @@
 
         <table class="table table-striped table-hover">
             <thead>
-                <th>Departamento</th>
                 <th>Id</th>
-                <th>Nombre</th>
-                <th>Iniciales</th>
+                <th>Departamento</th>
+                <th>Municipio</th>
+                {% comment %} <th>Iniciales</th> {% endcomment %}
                 <th>Estado</th>
                 <th>Usuario crea</th>
                 <th>Usuario Modifica</th>
@@ -44,10 +44,10 @@
             <tbody>
                 {% for item in obj %}
                 <tr>
-                    <td>{{item.depto}}</td>
                     <td>{{item.id}}</td>
+                    <td>{{item.depto}}</td>
                     <td>{{ item.muni}}</td>
-                    <td>{{ item.iniciales}}</td>
+                    {% comment %} <td>{{ item.iniciales}}</td> {% endcomment %}
                     <td onclick="inactivarmun({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
                         {% if item.estado %}
                         <i class="far fa-thumbs-up text-primary"></i>
