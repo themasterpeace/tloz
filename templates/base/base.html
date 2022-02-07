@@ -170,10 +170,14 @@
                           </ul>
                         </a>
                       </li>
-                      <li class="list">
+                      <li class="list combu">
                         <a href="#">
                           <span class="icon"><i class="fas fa-box"></i></span>
-                          <a href="{% url 'zelda:registro_list' %}" id="left" onmouseover="seis()"> <i class="fas fa-gas-pump"></i> Listado de Facturas </a>
+                          <ul class="despliegue">
+                            <li>
+                              <a href="{% url 'zelda:registro_list' %}" id="left" onmouseover="seis()"> <i class="fas fa-gas-pump"></i> Listado de Facturas </a>
+                            </li>
+                          </ul>
                         </a>
                       </li>
                    <div class="indicator"></div>
@@ -238,17 +242,25 @@
           // Se agrega la clase .des1 cuando se clickea en el list con despliegue
           document.querySelector("li.list.file").classList.toggle("des1");
         });
+        $("li.list.combu").on("click",function() {
+          // Se agrega la clase .des1 cuando se clickea en el list con despliegue
+          document.querySelector("li.list.combu").classList.toggle("des1");
+        });
         // Se elimina la clase .des1 cuando se clickea fuera de él
         $(document).on("click",function(e) {
           const cogs = $("li.list.cogs");
           const home = $("li.list.home");
           const file = $("li.list.file");
+          const combu = $("li.list.combu");
 
           if (!cogs.is(e.target) && cogs.has(e.target).length === 0) { 
             document.querySelector("li.list.cogs").classList.remove("des1");
           }
           if(!home.is(e.target) && home.has(e.target).length === 0){
             document.querySelector("li.list.home").classList.remove("des1");
+          }
+          if(!combu.is(e.target) && combu.has(e.target).length === 0){
+            document.querySelector("li.list.combu").classList.remove("des1");
           }
           if(!file.is(e.target) && file.has(e.target).length === 0){
             document.querySelector("li.list.file").classList.remove("des1");

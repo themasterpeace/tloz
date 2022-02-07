@@ -180,6 +180,7 @@ body:before {
 }
 .navigation .list.cogs ul.despliegue,
 .navigation .list.file ul.despliegue,
+.navigation .list.combu ul.despliegue,
 .navigation .list.home ul.despliegue{
   visibility: hidden;
   opacity: 0;
@@ -187,6 +188,7 @@ body:before {
 }
 .navigation .list.cogs ul.despliegue li,
 .navigation .list.file ul.despliegue li,
+.navigation .list.combu ul.despliegue li,
 .navigation .list.home ul.despliegue li{
   visibility: hidden;
   opacity: 0;
@@ -194,7 +196,8 @@ body:before {
 }
 .navigation .list.cogs.des1 ul,
 .navigation .list.file.des1 ul,
-.navigation .list.home.des1 ul{
+.navigation .list.file.des1 ul,
+.navigation .list.combu.des1 ul{
   position: absolute;
   padding: 0;
   display: flex;
@@ -207,7 +210,8 @@ body:before {
 }
 .navigation .list.cogs.des1 ul.despliegue li,
 .navigation .list.file.des1 ul.despliegue li,
-.navigation .list.home.des1 ul.despliegue li{
+.navigation .list.file.des1 ul.despliegue li,
+.navigation .list.combu.des1 ul.despliegue li{
   width: 100%;
   display: flex;
   padding: 10px;
@@ -219,7 +223,8 @@ body:before {
 }
 .navigation .list.cogs.des1 ul.despliegue li a,
 .navigation .list.file.des1 ul.despliegue li a,
-.navigation .list.home.des1 ul.despliegue li a{
+.navigation .list.file.des1 ul.despliegue li a,
+.navigation .list.combu.des1 ul.despliegue li a{
     flex-direction: row;
     width: auto;
 }
@@ -317,14 +322,23 @@ a.btn.btn-success.btn-sm {
     gap: 20px;
 }
 .ing_guiGrid.col6{
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 0.8fr 0.5fr 2.5fr 1fr 1fr 1fr;
+    gap: 0;
 }
 .ing_guiGrid.col6 input,
 .ing_guiGrid.col6 textarea{
     width: 100%;
 }
+.ing_guiGrid.col6 p:nth-child(1){
+    margin-right: 20px;
+}
 .ing_guiGrid input{
     width: 100%;
+}
+.ing_guiGrid.col5{
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    width: 85%;
+    margin-left: auto;
 }
 .ing_guiGrid.col4{
     grid-template-columns: 1fr 1fr 1fr 1fr;
@@ -341,6 +355,16 @@ a.btn.btn-success.btn-sm {
     margin-left: auto;
     width: 85%;
     grid-template-columns: 1fr;
+}
+.ing_guiGrid.col1.alt1{
+    grid-template-columns: 1fr 1fr;
+    /* width: 25%; */
+    padding: 0.25rem;
+    margin-right: 12px;
+    margin-left: 12px;
+}
+.ing_guiGrid.col1.alt1 div:nth-child(2){
+    align-items: end;
 }
 .box::after{
     content: '';

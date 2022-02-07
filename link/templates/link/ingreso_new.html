@@ -41,7 +41,7 @@
                             <input type="text" name="dirrem" maxlength="300" required="required" id="id_dirrem">
                         </p>
                     </div>
-                    <div class="ing_guiGrid col4">
+                    <div class="ing_guiGrid col5">
                         <p>
                             <label for="id_tel">No. Telefono:</label>
                             <input type="text" name="tel" maxlength="9" required="required" id="id_tel">
@@ -58,11 +58,15 @@
                             <label for="id_origen">Origen:</label>
                             <input type="text" name="origen" maxlength="3" required="required" id="id_origen">
                         </p>
-                    </div>
-                    <div class="ing_guiGrid col2">
                         <p>
                             <label for="id_ruta">Ruta:</label>
                             <input type="text" name="ruta" maxlength="50" required="required" id="id_ruta">
+                        </p>
+                    </div>
+                    <div class="ing_guiGrid col2">
+                        <p>
+                            <label for="id_codigo_desti">Codigo Dest:</label>
+                            <input type="text" name="codigo_desti" maxlength="50" required="required" id="id_codigo_desti">
                         </p>
                         <p>
                             <label for="id_destinatario">Nombre Destinatario:</label>
@@ -75,7 +79,7 @@
                             <input type="text" name="dirdes" maxlength="300" required="required" id="id_dirdes">
                         </p>
                     </div>
-                    <div class="ing_guiGrid col4">
+                    <div class="ing_guiGrid col5">
                         <p>
                             <label for="id_teldes">No. Telefono:</label>
                             <input type="text" name="teldes" maxlength="9" required="required" id="id_teldes">
@@ -92,6 +96,10 @@
                             <label for="id_destino">Codigo Destino:</label>
                             <input type="text" name="destino" maxlength="3" required="required" id="id_destino">
                         </p>
+                        <p>
+                            <label for="id_rutades">Ruta Dest:</label> 
+                            <input type="text" name="rutades" maxlength="50" required="required" id="id_rutades">
+                        </p>
                     </div>
                     <p>
                         <label for="id_nombre">Forma De Pago:</label>
@@ -103,8 +111,8 @@
                             <textarea name="observa" cols="40" rows="10" maxlength="500" required="required" id="id_observa"></textarea>
                         </p>
                         <p>
-                            <label for="id_tipo_envio">Tipo envio:</label>
-                            <select name="tipo_envio" required="required" id="id_tipo_envio"></select>
+                            <label for="id_tipo_envio">Envio:</label>
+                            <input type="text" name="tipo_envio" required="required" id="id_tipo_envio">
                         </p>
                         <p>
                             <label for="id_descripcion">Descripcion:</label>
@@ -123,6 +131,30 @@
                             <input type="number" name="precio" value="0" step="any" required="required" id="id_precio">
                         </p>
                     </div>
+                    <div class="ing_guiGrid col1 alt1">
+                        <div>
+                            <label for="descuento">Descuento:</label>
+                        </div>
+                        <div class="">
+                            <input type="number" class="form-control" name="descuento" id="id_descuento" placeholder="Descuento">
+                        </div>
+                    </div>
+                    <div class="row p-1">
+                        <div class="col-lg-9 text-right">
+                            <label for="sub_total">Sub Total</label>
+                        </div>
+                        <div class="col-lg-3">
+                            <input type="number" class="form-control" name="sub_total" id="id_sub_total" placeholder="Sub Total"
+                             value="0.00" disabled>
+                        </div>
+                    </div>
+                    <div class="row p-1">
+                        <div class="col-lg-9 text-right">Total</div>
+                        <div class="col-lg-3">
+                            <input type="number" class="form-control" name="total" id="id_total" placeholder="Total"
+                             value="0.00" disabled>
+                        </div>
+                    </div>
                     <div class="row">
                         <div class="col">
                             <button type="submit" class="btn btn-danger"><span class="fa fa-save"></span> Guardar</button>
@@ -134,7 +166,7 @@
                     </div>
                     
                 </form>
-                {{ mensaje }}
+   
             </div>
         </div>
     </div>
@@ -142,6 +174,16 @@
 
 {% block js %}
     <script>
+        function calcular_detalle(){
+            var cant = $("#id_cantidad").val();
+            var prec =$('#id_precio').val();
+            var desc = $('#id_descuento').val();
+            var stotal = cant * prec;
+            var total  = stotal - desc;
+
+            $('#id_sub_total').val("Q" +stotal);
+            $('#id_total').val("Q" + total);
+        }
         function buscarCliente()
         {    
             var codigo = $("#id_codigo_cliente").val();
@@ -197,14 +239,76 @@
 
            
         }
-        
-        $(function(){
-           $("#id_codigo_cliente").keypress(function(e){
+
+        function buscarProducto()
+    {
+        var codigo = $("#id_tipo_envio").val();
+        if(codigo===""){
+            return false;
+        }
+
+        var path = "{% url 'api:producto_list' %}" + codigo;
+        $.ajax({
+            type:"GET",
+            url: path,
+            success: function(r){
+                console.log(r);
+                //console.log(r.existencia);
+                console.log(r.estado);
+
+                if(!r.estado){
+                    mensaje("Producto No Tiene Existencia o está inactivo",'orange')
+                    $("#id_tipo_envio").val("");
+                    $("#id_descripcion").val("");
+                    $("#id_precio").val("0.00");
+                    $("#id_tipo_envio").focus();
+                    return false;
+                }
+
+                $("#id_tipo_envio").val(r.id);
+                $("#id_descripcion").val(r.descripcion);
+                $("#id_precio").val(r.precio);
+                $("#id_tipo_envio").focus();
+
+            },
+            error: function(a,b,c){
+                console.log(a);
+                // console.log(b);
+                // console.log(c);
+                // console.log(a.status)
+                // console.log(a.responseText.detail);
+                // a.responseText["detail"]
+                // mensaje(c,'red');
+                if(a.status==404){
+                    mensaje("Producto -" + codigo + "- No Encontrado o No Existe",'red');
+                    $("#id_tipo_envio").val("");
+                    $("#id_descripcion").val("");
+                    $("#id_precio").val("0.00");
+                    $("#id_tipo_envio").focus();
+                }
+
+            }
+
+        });
+    }
+    $(function(){
+        $("#id_codigo_cliente").keypress(function(e){
                 if(e.keyCode===13){
                     buscarCliente();
                 }
            });
-        });
+
+           $("#id_tipo_envio").keypress(function(e){
+                if(e.keyCode===13){
+                    buscarProducto();
+                }
+            });
+        $("#id_descuento").keypress(function(e){
+                    if(e.keyCode===13){
+                        calcular_detalle();
+                    }
+            });
+    });
         
     </script>
 {% endblock %}
