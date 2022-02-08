@@ -368,6 +368,17 @@ a.btn.btn-success.btn-sm {
     margin-right: 12px;
     margin-left: 12px;
 }
+.ing_guiGrid.col1.alt2{
+    justify-items: end;
+    width: 100%;
+    padding: 0.25rem;
+    margin-right: 12px;
+    margin-left: 12px;
+}
+.ing_guiGrid.col1.alt2 div:last-child{
+    margin-right: 12px;
+    padding-right: 11px;
+}
 input#id_descuento::placeholder{
     color: #fff;
 }

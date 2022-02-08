@@ -14,7 +14,7 @@
                     <div class="ing_guiGrid col3">
                         <p>
                             <label for="id_no_guia">No. Guia:</label>
-                            <input type="text" name="no_guia" maxlength="6" required="required" id="id_no_guia">
+                            <input autofocus type="text" name="no_guia" maxlength="6" required="required" id="id_no_guia">
                         </p>
                         <p>
                             <label for="id_fecha">Fecha:</label>
@@ -157,9 +157,9 @@
                              value="0.00" readonly>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col">
-                            <button type="submit" class="btn btn-danger"><span class="fa fa-save"></span> Guardar</button>
+                    <div class="ing_guiGrid col1 alt2">
+                        <div>
+                            <button type="submit" class="btn btn-danger" onclick="confir();"><span class="fa fa-save"></span> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
                             <button type="button" class="btn btn-success"><i class="fa fa-undo"></i>
                              Cancelar   
@@ -183,8 +183,8 @@
             var stotal = cant * prec;
             var total  = stotal - desc;
 
-            $('#id_sub_total').val("Q" +stotal);
-            $('#id_total').val("Q" + total);
+            $('#id_sub_total').val(stotal);
+            $('#id_total').val(total);
         }
         function buscarCliente()
         {    
@@ -207,6 +207,9 @@
                         $("#id_codigo_cliente").val("");
                         $("#id_remitente").val("");
                         $("#id_dirrem").val("");
+                        $("#id_tel").val("");
+                        $("#id_muni").val("");
+                        $("#id_origen").val("");
                         $("#id_codigo_cliente").focus();
                         return false;
                     }else{
@@ -215,6 +218,7 @@
                     $("#id_dirrem").val(r.direccion);
                     $("#id_tel").val(r.telefono);
                     $("#id_muni").val(r.municipio);
+                    $("#id_origen").val(r.depto);
                     $("#id_codigo_cliente").focus();
                     }
     
@@ -233,6 +237,66 @@
                         $("#id_remitente").val("");
                         $("#id_dirrem").val("");
                         $("#id_codigo_cliente").focus();
+                    }
+    
+                }
+    
+            });
+
+           
+        }
+
+        function buscarClientedes()
+        {    
+            var codigo = $("#id_codigo_desti").val();
+            if(codigo===""){
+                return false;
+            }
+    
+            var path = "{% url 'api:cliente_list' %}" + codigo;
+            $.ajax({
+                type:"GET",
+                url: path,
+                success: function(r){
+                    console.log(r);
+                    //console.log(r.existencia);
+                    console.log(r.estado);
+    
+                    if(!r.estado){
+                        mensaje("Cliente inexistente o inactivo",'orange');
+                        $("#id_codigo_desti").val("");
+                        $("#id_destinatario").val("");
+                        $("#id_dirdes").val("");
+                        $("#id_teldes").val("");
+                        $("#id_munides").val("");
+                        $("#id_destino").val("");
+                        $("#id_codigo_desti").focus();
+                        return false;
+                    }else{
+                    $("#id_codigo_desti").val(r.codigo_cliente);
+                    $("#id_destinatario").val(r.razonsoc);
+                    $("#id_dirdes").val(r.direccion);
+                    $("#id_teldes").val(r.telefono);
+                    $("#id_munide").val(r.municipio);
+                    $("#id_destino").val(r.depto);
+                    $("#id_codigo_desti").focus();
+                    }
+    
+                },
+                error: function(a,b,c){
+                    console.log(a);
+                    // console.log(b);
+                    // console.log(c);
+                    // console.log(a.status)
+                    // console.log(a.responseText.detail);
+                    // a.responseText["detail"]
+                    // mensaje(c,'red');
+                    if(a.status==404){
+                        mensaje("Cliente -" + codigo_cliente + "- no encontrado o inexistente",'red');
+                        $("#id_codigo_desti").val("");
+                        $("#id_destinatario").val("");
+                        $("#id_dirdes").val("");
+                        $("#id_codigo_desti").focus();
                     }
     
                 }
@@ -293,24 +357,45 @@
 
         });
     }
-    $(function(){
-        $("#id_codigo_cliente").keypress(function(e){
-                if(e.keyCode===13){
-                    buscarCliente();
-                }
-           });
 
-           $("#id_tipo_envio").keypress(function(e){
-                if(e.keyCode===13){
-                    buscarProducto();
-                }
-            });
-        $("#id_descuento").keypress(function(e){
-                    if(e.keyCode===13){
-                        calcular_detalle();
-                    }
-            });
+    $("#id_codigo_cliente").keypress(function(e){
+        if(e.keyCode===13){
+            buscarCliente();
+        }
     });
-        
+    $("#id_codigo_desti").keypress(function(e){
+        if(e.keyCode===13){
+            buscarClientedes();
+        }
+    });
+    $("#id_tipo_envio").keypress(function(e){
+        if(e.keyCode===13){
+            buscarProducto();
+        }
+    });
+    $("#id_precio").keypress(function(e){
+        if(e.keyCode===9){
+            calcular_detalle();
+        }
+    });
+    
+    // Funcion que agrega guión(-) al escribir 3 caracteres
+    var idco = $("input#id_codigo_cliente");
+    var idtel = $("input#id_telefono");
+    // Código Cliente Funcion
+    idco.keyup(function(event) {
+        if (event.keyCode !== 8) {
+            value = idco.val()
+
+            if (value.length == 3) {
+                idco.val(value + '-');
+            }
+        }
+    })
+    
+    function confir(){
+        console.log("Confirmación");
+    }
+                
     </script>
 {% endblock %}
