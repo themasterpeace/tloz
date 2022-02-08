@@ -356,15 +356,30 @@ a.btn.btn-success.btn-sm {
     width: 85%;
     grid-template-columns: 1fr;
 }
+.ing_guiGrid.col1.alt1 div:nth-child(2){
+    margin-right: 12px;
+    padding-right: 11px;
+}
 .ing_guiGrid.col1.alt1{
-    grid-template-columns: 1fr 1fr;
-    /* width: 25%; */
+    gap: 0;
+    grid-template-columns: 2.7fr 1fr;
+    width: 100%;
     padding: 0.25rem;
     margin-right: 12px;
     margin-left: 12px;
 }
-.ing_guiGrid.col1.alt1 div:nth-child(2){
-    align-items: end;
+input#id_descuento::placeholder{
+    color: #fff;
+}
+textarea::-webkit-scrollbar{
+    width: 5px;
+}
+textarea::-webkit-scrollbar-thumb{
+    background: #0a2b4b;
+    border-radius: 6px;
+}
+input:read-only{
+    background-color: rgba(255, 255, 255, 0.05) !important;
 }
 .box::after{
     content: '';
