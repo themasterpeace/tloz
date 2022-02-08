@@ -213,6 +213,13 @@ class Ingreso_guias(ClaseModelo):
     sub_total=models.FloatField(default=0)
     descuento=models.FloatField(default=0)
     total=models.FloatField(default=0)
+
+    #Seccion contra entrega 
+    boleta_cte = models.CharField(max_length=6, verbose_name="Boleta Contra Entrega")
+    ptpae = models.FloatField(default=0, verbose_name="Precio Total Del Envio")
+    comision = models.FloatField(default=0, verbose_name="Comision")
+    
+    
         
     def __str__(self):
         return self.no_guia

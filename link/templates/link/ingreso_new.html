@@ -131,6 +131,20 @@
                             <input type="number" name="precio" min="0" value="0" step="any" required="required" id="id_precio">
                         </p>
                     </div>
+                    <div class="ing_guiGrid col6">
+                        <p>
+                            <label for="id_observa">No. Boleta Contra Entrega:</label>
+                            <textarea name="boleta_cte" cols="40" rows="10" maxlength="500" required="required" id="id_boleta_cte"></textarea>
+                        </p>
+                        <p>
+                            <label for="id_tipo_envio">Valor Total Envio:</label>
+                            <input type="text" name="ptpae" required="required" id="id_ptpae">
+                        </p>
+                        <p>
+                            <label for="id_descripcion">Comision:</label>
+                            <input type="text" name="comision" maxlength="150" required="required" id="id_comision">
+                        </p>
+                    </div>
                     <div class="ing_guiGrid col1 alt1">
                         <div>
                             <label for="sub_total">Sub Total</label>
@@ -159,7 +173,7 @@
                     </div>
                     <div class="ing_guiGrid col1 alt2">
                         <div>
-                            <button type="submit" class="btn btn-danger" onclick="confir();"><span class="fa fa-save"></span> Guardar</button>
+                            <button type="submit" class="btn btn-danger boton-modal"><span class="fa fa-save"></span> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
                             <button type="button" class="btn btn-success"><i class="fa fa-undo"></i>
                              Cancelar   
@@ -392,10 +406,14 @@
             }
         }
     })
-    
-    function confir(){
-        console.log("Confirmación");
-    }
-                
+    $( ".boton-modal").click(function() {
+        var a = prompt("Confirmación");
+        var ida = $("#id_no_guia");
+        if(a == ida.val()){
+            console.log("SIII");
+        }else{
+            console.log("Pfff... sorry")
+        }
+    });                
     </script>
 {% endblock %}
