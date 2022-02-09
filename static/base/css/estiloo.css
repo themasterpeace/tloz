@@ -1,7 +1,9 @@
 :root {
-    --background: #5e5e5e;
     --bar-color: #003300;
     --bar-after: #071A2C;
+    --color-green: #77dd77;
+    --color-grey: #ccc;
+    --color-button: #fdffff;
     --clr: #071A2C;
 }
 *{
@@ -347,6 +349,7 @@ a.btn.btn-success.btn-sm {
 }
 .ing_guiGrid.col3{
     grid-template-columns: 1fr 1fr 1fr;
+    transition: 0.5s;
 }
 .ing_guiGrid.col2{
     grid-template-columns: 1fr 7fr;
@@ -357,15 +360,13 @@ a.btn.btn-success.btn-sm {
     grid-template-columns: 1fr;
 }
 .ing_guiGrid.col1.alt1 div:nth-child(2){
-    margin-right: 12px;
-    padding-right: 11px;
+    margin-right: 5px;
 }
 .ing_guiGrid.col1.alt1{
-    gap: 0;
-    grid-template-columns: 2.7fr 1fr;
+    display: flex;
+    justify-content: end;
     width: 100%;
     padding: 0.25rem;
-    margin-right: 12px;
     margin-left: 12px;
 }
 .ing_guiGrid.col1.alt2{
@@ -378,6 +379,46 @@ a.btn.btn-success.btn-sm {
 .ing_guiGrid.col1.alt2 div:last-child{
     margin-right: 12px;
     padding-right: 11px;
+}
+.switch-button {
+    display: inline-block;
+}
+.switch-button .switch-button__checkbox {
+    display: none;
+}
+.switch-button .switch-button__label {
+    background-color: var(--color-grey);
+    width: 3rem;
+    height: 1.5rem;
+    border-radius: 3rem;
+    display: inline-block;
+    position: relative;
+    transition: .3s;
+}
+.switch-button .switch-button__label:before {
+    transition: .3s;
+    display: block;
+    position: absolute;
+    left: .5rem;
+    top: 50%;
+    margin-top: -.5rem;
+    width: 1rem;
+    height: 1rem;
+    background-color: var(--color-button);
+    content: '';
+    border-radius: 50%;
+}
+.switch-button .switch-button__checkbox:checked + .switch-button__label {
+    background-color: var(--color-green);
+    transition: .3s;
+}
+.switch-button .switch-button__checkbox:checked + .switch-button__label::before {
+    transform: translateX(1rem);
+}
+.ing_guiGrid.col3.anim.hide{
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
 }
 input#id_descuento::placeholder{
     color: #fff;
@@ -782,6 +823,7 @@ input[type="text"]:focus,
 input[type="email"]:focus,
 input[type="number"]:focus,
 input[type="tel"]:focus,
+input[type="date"]:focus,
 textarea:focus,
 select:focus-visible,
 .form-control:focus{
@@ -794,6 +836,7 @@ input[type="text"],
 input[type="email"],
 input[type="number"],
 input[type="tel"],
+input[type="date"],
 textarea,
 select,
 .form-control{
@@ -805,6 +848,7 @@ select,
     outline: none;
     transition: .4s;
     border-radius: 0.25rem;
+    text-transform: uppercase;
 }
 select option{
     color: #000;

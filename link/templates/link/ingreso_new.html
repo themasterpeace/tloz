@@ -2,15 +2,18 @@
 
 {% block contenido %}
     <br><br>
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <div class="row ing_gui">
 
         <div class="card ing_gui">
             <div class="cardbody">
                 <h2>Ingreso de Guías</h2>
                 <hr>
-                <form method="POST">
+               
+                <form method="POST" name="ing_guias">
                     <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
                     <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
+                    {% csrf_token %}
                     <div class="ing_guiGrid col3">
                         <p>
                             <label for="id_no_guia">No. Guia:</label>
@@ -18,7 +21,7 @@
                         </p>
                         <p>
                             <label for="id_fecha">Fecha:</label>
-                            <input type="text" name="fecha" required="required" id="id_fecha">
+                            <input type="date" name="fecha" required="required" id="id_fecha">
                         </p>
                         <p>
                             <label for="id_no_manifiesto">No manifiesto:</label>
@@ -131,7 +134,13 @@
                             <input type="number" name="precio" min="0" value="0" step="any" required="required" id="id_precio">
                         </p>
                     </div>
-                    <div class="ing_guiGrid col6">
+                    <div>
+                        <div class="switch-button">
+                            <input type="checkbox" name="switch-button" id="switch-label" class="switch-button__checkbox">
+                            <label for="switch-label" class="switch-button__label"></label>
+                        </div>
+                    </div>
+                    <div class="ing_guiGrid col3 anim">
                         <p>
                             <label for="id_observa">No. Boleta Contra Entrega:</label>
                             <textarea name="boleta_cte" cols="40" rows="10" maxlength="500" required="required" id="id_boleta_cte"></textarea>
@@ -173,11 +182,9 @@
                     </div>
                     <div class="ing_guiGrid col1 alt2">
                         <div>
-                            <button type="submit" class="btn btn-danger boton-modal"><span class="fa fa-save"></span> Guardar</button>
+                            <button type="button" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
-                            <button type="button" class="btn btn-success"><i class="fa fa-undo"></i>
-                             Cancelar   
-                            </button>
+                            <button type="button" class="btn btn-success"><i class="fa fa-undo"></i> Cancelar</button>
                         </div>
                     </div>
                     
@@ -372,29 +379,22 @@
         });
     }
 
-    $("#id_codigo_cliente").keypress(function(e){
-        if(e.keyCode===13){
+    $("#id_codigo_cliente").change(function(e){
             buscarCliente();
-        }
     });
-    $("#id_codigo_desti").keypress(function(e){
-        if(e.keyCode===13){
+    $("#id_codigo_desti").change(function(e){
             buscarClientedes();
-        }
     });
-    $("#id_tipo_envio").keypress(function(e){
-        if(e.keyCode===13){
+    $("#id_tipo_envio").change(function(e){
             buscarProducto();
-        }
     });
-    $("#id_precio").keypress(function(e){
-        if(e.keyCode===9){
+    $("#id_precio").change(function(e){
             calcular_detalle();
-        }
     });
     
     // Funcion que agrega guión(-) al escribir 3 caracteres
     var idco = $("input#id_codigo_cliente");
+    var idco = $("input#id_codigo_desti");
     var idtel = $("input#id_telefono");
     // Código Cliente Funcion
     idco.keyup(function(event) {
@@ -406,14 +406,54 @@
             }
         }
     })
+    // Función para abrir popup de confirmación No.Guia
     $( ".boton-modal").click(function() {
-        var a = prompt("Confirmación");
-        var ida = $("#id_no_guia");
-        if(a == ida.val()){
-            console.log("SIII");
+        Swal.fire({
+            title: '<strong>Confirmación del <u>No. Guía</u></strong>',
+            icon: 'info',
+            html:
+                '<input type="text" id="conf_noguia" placeholder="Introduce nuevamente el No. Guía"><br><br>',
+            showCloseButton: true,
+            showConfirmButton: false,
+        });
+
+        const conf = $('input#conf_noguia');
+        const codNog = $('input#id_no_guia');
+
+        conf.change(function(){
+            if (conf.val() == codNog.val()) {
+                Swal.close()
+                document.ing_guias.submit()
+                
+            }else{
+                Swal.fire({
+                    position: 'top-end',
+                    icon: 'error',
+                    title: 'No. Guía no coincide. ¡Intentalo de nuevo!',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                })
+            }
+        })
+    });
+    // Funcion para comprobar el estado del checkbox
+    $('#switch-label').prop("checked", true);
+    $('#switch-label').click(function(){
+        if($('#switch-label').is(":checked")){
+            $('.ing_guiGrid.col3.anim.hide').removeClass('hide');
         }else{
-            console.log("Pfff... sorry")
+            $('.ing_guiGrid.col3.anim').addClass('hide');
         }
-    });                
+    });
+    // Funcion para pasar a mayusculas datos de los inputs
+    $(document).ready( function () {
+      $("input").on("keypress", function () {
+       $input=$(this);
+       setTimeout(function () {
+        $input.val($input.val().toUpperCase());
+       },50);
+      })
+     })
     </script>
 {% endblock %}
