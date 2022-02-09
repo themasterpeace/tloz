@@ -394,8 +394,7 @@
     
     // Funcion que agrega guión(-) al escribir 3 caracteres
     var idco = $("input#id_codigo_cliente");
-    var idco = $("input#id_codigo_desti");
-    var idtel = $("input#id_telefono");
+    var idcodes = $("input#id_codigo_desti");
     // Código Cliente Funcion
     idco.keyup(function(event) {
         if (event.keyCode !== 8) {
@@ -403,6 +402,15 @@
 
             if (value.length == 3) {
                 idco.val(value + '-');
+            }
+        }
+    })
+    idcodes.keyup(function(event) {
+        if (event.keyCode !== 8) {
+            value = idcodes.val()
+
+            if (value.length == 3) {
+                idcodes.val(value + '-');
             }
         }
     })
@@ -448,12 +456,21 @@
     });
     // Funcion para pasar a mayusculas datos de los inputs
     $(document).ready( function () {
-      $("input").on("keypress", function () {
-       $input=$(this);
-       setTimeout(function () {
-        $input.val($input.val().toUpperCase());
-       },50);
-      })
-     })
+        $("input").on("keypress", function () {
+            $input=$(this);
+            setTimeout(function () {
+                $input.val($input.val().toUpperCase());
+            },50);
+        })
+    });
+    // Funcion para poner siempre fecha actual
+    Date.prototype.toDateInputValue = (function() {
+        var local = new Date(this);
+        local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
+        return local.toJSON().slice(0,10);
+    });
+    $(document).ready( function() {
+        $('#id_fecha').val(new Date().toDateInputValue());
+    });
     </script>
 {% endblock %}

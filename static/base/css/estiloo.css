@@ -887,7 +887,8 @@ a{
     color: #fff;
     text-decoration: none;
 }
-.modal-dialog.modal_lg.cli_new {
+.modal-dialog.modal_lg.cli_new,
+.modal-dialog.modal_lg.combu_new{
     max-width: fit-content;
 }
 span.select2-selection__arrow{

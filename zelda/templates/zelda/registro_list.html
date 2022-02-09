@@ -7,11 +7,11 @@
     <!-- Card Header - Dropdown -->
     <div
         class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-        <h6 class="m-0 font-weight-bold bg-white text-primary">Listado de Facturas de Combustible </h6>
+        <h6 class="m-0 font-weight-bold text-primary">Listado de Facturas de Combustible </h6>
         <div class="dropdown no-arrow">
             <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                <i class="fas fa-pencil-alt"></i>
             </a>
             <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
                 <div class="dropdown-header">Acciones:</div>
@@ -22,72 +22,64 @@
             </div>
         </div>
     </div>
-
-<div class="card">
-    <div class="card-body">
-        {% if not obj %}
-       <div class="alert alert-info">No hay facturas de Combustible Registradas</div>
-       {% else %}
-        <table class="table table-striped table-hover">
-            <tr>
-                <th>Fecha</th>
-                <th>Hora Llenado</th>
-                <th>Placa</th>
-                <th>Piloto</th>
-                <th>Ruta</th>
-                <th>Serie Factura</th>
-                <th>No. Factura</th>
-                <th>Total Llenado</th>
-                <th>Galones Llenados</th>
-                <th>Tipo Combustible</th>
-                <th>No. Bomba</th>
-                <th>Precio Por Galon</th>
-                <th>Kilometraje Inicial</th>
-                <th>Kilometraje Final</th>
-                <th>Recorrido</th>
-                <th>Rendimiento Por Galon</th>
-                <th>Manifiesto</th>
-                <th>Observaciones</th>
-               
-                <th>Estado</th>
-            </tr>
-               
-               {% for item in obj %} 
-               <tr>
-                   <td> {{ item.fecha | date:'d-m-y'}}</td>
-                   <td> {{ item.hora_llenado | title}}</td>
-                   <td> {{ item.placa | title}}</td>
-                   <td> {{ item.piloto | title}}</td>
-                   <td> {{ item.ruta | title}}</td>
-                   <td> {{ item.serie | title}}</td>
-                   <td> {{ item.no_factura | title}}</td>
-                   <td> Q. {{ item.total | intcomma }}</td>
-                   <td> {{ item.galones | title}}</td>
-                   <td> {{ item.tipo_combustible | title}}</td>
-                   <td> {{ item.bomnba | title}}</td>
-                   <td> Q. {{ item.precioxgalon | intcomma }}</td>
-                   <td> {{ item.kminicial | title}}</td>
-                   <td> {{ item.kmfinal | title}}</td>
-                   <td> {{ item.recorrido | title}}</td>
-                   <td> {{ item.rendimiento | title}}</td>
-                   <td> {{ item.manifiesto | title}}</td>
-                   <td> {{ item.observaciones | title}}</td>
-                   <td onclick="inactivar({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
-                    {% if item.estado %}
-                    <i class="far fa-thumbs-up text-primary"></i>
-                    {% else %}
-                    <i class="far fa-thumbs-down text-danger"></i>
-                    {% endif %}
-                </td>
-                    <td>
-                    
-                    </td>
-               </tr>
-               {% endfor %}
-        </table>
-        {% endif %}
-        <a href="{% url 'zelda:reporte_registro_excel' %}" class="btn btn-success btn-sm">Generar Reporte</a>
-    </div>
+<div class="card-body">
+    {% if not obj %}
+    <div class="alert alert-info">No hay facturas de Combustible Registradas</div>
+    {% else %}
+    <table class="table table-striped table-hover">
+        <thead>
+            <th>Fecha</th>
+            <th>Hora Llenado</th>
+            <th>Placa</th>
+            <th>Piloto</th>
+            <th>Ruta</th>
+            <th>Serie Factura</th>
+            <th>No. Factura</th>
+            <th>Total Llenado</th>
+            <th>Galones Llenados</th>
+            <th>Tipo Combustible</th>
+            <th>No. Bomba</th>
+            <th>Precio Por Galon</th>
+            <th>Kilometraje Inicial</th>
+            <th>Kilometraje Final</th>
+            <th>Recorrido</th>
+            <th>Rendimiento Por Galon</th>
+            <th>Manifiesto</th>
+            <th>Observaciones</th>
+            <th>Estado</th>
+        </thead>
+            {% for item in obj %} 
+            <tbody>
+                <td> {{ item.fecha | date:'d-m-y'}}</td>
+                <td> {{ item.hora_llenado | title}}</td>
+                <td> {{ item.placa | title}}</td>
+                <td> {{ item.piloto | title}}</td>
+                <td> {{ item.ruta | title}}</td>
+                <td> {{ item.serie | title}}</td>
+                <td> {{ item.no_factura | title}}</td>
+                <td> Q. {{ item.total | intcomma }}</td>
+                <td> {{ item.galones | title}}</td>
+                <td> {{ item.tipo_combustible | title}}</td>
+                <td> {{ item.bomnba | title}}</td>
+                <td> Q. {{ item.precioxgalon | intcomma }}</td>
+                <td> {{ item.kminicial | title}}</td>
+                <td> {{ item.kmfinal | title}}</td>
+                <td> {{ item.recorrido | title}}</td>
+                <td> {{ item.rendimiento | title}}</td>
+                <td> {{ item.manifiesto | title}}</td>
+                <td> {{ item.observaciones | title}}</td>
+                <td onclick="inactivar({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
+                {% if item.estado %}
+                <i class="far fa-thumbs-up text-primary"></i>
+                {% else %}
+                <i class="far fa-thumbs-down text-danger"></i>
+                {% endif %}
+            </td>
+        </tbody>
+            {% endfor %}
+    </table>
+    {% endif %}
+    <a href="{% url 'zelda:reporte_registro_excel' %}" class="btn btn-success btn-sm">Generar Reporte</a>
 </div>
 {% endblock %}
 {% block js %}
