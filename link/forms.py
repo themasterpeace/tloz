@@ -166,7 +166,7 @@ class IngresoForm(forms.ModelForm):
             "cliente": ClienteWidget,
             
         }
-class IngresoBodegaForm(forms.ModelForm):
+class BodegaForm(forms.ModelForm):
     
     class Meta:
         model = Ingreso_bodega

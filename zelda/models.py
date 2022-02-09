@@ -30,6 +30,13 @@ placas=[
     [5,"C910BNX"],
     [6,"C306BPR"],
 ]  
+
+combustible=[
+    [0,"REGULAR"],
+    [1,"SUPER"],
+    [2,"DIESEL"]
+    
+]
 class Registro(ClaseModelo):
     fecha=models.DateField(verbose_name="Fecha llenado")
     hora_llenado=models.TimeField(verbose_name="Hora llenado")
@@ -40,7 +47,7 @@ class Registro(ClaseModelo):
     no_factura=models.IntegerField(verbose_name="Numero de Factura")
     total=models.FloatField(verbose_name="Total Llenado")
     galones=models.FloatField(verbose_name="Galones Llenados")
-    tipo_combustible=models.CharField(verbose_name="Tipo de Combustible", max_length=50)
+    tipo_combustible=models.IntegerField(verbose_name="Tipo de Combustible", choices=combustible)
     bomnba=models.IntegerField(verbose_name="Bomba Lllenado")
     precioxgalon=models.FloatField(verbose_name="Precio Por Galon")
     kminicial=models.IntegerField(verbose_name="Kilometro Inicial")

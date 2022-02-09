@@ -11,9 +11,10 @@
                 <hr>
                
                 <form method="POST" name="ing_guias">
+                      {% csrf_token %}
                     <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
                     <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
-                    {% csrf_token %}
+                  
                     <div class="ing_guiGrid col3">
                         <p>
                             <label for="id_no_guia">No. Guia:</label>
@@ -184,7 +185,7 @@
                         <div>
                             <button type="button" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
-                            <button type="button" class="btn btn-success"><i class="fa fa-undo"></i> Cancelar</button>
+                            <button type="reset" class="btn btn-success"><i class="fa fa-undo"></i> Cancelar</button>
                         </div>
                     </div>
                     
@@ -298,7 +299,7 @@
                     $("#id_destinatario").val(r.razonsoc);
                     $("#id_dirdes").val(r.direccion);
                     $("#id_teldes").val(r.telefono);
-                    $("#id_munide").val(r.municipio);
+                    $("#id_munides").val(r.municipio);
                     $("#id_destino").val(r.depto);
                     $("#id_codigo_desti").focus();
                     }

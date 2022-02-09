@@ -119,12 +119,13 @@
             <div class="elements">
                 <div class="navigation">
                     <ul>
-                      <li class="list home active">
+                      <li class="list home">
                         <a href="#">
-                          <span class="icon"><i class="fas fa-home"></i></span>
+                          <span class="icon"><i class="fas fa-file"></i></span>
                           <ul class="despliegue">
-                            <li>Ingreso Bodega</li>
-                            <li>Salida Bodega</li>
+                            <li><a href="{% url 'link:ingreso_bodega' %}"> <i></i> Ingreso Bodega</a></li>
+                            <li><a href="#">Modificación de Guías</a></li>
+                            <li><a href="#">Emilinación de Guías</a></li>
                             <li><a href="{% url 'link:consulta' %}">Consulta de Guías</a></li>
                           </ul>
                         </a>

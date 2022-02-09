@@ -16,8 +16,18 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 def home(request):
     return render(request, 'link/home.html')
 
-def ingreso_bodega(request):
-    return render(request, 'link/ingreso_bodega.html')
+
+class bodeganew(LoginRequiredMixin, generic.CreateView):
+    model = Ingreso_bodega
+    template_name = "link/ingreso_bod.html"
+    context_object_name = "obj"
+    form_class = BodegaForm
+    success_url = reverse_lazy("link:ingreso_list")
+    login_url = "registration:login"
+
+    def form_valid(self, form):
+        form.instance.uc = self.request.user
+        return super().form_valid(form)
 
 def salida_bodega(request):
     return render(request, 'link/salida_bodega.html')

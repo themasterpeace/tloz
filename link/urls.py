@@ -3,7 +3,7 @@ from .views import *
 
 urlpatterns = [
     path('',home, name="home"),
-    path('ingreso_bodega/', ingreso_bodega, name="ingreso_bodega"),
+    path('ingreso_bodega/', bodeganew.as_view(), name="ingreso_bodega"),
     path('salida_bodega/', salida_bodega, name="salida_bodega"),
     path('consulta/', consulta, name="consulta"),
     
