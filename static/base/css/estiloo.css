@@ -248,7 +248,8 @@ h2{
 .row.ing_gui{
     justify-content: center;
 }
-.row.cli_new {
+.row.cli_new,
+.row.combu_new {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 15px;
