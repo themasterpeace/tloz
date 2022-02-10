@@ -213,16 +213,22 @@ class Ingreso_guias(ClaseModelo):
     sub_total=models.FloatField(default=0)
     descuento=models.FloatField(default=0)
     total=models.FloatField(default=0)
-
+    
     #Seccion contra entrega 
     boleta_cte = models.CharField(max_length=6, verbose_name="Boleta Contra Entrega")
     ptpae = models.FloatField(default=0, verbose_name="Precio Total Del Envio")
     comision = models.FloatField(default=0, verbose_name="Comision")
     
-    
-        
     def __str__(self):
-        return self.no_guia
+        return '{}'.format(self.no_guia)
+
+    def save(self):
+        self.sub_total = float(float(int(self.cantidad)) * float(self.precio))
+        self.total = self.sub_total - float(self.descuento)
+        super(Ingreso_guias, self).save()
+    class Meta:
+        verbose_name_plural = "Ingresos Guias"
+        verbose_name = "Ingreso Guia"
 
 class Boletadeposito(ClaseModelo):
     no_manifiesto = models.ForeignKey(Ingreso_guias, verbose_name="Manifiestos", on_delete=models.PROTECT)

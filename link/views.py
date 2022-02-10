@@ -477,7 +477,7 @@ def clienteinactivar(request, id):
     return render(request, template_name, contexto)
 
 #----------------------------SECCION INGRESO DE GUIAS---------------------------#
-class ingresonew(LoginRequiredMixin, generic.CreateView):
+'''class ingresonew(LoginRequiredMixin, generic.CreateView):
     model = Ingreso_guias
     template_name = "link/ingreso_new.html"
     context_object_name = "obj"
@@ -487,13 +487,22 @@ class ingresonew(LoginRequiredMixin, generic.CreateView):
     
     def form_valid(self, form):
         form.instance.uc = self.request.user
-        return super().form_valid(form)
+        return super().form_valid(form)'''
 
-'''@login_required(login_url="/login/")
+@login_required(login_url="/login/")
 @permission_required("link.change_ingreso_guias", login_url="/login/")
 def ingresonew(request,id=None):
     template_name='link/ingreso_new.html'
-    clientes = Clientes.objects.filter(estado=True)
-    contexto = {'clientes':clientes}
     
-    return render(request, template_name,contexto)'''
+    encabezado = {
+        'fecha':datetime.today()
+    }
+    detalle = {}
+    clientes = Clientes.objects.filter(estado=True)
+    print(clientes)
+    contexto = {"enc":encabezado,"det":detalle,"clientes":clientes}
+
+    if request.method =="GET":
+        pass
+
+    return render(request, template_name,contexto)

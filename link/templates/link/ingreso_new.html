@@ -15,6 +15,7 @@
                     <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
                     <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
                     {% csrf_token %}
+                    <!-- SECCION DE DATOS DE ENVIO  -->
                     <div class="ing_guiGrid col3">
                         <p>
                             <label for="id_no_guia">No. Guia:</label>
@@ -105,10 +106,15 @@
                             <input type="text" name="rutades" maxlength="50" required="required" id="id_rutades">
                         </p>
                     </div>
+                    <!-- FIN SECCION DATOS DE ENVIO  -->
+                    <!-- INICIA FORMA DE PAGO  -->
                     <p>
                         <label for="id_nombre">Forma De Pago:</label>
                         <input type="text" name="nombre" maxlength="100" required="required" id="id_nombre">
                     </p>
+                    <!-- FINALIZA FORMA DE PAGO  -->
+
+                    <!-- INICIA SECCION DE AGREGAR PRODUCTO  -->
                     <div class="ing_guiGrid col6">
                         <p>
                             <label for="id_observa">Observaciones:</label>
@@ -141,46 +147,87 @@
                             <label for="switch-label" class="switch-button__label"></label>
                         </div>
                     </div>
-                    <div class="ing_guiGrid col3 anim">
+                    <div class="ing_guiGrid col3 anim hide">
                         <p>
                             <label for="id_observa">No. Boleta Contra Entrega:</label>
-                            <textarea name="boleta_cte" cols="40" rows="10" maxlength="500" required="required" id="id_boleta_cte"></textarea>
+                            <input type="text" name="boleta_cte" cols="40" rows="10" maxlength="500"  id="id_boleta_cte">
                         </p>
                         <p>
                             <label for="id_tipo_envio">Valor Total Envio:</label>
-                            <input type="text" name="ptpae" required="required" id="id_ptpae">
+                            <input type="text" name="ptpae" id="id_ptpae">
                         </p>
                         <p>
                             <label for="id_descripcion">Comision:</label>
-                            <input type="text" name="comision" maxlength="150" required="required" id="id_comision">
+                            <input type="text" name="comision" maxlength="150" id="id_comision">
                         </p>
                     </div>
-                    <div class="ing_guiGrid col1 alt1">
-                        <div>
-                            <label for="sub_total">Sub Total</label>
-                        </div>
-                        <div>
-                            <input type="number" title="No puedes modificar este campo" class="form-control" name="sub_total" id="id_sub_total" placeholder="Sub Total"
-                            value="0.00" readonly>
-                        </div>
-                    </div>
-                    <div class="ing_guiGrid col1 alt1">
-                        <div>
+                    <div class="ing_guiGrid col1  alt1">
+                        <p>
                             <label for="descuento">Descuento</label>
-                        </div>
-                        <div>
                             <input type="number" class="form-control" min="0" name="descuento" value="0.00" id="id_descuento">
-                        </div>
+                        </p>
+                        <p>
+                            <label for="sub_total">Sub Total</label>
+                            <input type="number" title="No puedes modificar este campo" class="form-control" name="sub_total" id="id_sub_total" placeholder="Sub Total" value="0.00" readonly>
+                        </p>
+                        <p>
+                            <label for="total">Total</label>
+                            <input type="number" title="No puedes modificar este campo" class="form-control" name="total" id="id_total" placeholder="Total" value="0.00" readonly>
+                        </p>
                     </div>
+                    <!-- FINALIZA SECCION AGREGAR PRODUCTO  -->
                     <div class="ing_guiGrid col1 alt1">
                         <div>
-                            <label for="total">Total</label>
+                            
                         </div>
                         <div>
-                            <input type="number" title="No puedes modificar este campo" class="form-control" name="total" id="id_total" placeholder="Total"
-                             value="0.00" readonly>
+                            
+                        </div>
+                        <div class="col-lg-1">
+                            <button type="submit" class="btn btn-danger" id="btnGuardar"> <i class="far fa-plus-square"></i> </button>
                         </div>
                     </div>
+                    <hr>
+                    <!-- INICIA SECCION DE DETALLE ENVIO  -->
+                    <div class="row p-1">
+                        <div class="col-lg-12">
+                            <table
+                                data-toggle="table"
+                                data-locale="es-NI"
+                                >
+                                <thead>
+                                    <th data-sortable="true" data-field="id">Id.</th>        
+                                    <th data-sortable="true" data-field="codigo">Código</th>
+                                    <th data-sortable="true" data-field="descripcion">Descripción</th>
+                                    <th data-field="cantidad">Cant</th>
+                                    <th data-field="subtotal">S. Total</th>
+                                    <th data-field="descuento">Des.</th>
+                                    <th data-field="total">Total</th>
+                                    <th class="all">Acciones</th>
+                                </thead>
+                                <tbody>
+                                    {% for item in det%}
+                                    <tr>
+                                        <td>{{ item.id }}</td>
+                                        <td>{{ item.producto }}</td>
+                                        <td>{{ item.producto.descripcion }}</td>
+                                        <td>{{ item.cantidad }}</td>
+                                        <td>{{ item.sub_total }}</td>
+                                        <td>{{ item.descuento }}</td>
+                                        <td>{{ item.total }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-warning btn-circle"
+                                            onclick="borrar_detalle({{ item.id }})">
+                                            <i class="fas fa-history"></i>
+                                        </button>
+                                    </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- FINALIZA SECCION DETALLE ENVIO  -->
                     <div class="ing_guiGrid col1 alt2">
                         <div>
                             <button type="submit" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
@@ -447,7 +494,7 @@
         })
     }); */
     // Funcion para comprobar el estado del checkbox
-    $('#switch-label').prop("checked", true);
+    $('#switch-label').prop("checked", false);
     $('#switch-label').click(function(){
         if($('#switch-label').is(":checked")){
             $('.ing_guiGrid.col3.anim.hide').removeClass('hide');
