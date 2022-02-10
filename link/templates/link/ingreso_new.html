@@ -11,10 +11,10 @@
                 <hr>
                
                 <form method="POST" name="ing_guias">
-                      {% csrf_token %}
+
                     <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
                     <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
-                  
+                    {% csrf_token %}
                     <div class="ing_guiGrid col3">
                         <p>
                             <label for="id_no_guia">No. Guia:</label>
@@ -183,7 +183,7 @@
                     </div>
                     <div class="ing_guiGrid col1 alt2">
                         <div>
-                            <button type="button" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
+                            <button type="submit" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
                             <button type="reset" class="btn btn-success"><i class="fa fa-undo"></i> Cancelar</button>
                         </div>
@@ -416,7 +416,7 @@
         }
     })
     // Función para abrir popup de confirmación No.Guia
-    $( ".boton-modal").click(function() {
+/*     $( ".boton-modal").click(function() {
         Swal.fire({
             title: '<strong>Confirmación del <u>No. Guía</u></strong>',
             icon: 'info',
@@ -445,7 +445,7 @@
                 })
             }
         })
-    });
+    }); */
     // Funcion para comprobar el estado del checkbox
     $('#switch-label').prop("checked", true);
     $('#switch-label').click(function(){

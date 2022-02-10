@@ -317,6 +317,9 @@ a.btn.btn-success.btn-sm {
     margin-top: 15px;
     left: 0%;
 }
+.card-body.registro_list .table_registros{
+    zoom: 80%;
+}
 .card.ing_gui{
     width: 60%;
 }

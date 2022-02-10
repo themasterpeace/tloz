@@ -37,12 +37,12 @@
                 <th>Nombre Comercial</th>
                 <th>Direccion</th>
                 <th>Telefono</th>
-                <th>Municipio</th>
+                <!-- <th>Municipio</th> -->
                 <th>Email</th>
                 <th>Nit</th>
-                <th>Vendedor</th>
-                <th>Forma de Pago</th>
-                <th>Minimo Facturacion</th>
+                <!-- <th>Vendedor</th> -->
+                <!-- <th>Forma de Pago</th> -->
+                <!-- <th>Minimo Facturacion</th> -->
                 <th>Observaciones</th>
                 <th>Estado</th>
                 <th>F. Creado</th>
@@ -58,12 +58,12 @@
                     <td>{{ item.nombrecom}}</td>
                     <td>{{ item.direccion}}</td>
                     <td>{{ item.telefono}}</td>
-                    <td>{{ item.municipio}}</td>
+                    <!-- <td>{{ item.municipio}}</td> -->
                     <td>{{ item.email}}</td>
                     <td>{{ item.nit}}</td>
-                    <td>{{ item.vendedor}}</td>
-                    <td>{{ item.fpago}}</td>
-                    <td>{{ item.minimofac}}</td>
+                    <!-- <td>{{ item.vendedor}}</td> -->
+                    <!-- <td>{{ item.fpago}}</td> -->
+                    <!-- <td>{{ item.minimofac}}</td> -->
                     <td>{{ item.observa}}</td>
                     <td onclick="inactivarcli({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}
                         {% if item.estado %}
