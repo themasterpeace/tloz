@@ -10,11 +10,14 @@
                 <h2>Ingreso de Guías</h2>
                 <hr>
                
-                <form method="POST" action="{% url 'link:ingreso_new' %}" name="ing_guias">
+                <form method="POST" name="ing_guias">
 
                     <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
                     <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
                     {% csrf_token %}
+
+                    
+
                     <!-- SECCION DE DATOS DE ENVIO  -->
                     <div class="ing_guiGrid col3">
                         <p>
@@ -189,43 +192,7 @@
                     </div>
                     <hr>
                     <!-- INICIA SECCION DE DETALLE ENVIO  -->
-                    <div class="row p-1">
-                        <div class="col-lg-12">
-                            <table
-                                data-toggle="table"
-                                data-locale="es-NI"
-                                >
-                                <thead>
-                                    <th data-sortable="true" data-field="id">Id.</th>        
-                                    <th data-sortable="true" data-field="codigo">Código</th>
-                                    <th data-sortable="true" data-field="descripcion">Descripción</th>
-                                    <th data-field="cantidad">Cant</th>
-                                    <th data-field="subtotal">S. Total</th>
-                                    <th data-field="descuento">Des.</th>
-                                    <th data-field="total">Total</th>
-                                    <th class="all">Acciones</th>
-                                </thead>
-                                <tbody>
-                                    {% for item in det%}
-                                    <tr>
-                                        <td>{{ item.id }}</td>
-                                        <td>{{ item.producto }}</td>
-                                        <td>{{ item.producto.descripcion }}</td>
-                                        <td>{{ item.cantidad }}</td>
-                                        <td>{{ item.sub_total }}</td>
-                                        <td>{{ item.descuento }}</td>
-                                        <td>{{ item.total }}</td>
-                                    <td>
-                                        <button type="button" class="btn btn-warning btn-circle"
-                                            onclick="borrar_detalle({{ item.id }})">
-                                            <i class="fas fa-history"></i>
-                                        </button>
-                                    </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                    
                     </div>
                     <!-- FINALIZA SECCION DETALLE ENVIO  -->
                     <div class="ing_guiGrid col1 alt2">
@@ -237,6 +204,7 @@
                     </div>
                     
                 </form>
+                {{ mensaje }}
    
             </div>
         </div>
