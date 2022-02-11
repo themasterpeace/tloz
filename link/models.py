@@ -184,7 +184,7 @@ class Ingreso_guias(ClaseModelo):
     fecha = models.DateTimeField()
     no_manifiesto = models.CharField(max_length=5)
     
-    codigo_cliente = models.ForeignKey(Clientes, on_delete=models.CASCADE, null=False)
+    codigo_cliente = models.CharField(max_length=8)
     remitente = models.CharField(max_length=200, verbose_name="Nombre Remitente")
     dirrem = models.CharField(max_length=300, verbose_name="Direccion Remitente")
     tel = models.CharField(max_length=9, verbose_name="No. Telefono")
