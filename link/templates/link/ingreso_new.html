@@ -9,6 +9,24 @@
             <div class="cardbody">
                 <h2>Ingreso de Guías</h2>
                 <hr>
+                <small class="text-danger">
+                        {% if form.errors %}
+                            {% for field in form %}
+                                {% if field.errors %}
+                                    {% for error in field.errors %}
+                                        {{ error|escape }}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                        
+                            {% if form.non_field_errors%}
+                                {% for error in form.non_field_errors %}
+                                    {{ error|escape }}
+                                {% endfor %}
+                            {% endif %}
+                        {% endif %}
+                    </small>
+                  </div>
                
                 <form method="POST" name="ing_guias">
 
@@ -182,26 +200,20 @@
                     <div class="ing_guiGrid col1 alt1">
                         <div>
                             
-                        </div>
-                        <div>
-                            
-                        </div>
-                        <div class="col-lg-1">
-                            <button type="submit" class="btn btn-danger" id="btnGuardar"> <i class="far fa-plus-square"></i> </button>
-                        </div>
-                    </div>
-                    <hr>
-                    <!-- INICIA SECCION DE DETALLE ENVIO  -->
-                    
-                    </div>
-                    <!-- FINALIZA SECCION DETALLE ENVIO  -->
-                    <div class="ing_guiGrid col1 alt2">
+                         <div class="ing_guiGrid col1 alt2">
                         <div>
                             <button type="submit" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
                             <button type="reset" class="btn btn-success"><i class="fa fa-undo"></i> Cancelar</button>
                         </div>
                     </div>
+                    </div>
+                    <hr>
+                    <!-- INICIA SECCION DE DETALLE ENVIO  -->
+                    
+                    </div>
+                    <!-- FINALIZA SECCION DETALLE ENVIO  -->
+                   
                     
                 </form>
                 {{ mensaje }}
@@ -488,5 +500,13 @@
     $(document).ready( function() {
         $('#id_fecha').val(new Date().toDateInputValue());
     });
+
+    {% if messages %}
+      {% for message in messages %}
+        console.log("{{ message.tags }}");
+        mensaje("{{ message }}","{{ message.tags }}");
+      {% endfor %}
+    {% endif %}
+
     </script>
 {% endblock %}
