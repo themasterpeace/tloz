@@ -150,7 +150,7 @@ class VendedorForm(forms.ModelForm):
                 'class':'form-control'
             })
 
-class ClienteWidget(s2forms.ModelSelect2MultipleWidget):
+
     search_fields = [
         "username__icontains",
         "email__icontains",
@@ -161,11 +161,22 @@ class IngresoForm(forms.ModelForm):
     
     class Meta:
         model = Ingreso_guias
-        fields = '__all__'
-        widgets = {
-            "cliente": ClienteWidget,
-            
-        }
+        fields = ['no_guia','fecha','no_manifiesto','codigo_cliente',
+                 'remitente','dirrem','tel','zona','muni','origen','ruta',
+                 'codigo_desti','destinatario','dirdes','teldes','zonades',
+                 'munides','destino','rutades','observa','nombre','cantidad',
+                 'tipo_envio','descripcion','peso','precio','sub_total',
+                 'descuento','total','boleta_cte','ptpae','comision'
+                 ]
+        
+    
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class':'form-control'
+            })
+        
 class BodegaForm(forms.ModelForm):
     
     class Meta:
