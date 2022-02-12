@@ -491,16 +491,17 @@ def clienteinactivar(request, id):
 
 @login_required(login_url="/login/")
 @permission_required("link.change_ingreso_guias", login_url="/login/")
-def ingresonew(request):
+def ingresonew(request,id=None):
     data = {
-        'form':IngresoForm()
+        'form':IngresoForm
     }
-
-    if request.method =='POST':
+    
+    if request.method == "POST":
         form = IngresoForm(data=request.POST, files=request.FILES)
         if form.is_valid():
             form.save()
-            data["mensaje"]= "Envio Registrado Satisfactoriamente"
+            data["mensaje"] = "Guia ingresada correctamente"
         else:
             data["form"] = form
-    return render(request,'link/ingreso_new.html', data)
+    
+    return render(request, 'link/ingreso_new.html', data)

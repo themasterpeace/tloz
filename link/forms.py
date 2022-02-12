@@ -151,37 +151,24 @@ class VendedorForm(forms.ModelForm):
             })
 
 
-    search_fields = [
-        "username__icontains",
-        "email__icontains",
-    ]
-
-
 class IngresoForm(forms.ModelForm):
     
     class Meta:
         model = Ingreso_guias
-        fields = ['no_guia','fecha','no_manifiesto','codigo_cliente',
-                 'remitente','dirrem','tel','zona','muni','origen','ruta',
-                 'codigo_desti','destinatario','dirdes','teldes','zonades',
-                 'munides','destino','rutades','observa','nombre','cantidad',
-                 'tipo_envio','descripcion','peso','precio','sub_total',
-                 'descuento','total','boleta_cte','ptpae','comision'
-                 ]
-        
-    
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        for field in iter(self.fields):
-            self.fields[field].widget.attrs.update({
-                'class':'form-control'
-            })
+        fields = '__all__'
         
 class BodegaForm(forms.ModelForm):
     
     class Meta:
         model = Ingreso_bodega
         fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in iter(self.fields):
+            self.fields[field].widget.attrs.update({
+                'class': 'form-control'
+            })
 
 class BoletaForm(forms.ModelForm):
     

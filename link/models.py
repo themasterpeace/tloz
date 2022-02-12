@@ -184,7 +184,7 @@ class Ingreso_guias(ClaseModelo):
     fecha = models.DateTimeField()
     no_manifiesto = models.CharField(max_length=5)
     
-    codigo_cliente = models.ForeignKey(Clientes, on_delete=models.CASCADE, null=False)
+    codigo_cliente = models.CharField(max_length=8)
     remitente = models.CharField(max_length=200, verbose_name="Nombre Remitente")
     dirrem = models.CharField(max_length=300, verbose_name="Direccion Remitente")
     tel = models.CharField(max_length=9, verbose_name="No. Telefono")
@@ -215,9 +215,9 @@ class Ingreso_guias(ClaseModelo):
     total=models.FloatField(default=0)
     
     #Seccion contra entrega 
-    boleta_cte = models.CharField(max_length=6, verbose_name="Boleta Contra Entrega", null=True, blank=True)
-    ptpae = models.FloatField(default=0, verbose_name="Precio Total Del Envio", null=True, blank=True)
-    comision = models.FloatField(default=0, verbose_name="Comision", null=True, blank=True)
+    boleta_cte = models.CharField(max_length=6, verbose_name="Boleta Contra Entrega", blank=True, null=True)
+    ptpae = models.FloatField(default=0, verbose_name="Precio Total Del Envio", blank=True, null=True)
+    comision = models.FloatField(default=0, verbose_name="Comision", blank=True, null=True)
     
     def __str__(self):
         return '{}'.format(self.no_guia)
