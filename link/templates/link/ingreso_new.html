@@ -55,7 +55,13 @@
                         <p>
                             <label for="id_codigo_cliente">Codigo cliente:</label>
                             <input type="text" name="codigo_cliente" required="required" id="id_codigo_cliente">
+                            
+                                <!-- <button type="button" class="btn btn-info" id="btnBuscar">
+                                    <i class="fab fa-searchengin"></i>
+                                </button> -->
+                           
                         </p>
+                        
                         <p>
                             <label for="id_remitente">Nombre Remitente:</label>
                             <input type="text" name="remitente" maxlength="200" required="required" id="id_remitente">
@@ -500,9 +506,25 @@
         local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
         return local.toJSON().slice(0,10);
     });
+    
     $(document).ready( function() {
         $('#id_fecha').val(new Date().toDateInputValue());
     });
+    // Funcion Abrir Modal buscar_remi
+    $(document).keydown(function(e){
+        if(e.keyCode===113){
+            abrir_modal("{% url 'link:buscar_cli' %}")
+        }
+    })
+    // Funciion abrir modal buscar_desti
+    $(document).keydown(function(e){
+        if(e.keyCode===115){
+            alert("SAdkjsaop")
+        }
+    })
+    
+
+    
 
     {% if messages %}
       {% for message in messages %}

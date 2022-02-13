@@ -198,7 +198,7 @@ body:before {
 }
 .navigation .list.cogs.des1 ul,
 .navigation .list.file.des1 ul,
-.navigation .list.file.des1 ul,
+.navigation .list.home.des1 ul,
 .navigation .list.combu.des1 ul{
   position: absolute;
   padding: 0;
@@ -212,7 +212,7 @@ body:before {
 }
 .navigation .list.cogs.des1 ul.despliegue li,
 .navigation .list.file.des1 ul.despliegue li,
-.navigation .list.file.des1 ul.despliegue li,
+.navigation .list.home.des1 ul.despliegue li,
 .navigation .list.combu.des1 ul.despliegue li{
   width: 100%;
   display: flex;
@@ -225,7 +225,7 @@ body:before {
 }
 .navigation .list.cogs.des1 ul.despliegue li a,
 .navigation .list.file.des1 ul.despliegue li a,
-.navigation .list.file.des1 ul.despliegue li a,
+.navigation .list.home.des1 ul.despliegue li a,
 .navigation .list.combu.des1 ul.despliegue li a{
     flex-direction: row;
     width: auto;

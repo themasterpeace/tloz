@@ -45,6 +45,7 @@ urlpatterns = [
     path('tarifario/estado/<int:id>', tarifarioinactivar, name="tarifario_inactivar"),
 
     path('ingreso/new', ingresonew, name="ingresonew"),
+    path('buscar_cli', buscarcli.as_view(), name="buscar_cli"),
     
     path('registro/', registro, name='registro'),
     

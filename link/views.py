@@ -505,3 +505,6 @@ def ingresonew(request,id=None):
             data["form"] = form
     
     return render(request, 'link/ingreso_new.html', data)
+
+class buscarcli(clienteview):
+    template_name='link/buscar_cli.html'
