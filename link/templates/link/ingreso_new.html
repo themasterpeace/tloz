@@ -208,7 +208,7 @@
                             
                          <div class="ing_guiGrid col1 alt2">
                         <div>
-                            <button type="submit" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
+                            <button type="button" class="btn btn-danger boton-modal"><i class="fas fa-save"></i> Guardar</button>
                             <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
                             <button type="reset" class="btn btn-success"><i class="fa fa-undo"></i> Cancelar</button>
                         </div>
@@ -452,7 +452,7 @@
         }
     })
     // Función para abrir popup de confirmación No.Guia
-/*     $( ".boton-modal").click(function() {
+    $( ".boton-modal").click(function() {
         Swal.fire({
             title: '<strong>Confirmación del <u>No. Guía</u></strong>',
             icon: 'info',
@@ -481,7 +481,7 @@
                 })
             }
         })
-    }); */
+    });
     // Funcion para comprobar el estado del checkbox
     $('#switch-label').prop("checked", false);
     $('#switch-label').click(function(){
@@ -522,10 +522,12 @@
             alert("SAdkjsaop")
         }
     })
-    
-
-    
-
+    // 
+    $('#id_no_manifiesto').change(function(){
+        var idmani = $('#id_no_manifiesto');
+        sessionStorage.setItem('nomanifiesto', idmani.val());
+    })
+    $('#id_no_manifiesto').val(sessionStorage.getItem('nomanifiesto'));
     {% if messages %}
       {% for message in messages %}
         console.log("{{ message.tags }}");
