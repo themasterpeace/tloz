@@ -123,7 +123,7 @@
             <div class="elements">
                 <div class="navigation">
                     <ul>
-<<<<<<< Updated upstream
+
                       <li class="list home">
                         <a href="#">
                           <span class="icon"><i class="fas fa-home"></i></span>
@@ -144,7 +144,7 @@
                             <li><a href="#">Emilinación de Guías</a></li>
                             <li><a href="{% url 'link:consulta' %}">Consulta de Guías</a></li>
                           </ul>
-=======
+
                       <li class="list active">
                         <a href="#">
                           <span class="icon"><i class="fas fa-home"></i></span>
@@ -153,7 +153,7 @@
                       <li class="list">
                         <a href="#">
                           <span class="icon"><i class="fas fa-user-alt-slash"></i></span>
->>>>>>> Stashed changes
+
                         </a>
                       </li>
                       <li class="list">
@@ -175,7 +175,7 @@
                         <a href="#">
                           <span class="icon"><i class="fas fa-cogs"></i></span>
                           <ul class="despliegue">
-<<<<<<< Updated upstream
+
                             <li><a href="{% url 'link:departamento_list' %}"><i class="fas fa-plus"></i>&nbsp; Departamento</a></li>
                             <li><a href="{% url 'link:municipio_list' %}"><i class="fas fa-plus"></i>&nbsp; Municipio</a></li>
                             <li><a href="{% url 'link:piloto_list' %}"> <i class="fas fa-plus"></i>&nbsp; Pilotos</a></li>
@@ -195,20 +195,13 @@
                               <a href="{% url 'zelda:registro_list' %}" id="left" onmouseover="seis()"> <i class="fas fa-gas-pump"></i> Listado de Facturas </a>
                             </li>
                           </ul>
-=======
-                            <li>Lorem, ipsum. sadsadsa</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
-                            <li>lorem</li>
                           </ul>
                         </a>
                       </li>
                       <li class="list">
                         <a href="#">
                           <span class="icon"><i class="fas fa-box"></i></span>
->>>>>>> Stashed changes
+
                         </a>
                       </li>
                    <div class="indicator"></div>
@@ -217,11 +210,11 @@
             </div>
             <div class="user">
               {% if user.is_authenticated %}
-<<<<<<< Updated upstream
+
               <span id="userName">{{ user.username }}</span>&nbsp;&nbsp;<a title="Salir de la sesión" href="{% url 'bases:logout' %}"><i class="fas fa-sign-out-alt"></i></a>
-=======
+
               <span id="userName"><a href="#">{{ user.username }}</a></span>&nbsp;&nbsp;<a href="{% url 'bases:logout' %}"><i class="fas fa-sign-out-alt"></i></a>
->>>>>>> Stashed changes
+
 
               {% else %}
               <span id="userName"><a href="{% url 'bases:login' %}">Iniciar Sesión</a></span>&nbsp;&nbsp;<i class="fas fa-user-alt"></i>
@@ -265,18 +258,17 @@
             });
         });
         // Funcion para el .list que llevará un despliegue
-<<<<<<< Updated upstream
+
         $("li.list.home").on("click",function() {
           // Se agrega la clase .des1 cuando se clickea en el list con despliegue
           document.querySelector("li.list.home").classList.toggle("des1");
         });
-=======
->>>>>>> Stashed changes
+
         $("li.list.cogs").on("click",function() {
           // Se agrega la clase .des1 cuando se clickea en el list con despliegue
           document.querySelector("li.list.cogs").classList.toggle("des1");
         });
-<<<<<<< Updated upstream
+
         $("li.list.file").on("click",function() {
           // Se agrega la clase .des1 cuando se clickea en el list con despliegue
           document.querySelector("li.list.file").classList.toggle("des1");
@@ -307,7 +299,7 @@
         });
         // Se elimina la clase .des1 al ocultarse el navbar
 /*         $("#navbar").on("mouseleave",function(e) {
-=======
+
         // Se elimina la clase .des1 cuando se clickea fuera de él
         $(document).on("click",function(e) {
           const container = $("li.list.cogs");
@@ -318,17 +310,17 @@
         });
         // Se elimina la clase .des1 al ocultarse el navbar
         $(window).on("mouseenter",function(e) {
->>>>>>> Stashed changes
+
           const container = $("li.list.cogs");
 
           if (!container.is(e.target) && container.has(e.target).length === 0) { 
             document.querySelector("li.list.cogs").classList.remove("des1");
           }
-<<<<<<< Updated upstream
+
         }); */
-=======
+
         });
->>>>>>> Stashed changes
+
         </script>
     </div>
     

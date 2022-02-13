@@ -1,15 +1,15 @@
 :root {
-<<<<<<< Updated upstream
+
     --bar-color: #003300;
     --bar-after: #071A2C;
     --color-green: #77dd77;
     --color-grey: #ccc;
     --color-button: #fdffff;
-=======
+
     --background: #5e5e5e;
     --bar-color: #003300;
     --bar-after: #071A2C;
->>>>>>> Stashed changes
+
     --clr: #071A2C;
 }
 *{
@@ -34,12 +34,12 @@ body:before {
 }
 #navbar {
     background: var(--bar-color);
-<<<<<<< Updated upstream
+
     position: fixed;
     z-index: 10;
-=======
+
     position: absolute;
->>>>>>> Stashed changes
+
     width: 5rem;
     padding-top: 0.5rem;
     padding-left: 0.2rem;
@@ -71,17 +71,17 @@ body:before {
   opacity: 0;
   visibility: hidden;
   transition: .8s;
-<<<<<<< Updated upstream
+
 }
 #navbar .elements{
     text-align: left;
 }
-=======
+
 }
 #navbar .elements{
     text-align: left;
 }
->>>>>>> Stashed changes
+
 #navbar .user{
     color: #fff;
     padding-right: 0.6rem;
@@ -197,41 +197,41 @@ body:before {
 .navigation ul li.list:nth-child(7).active ~ .indicator{
   transform: translateX(calc(70px * 6));
 }
-<<<<<<< Updated upstream
+
 .navigation .list.cogs ul.despliegue,
 .navigation .list.file ul.despliegue,
 .navigation .list.combu ul.despliegue,
 .navigation .list.home ul.despliegue{
-=======
+
 .navigation .list.cogs ul.despliegue{
->>>>>>> Stashed changes
+
   visibility: hidden;
   opacity: 0;
   display: none;
 }
-<<<<<<< Updated upstream
+
 .navigation .list.cogs ul.despliegue li,
 .navigation .list.file ul.despliegue li,
 .navigation .list.combu ul.despliegue li,
 .navigation .list.home ul.despliegue li{
-=======
+
 .navigation .list.cogs ul.despliegue li{
->>>>>>> Stashed changes
+
   visibility: hidden;
   opacity: 0;
   display: none;
 }
-<<<<<<< Updated upstream
+
 .navigation .list.cogs.des1 ul,
 .navigation .list.file.des1 ul,
 .navigation .list.home.des1 ul,
 .navigation .list.combu.des1 ul{
   position: absolute;
   padding: 0;
-=======
+
 .navigation .list.cogs.des1 ul{
   position: absolute;
->>>>>>> Stashed changes
+
   display: flex;
   flex-direction: column;
   width: max-content;
@@ -240,14 +240,14 @@ body:before {
   visibility: visible;
   opacity: 1;
 }
-<<<<<<< Updated upstream
+
 .navigation .list.cogs.des1 ul.despliegue li,
 .navigation .list.file.des1 ul.despliegue li,
 .navigation .list.home.des1 ul.despliegue li,
 .navigation .list.combu.des1 ul.despliegue li{
-=======
+
 .navigation .list.cogs.des1 ul.despliegue li{
->>>>>>> Stashed changes
+
   width: 100%;
   display: flex;
   padding: 10px;
@@ -257,7 +257,6 @@ body:before {
   visibility: visible;
   opacity: 1;
 }
-<<<<<<< Updated upstream
 .navigation .list.cogs.des1 ul.despliegue li a,
 .navigation .list.file.des1 ul.despliegue li a,
 .navigation .list.home.des1 ul.despliegue li a,
@@ -270,10 +269,10 @@ body:before {
 }
 .navigation ul.despliegue li a:hover{
   color: #FFF;
-=======
+
 .navigation ul.despliegue li:hover{
   background: #cc0000;
->>>>>>> Stashed changes
+
 }
 
 h2{
