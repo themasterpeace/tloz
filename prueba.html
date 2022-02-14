@@ -1,0 +1,61 @@
+<html>
+</head>
+<script type="text/javascript">
+var patron = new Array(4,2,2)
+function Validar(elem,separador,pat,numerico) {
+    if(elem.valoranterior != elem.value) { 
+valor = elem.value;
+largo = valor.length;
+valor = valor.split(separador);
+valor2 = "";
+ 
+    for(i=0; i<valor.length; i++) {
+        valor2 += valor[i]; 
+    }
+ 
+    if(numerico){
+        for(j=0; j<valor2.length; j++){
+            if(isNaN(valor2.charAt(j))){
+                letra = new RegExp(valor2.charAt(j),"g");
+                valor2 = valor2.replace(letra,"");
+            }
+        }
+    }
+ 
+valor = "";
+valor3 = new Array();
+    for(n=0; n<pat.length; n++) {
+        valor3[n] = valor2.substring(0,pat[n]);
+        valor2 = valor2.substr(pat[n]);
+    }
+ 
+    for(q=0; q<valor3.length; q++) {
+        if(q == 0) {
+            valor = valor3[q];
+        }else{
+            if(valor3[q] != "") {
+                if (valor3[1] > 12 ) {
+                    valor = valor3[0];
+                } else if (valor3[2] > 31) {
+                    valor = valor3[0] + separador + valor3[1];
+                }else{
+                    valor += separador + valor3[q];
+                }
+ 
+            }
+        }
+    }
+ 
+    elem.value = valor;
+    elem.valoranterior = valor;
+    }
+}
+</script>
+</head>
+<body>
+<form>
+<h1>Valida una fecha yyyy-mm-dd</h1>
+<input type="text" name="fecha" id= "fecha" onkeyup="Validar(this,'-',patron,true)" maxlength="10" />
+</form>
+</body>
+</html>
