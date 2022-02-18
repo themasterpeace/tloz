@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'bases',
     'link',
     'zelda',
-    
+    'rcp',
     'crispy_forms',
     'django_userforeignkey',
     'django.contrib.humanize',

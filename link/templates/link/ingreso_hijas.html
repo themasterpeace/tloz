@@ -23,7 +23,7 @@
                             <div class="dropdown-divider"></div>
                             <div class="row">
                                 <div class="col">
-                                    <button type="submit" class="btn btn-danger"><span class="fa fa-save"></span> Guardar</button>
+                                    <button type="button" class="btn btn-danger val"><span class="fa fa-save"></span> Guardar</button>
                                     <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
                                     <button type="button" class="btn btn-success" onclick="return cerrar_modal()">
                                      Salir   
@@ -36,5 +36,26 @@
                 </div>
             </div>
         </form>
+        <script>
+            // Función que verifica si hay más paquetes
+            var masPro = document.querySelector(".sel");
+            if(masPro){
+                var cantidadEnvios = document.querySelectorAll(".sel")
+                var idcant = document.querySelector("#id_cantidad");
+                if ($('#id_cantidad').val() > 1) {
+                    
+                    // var val = document.querySelector(".val");
+                    // val.classList.add("inactivo")
+                    // val.disabled = true;
+                }
+            }else{
+                console.log("NO EXISTE:(!")
+            }
+            // Función coloca mismo número que No. Guía a Guía Madre
+            const codNog = $('input#id_no_guia');
+            const codGuiaM = $('input#id_guia_madre');
+
+            codGuiaM.val(codNog.val())
+        </script>
     </div>
 </div>

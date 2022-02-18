@@ -929,3 +929,15 @@ span.select2.select2-container.select2-container--default{
         margin: auto;
     }
 }
+.swal2-popup input[type="text"]{
+    width: 83%;
+    height: 40px;
+}
+input#conf_noguia::placeholder{
+    color: #FFF;
+}
+button.val.inactivo{
+    cursor: not-allowed;
+    filter: brightness(0.5);
+    opacity: 1;    
+}

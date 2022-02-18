@@ -1,44 +1,34 @@
 {% extends 'base/base.html' %}
 
 {% block contenido %}
-    <br><br>
-    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <div class="row ing_gui" >
 
-        <div class="card ing_gui">
-            <div class="cardbody" >
-                <h2>Ingreso de Guías</h2>
-                <hr>
-                
-                  </div>
-               
-                <form method="POST" name="ing_guias">
+<script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<div class="row ing_gui" >
 
-                    <input type="hidden" name="csrfmiddlewaretoken" value="kJOYf2K2kHA6auAnVWZtWByeghuk2Exwpk7p7N90TazvnC1n3g4CXlVnJe27NmmH">
-                    <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
+    <div class="card ing_gui">
+        <div class="cardbody" >
+            <h1 style="text-align: center;">Ingreso Recepcion</h1>
+            <hr>
+        </div>
+
+                <div action="" method="post">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="iq4fKHv9GuyLdyyrRD5lRxIfyjyusOk7OewZqHlwRDztoaANJckMmlI6dHpC9KRf">
                     {% csrf_token %}
 
-                    
-
-                    <!-- SECCION DE DATOS DE ENVIO  -->
-                    <div class="ing_guiGrid col3">
+                    <div class="ing_guiGrid col3" >
                         <p>
-                            <label for="id_no_guia">No. Guia:</label>
-                            <input autofocus type="text" name="no_guia" minlength="6" maxlength="6" required="required" id="id_no_guia">
-                        </p>
+                            <label for="id_no_guia">Numero Guia:</label>
+                            <input autofocus type="text" name="no_guia" minlength="6" maxlength="6" class="form-control" required id="id_no_guia">
+                        </p>                    
                         <p>
                             <label for="id_fecha">Fecha:</label>
-                            <input type="date" name="fecha" required="required" id="id_fecha">
-                        </p>
-                        <p>
-                            <label for="id_no_manifiesto">No manifiesto:</label>
-                            <input type="text" name="no_manifiesto" maxlength="5" required="required" id="id_no_manifiesto">
+                            <input type="text" name="fecha" class="form-control" required id="id_fecha">                        
                         </p>
                     </div>
                     <div class="ing_guiGrid col2">
                         <p>
                             <label for="id_codigo_cliente">Codigo Rem:</label>
-                            <input type="text" name="codigo_cliente" required="required" id="id_codigo_cliente">
+                            <input type="text" maxlength="8" name="codigo_cliente" required="required" id="id_codigo_cliente">
                             
                                 <!-- <button type="button" class="btn btn-info" id="btnBuscar">
                                     <i class="fab fa-searchengin"></i>
@@ -216,16 +206,13 @@
                     <!-- FINALIZA SECCION DETALLE ENVIO  -->
                    
                     
-                </form>
-                
-   
-            </div>
-        </div>
     </div>
+</div>
+
 {% endblock %}
 
 {% block js %}
-    <script>
+<script>
         $("#addRow").click(function () {
         var html = '';
         html += '<div class="ing_guiGrid col6 sel">';
@@ -629,6 +616,5 @@
     $(".reset").click(function() {
         $('input').not("input[name=no_manifiesto], input[name=fecha]").val("")
     })
-
-    </script>
+</script>
 {% endblock %}
