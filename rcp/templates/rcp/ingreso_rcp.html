@@ -425,7 +425,7 @@
         }
 
         function buscarProducto(){
-        var codigo = $("#{{id_tipo_envio}}").val();
+        var codigo = $("#id_tipo_envio").val();
         if(codigo===""){
             return false;
         }
@@ -437,26 +437,26 @@
             success: function(r){
                 if(!r.estado){
                     mensaje("Producto No Tiene Existencia o está inactivo",'orange')
-                    $("#{{id_tipo_envio}}").val("");
+                    $("#id_tipo_envio").val("");
                     $("#id_descripcion").val("");
                     $("#id_precio").val("0.00");
-                    $("#{{id_tipo_envio}}").focus();
+                    $("#id_tipo_envio").focus();
                     return false;
                 }
 
-                $("#{{id_tipo_envio}}").val(r.id);
+                $("#id_tipo_envio").val(r.id);
                 $("#id_descripcion").val(r.descripcion);
                 $("#id_precio").val(r.precio);
-                $("#{{id_tipo_envio}}").focus();
+                $("#id_tipo_envio").focus();
 
             },
             error: function(a,b,c){
                 if(a.status==404){
                     mensaje("Producto -" + codigo + "- No Encontrado o No Existe",'red');
-                    $("#{{id_tipo_envio}}").val("");
+                    $("#id_tipo_envio").val("");
                     $("#id_descripcion").val("");
                     $("#id_precio").val("0.00");
-                    $("#{{id_tipo_envio}}").focus();
+                    $("#id_tipo_envio").focus();
                 }
 
             }
@@ -473,7 +473,7 @@
     $("#id_codigo").change(function(e){
             buscarfpago();
     });
-    $("#{{id_tipo_envio}}").change(function(){
+    $("#id_tipo_envio").change(function(){
             buscarProducto();
     });
     $("#id_precio").change(function(e){
