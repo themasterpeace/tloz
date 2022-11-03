@@ -1,0 +1,21 @@
+         * Chart and map zoom accessibility language options.
+         *
+         * @since 8.0.0
+         */
+        zoom: {
+            mapZoomIn: 'Zoom chart',
+            mapZoomOut: 'Zoom out chart',
+            resetZoomButton: 'Reset zoom'
+        },
+        /**
+         * Range selector language options for accessibility.
+         *
+         * @since 8.0.0
+         */
+        rangeSelector: {
+            minInputLabel: 'Select start date.',
+            maxInputLabel: 'Select end date.',
+            buttonText: 'Select range {buttonText}'
+        },
+        /**
+         * Accessibility language options for the d

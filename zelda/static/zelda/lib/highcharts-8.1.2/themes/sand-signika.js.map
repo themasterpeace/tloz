@@ -1,0 +1,68 @@
+     shapeArgs.middle.fraction = 1 -
+                        (h ? shapeArgs.middle.fraction : 0);
+                }
+                tempWidth = shapeArgs.width;
+                shapeArgs.width = shapeArgs.bottom.width;
+                shapeArgs.bottom.width = tempWidth;
+            }
+            point.shapeArgs = extend(point.shapeArgs, shapeArgs);
+            // for tooltips and data labels context
+            point.percentage = fraction * 100;
+            point.plotX = centerX;
+            if (reversed) {
+                point.plotY = centerY + height / 2 -
+                    (cumulative + fraction / 2) * height;
+            }
+            else {
+                point.plotY = (y1 + (y5 || y3)) / 2;
+            }
+            // Placement of tooltips and data labels in 3D
+            tooltipPos = H.perspective([{
+                    x: centerX,
+                    y: point.plotY,
+                    z: reversed ?
+                        -(width - getWidthAt(point.plotY)) / 2 :
+                        -(getWidthAt(point.plotY)) / 2
+                }], chart, true)[0];
+            point.tooltipPos = [tooltipPos.x, tooltipPos.y];
+            // base to be used when alignment options are known
+            point.dlBoxRaw = {
+                x: centerX,
+                width: getWidthAt(point.plotY),
+                y: y1,
+                bottom: shapeArgs.height,
+                fullWidth: width
+            };
+            if (!ignoreHiddenPoint || point.visible !== false) {
+                cumulative += fraction;
+            }
+        });
+    },
+    alignDataLabel: function (point, dataLabel, options) {
+        var series = this, dlBoxRaw = point.dlBoxRaw, inverted = series.chart.inverted, below = point.plotY > pick(series.translatedThreshold, series.yAxis.len), inside = pick(options.inside, !!series.options.stacking), dlBox = {
+            x: dlBoxRaw.x,
+            y: dlBoxRaw.y,
+            height: 0
+        };
+        options.align = pick(options.align, !inverted || inside ? 'center' : below ? 'right' : 'left');
+        options.verticalAlign = pick(options.verticalAlign, inverted || inside ? 'middle' : below ? 'top' : 'bottom');
+        if (options.verticalAlign !== 'top') {
+            dlBox.y += dlBoxRaw.bottom /
+                (options.verticalAlign === 'bottom' ? 1 : 2);
+        }
+        dlBox.width = series.getWidthAt(dlBox.y);
+        if (series.options.reversed) {
+            dlBox.width = dlBoxRaw.fullWidth - dlBox.width;
+        }
+        if (inside) {
+            dlBox.x -= dlBox.width / 2;
+        }
+        else {
+            // swap for inside
+            if (options.align === 'left') {
+                options.align = 'right';
+                dlBox.x -= dlBox.width * 1.5;
+            }
+            else if (options.align === 'right') {
+                options.align = 'left';
+                dlBox.x

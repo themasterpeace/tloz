@@ -1,0 +1,1271 @@
+.
+     *
+     * @extends   plotOptions.series.tooltip
+     * @excluding changeDecimals, valueDecimals, valuePrefix, valueSuffix
+     * @product   highstock
+     */
+    tooltip: {
+        pointFormat: '{point.text}<br/>'
+    },
+    threshold: null,
+    /**
+     * The text to display on each flag. This can be defined on series
+     * level, or individually for each point. Defaults to `"A"`.
+     *
+     * @type      {string}
+     * @default   A
+     * @product   highstock
+     * @apioption plotOptions.flags.title
+     */
+    /**
+     * The y position of the top left corner of the flag relative to either
+     * the series (if onSeries is defined), or the x axis. Defaults to
+     * `-30`.
+     *
+     * @product highstock
+     */
+    y: -30,
+    /**
+     * Whether to use HTML to render the flag texts. Using HTML allows for
+     * advanced formatting, images and reliable bi-directional text
+     * rendering. Note that exported images won't respect the HTML, and that
+     * HTML won't respect Z-index settings.
+     *
+     * @type      {boolean}
+     * @default   false
+     * @since     1.3
+     * @product   highstock
+     * @apioption plotOptions.flags.useHTML
+     */
+    /**
+     * Fixed width of the flag's shape. By default, width is autocalculated
+     * according to the flag's title.
+     *
+     * @sample {highstock} stock/demo/flags-shapes/
+     *         Flags with fixed width
+     *
+     * @type      {number}
+     * @product   highstock
+     * @apioption plotOptions.flags.width
+     */
+    /**
+     * Fixed height of the flag's shape. By default, height is
+     * autocalculated according to the flag's title.
+     *
+     * @type      {number}
+     * @product   highstock
+     * @apioption plotOptions.flags.height
+     */
+    /**
+     * The fill color for the flags.
+     *
+     * @type    {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
+     * @product highstock
+     */
+    fillColor: '#ffffff',
+    /**
+     * The color of the line/border of the flag.
+     *
+     * In styled mode, the stroke is set in the
+     * `.highcharts-flag-series.highcharts-point` rule.
+     *
+     * @type      {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
+     * @default   #000000
+     * @product   highstock
+     * @apioption plotOptions.flags.lineColor
+     */
+    /**
+     * The pixel width of the flag's line/border.
+     *
+     * @product highstock
+     */
+    lineWidth: 1,
+    states: {
+        /**
+         * @extends plotOptions.column.states.hover
+         * @product highstock
+         */
+        hover: {
+            /**
+             * The color of the line/border of the flag.
+             *
+             * @type    {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
+             * @product highstock
+             */
+            lineColor: '#000000',
+            /**
+             * The fill or background color of the flag.
+             *
+             * @type    {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
+             * @product highstock
+             */
+            fillColor: '#ccd6eb'
+        }
+    },
+    /**
+     * The text styles of the flag.
+     *
+     * In styled mode, the styles are set in the
+     * `.highcharts-flag-series .highcharts-point` rule.
+     *
+     * @type    {Highcharts.CSSObject}
+     * @default {"fontSize": "11px", "fontWeight": "bold"}
+     * @product highstock
+     */
+    style: {
+        /** @ignore-option */
+        fontSize: '11px',
+        /** @ignore-option */
+        fontWeight: 'bold'
+    }
+}, 
+/**
+ * @lends seriesTypes.flags.prototype
+ */
+{
+    sorted: false,
+    noSharedTooltip: true,
+    allowDG: false,
+    takeOrdinalPosition: false,
+    trackerGroups: ['markerGroup'],
+    forceCrop: true,
+    /* eslint-disable no-invalid-this, valid-jsdoc */
+    /**
+     * Inherit the initialization from base Series.
+     *
+     * @private
+     * @borrows Highcharts.Series#init as Highcharts.seriesTypes.flags#init
+     */
+    init: Series.prototype.init,
+    /**
+     * Get presentational attributes
+     *
+     * @private
+     * @function Highcharts.seriesTypes.flags#pointAttribs
+     *
+     * @param {Highcharts.Point} point
+     *
+     * @param {string} [state]
+     *
+     * @return {Highcharts.SVGAttributes}
+     */
+    pointAttribs: function (point, state) {
+        var options = this.options, color = (point && point.color) || this.color, lineColor = options.lineColor, lineWidth = (point && point.lineWidth), fill = (point && point.fillColor) || options.fillColor;
+        if (state) {
+            fill = options.states[state].fillColor;
+            lineColor = options.states[state].lineColor;
+            lineWidth = options.states[state].lineWidth;
+        }
+        return {
+            fill: fill || color,
+            stroke: lineColor || color,
+            'stroke-width': lineWidth || options.lineWidth || 0
+        };
+    },
+    translate: onSeriesMixin.translate,
+    getPlotBox: onSeriesMixin.getPlotBox,
+    /**
+     * Draw the markers.
+     *
+     * @private
+     * @function Highcharts.seriesTypes.flags#drawPoints
+     * @return {void}
+     */
+    drawPoints: function () {
+        var series = this, points = series.points, chart = series.chart, renderer = chart.renderer, plotX, plotY, inverted = chart.inverted, options = series.options, optionsY = options.y, shape, i, point, graphic, stackIndex, anchorY, attribs, outsideRight, yAxis = series.yAxis, boxesMap = {}, boxes = [], centered;
+        i = points.length;
+        while (i--) {
+            point = points[i];
+            outsideRight =
+                (inverted ? point.plotY : point.plotX) >
+                    series.xAxis.len;
+            plotX = point.plotX;
+            stackIndex = point.stackIndex;
+            shape = point.options.shape || options.shape;
+            plotY = point.plotY;
+            if (typeof plotY !== 'undefined') {
+                plotY = point.plotY + optionsY -
+                    (typeof stackIndex !== 'undefined' &&
+                        (stackIndex * options.stackDistance));
+            }
+            // skip connectors for higher level stacked points
+            point.anchorX = stackIndex ? void 0 : point.plotX;
+            anchorY = stackIndex ? void 0 : point.plotY;
+            centered = shape !== 'flag';
+            graphic = point.graphic;
+            // Only draw the point if y is defined and the flag is within
+            // the visible area
+            if (typeof plotY !== 'undefined' &&
+                plotX >= 0 &&
+                !outsideRight) {
+                // Create the flag
+                if (!graphic) {
+                    graphic = point.graphic = renderer.label('', null, null, shape, null, null, options.useHTML);
+                    if (!chart.styledMode) {
+                        graphic
+                            .attr(series.pointAttribs(point))
+                            .css(merge(options.style, point.style));
+                    }
+                    graphic.attr({
+                        align: centered ? 'center' : 'left',
+                        width: options.width,
+                        height: options.height,
+                        'text-align': options.textAlign
+                    })
+                        .addClass('highcharts-point')
+                        .add(series.markerGroup);
+                    // Add reference to the point for tracker (#6303)
+                    if (point.graphic.div) {
+                        point.graphic.div.point = point;
+                    }
+                    if (!chart.styledMode) {
+                        graphic.shadow(options.shadow);
+                    }
+                    graphic.isNew = true;
+                }
+                if (plotX > 0) { // #3119
+                    plotX -= graphic.strokeWidth() % 2; // #4285
+                }
+                // Plant the flag
+                attribs = {
+                    y: plotY,
+                    anchorY: anchorY
+                };
+                if (options.allowOverlapX) {
+                    attribs.x = plotX;
+                    attribs.anchorX = point.anchorX;
+                }
+                graphic.attr({
+                    text: point.options.title || options.title || 'A'
+                })[graphic.isNew ? 'attr' : 'animate'](attribs);
+                // Rig for the distribute function
+                if (!options.allowOverlapX) {
+                    if (!boxesMap[point.plotX]) {
+                        boxesMap[point.plotX] = {
+                            align: centered ? 0.5 : 0,
+                            size: graphic.width,
+                            target: plotX,
+                            anchorX: plotX
+                        };
+                    }
+                    else {
+                        boxesMap[point.plotX].size = Math.max(boxesMap[point.plotX].size, graphic.width);
+                    }
+                }
+                // Set the tooltip anchor position
+                point.tooltipPos = [
+                    plotX,
+                    plotY + yAxis.pos - chart.plotTop
+                ]; // #6327
+            }
+            else if (graphic) {
+                point.graphic = graphic.destroy();
+            }
+        }
+        // Handle X-dimension overlapping
+        if (!options.allowOverlapX) {
+            objectEach(boxesMap, function (box) {
+                box.plotX = box.anchorX;
+                boxes.push(box);
+            });
+            H.distribute(boxes, inverted ? yAxis.len : this.xAxis.len, 100);
+            points.forEach(function (point) {
+                var box = point.graphic && boxesMap[point.plotX];
+                if (box) {
+                    point.graphic[point.graphic.isNew ? 'attr' : 'animate']({
+                        x: box.pos + box.align * box.size,
+                        anchorX: point.anchorX
+                    });
+                    // Hide flag when its box position is not specified
+                    // (#8573, #9299)
+                    if (!defined(box.pos)) {
+                        point.graphic.attr({
+                            x: -9999,
+                            anchorX: -9999
+                        });
+                        point.graphic.isNew = true;
+                    }
+                    else {
+                        point.graphic.isNew = false;
+                    }
+                }
+            });
+        }
+        // Can be a mix of SVG and HTML and we need events for both (#6303)
+        if (options.useHTML) {
+            wrap(series.markerGroup, 'on', function (proceed) {
+                return SVGElement.prototype.on.apply(
+                // for HTML
+                proceed.apply(this, [].slice.call(arguments, 1)), 
+                // and for SVG
+                [].slice.call(arguments, 1));
+            });
+        }
+    },
+    /**
+     * Extend the column trackers with listeners to expand and contract
+     * stacks.
+     *
+     * @private
+     * @function Highcharts.seriesTypes.flags#drawTracker
+     * @return {void}
+     */
+    drawTracker: function () {
+        var series = this, points = series.points;
+        TrackerMixin.drawTrackerPoint.apply(this);
+        /* *
+        * Bring each stacked flag up on mouse over, this allows readability
+        * of vertically stacked elements as well as tight points on the x
+        * axis. #1924.
+        */
+        points.forEach(function (point) {
+            var graphic = point.graphic;
+            if (graphic) {
+                addEvent(graphic.element, 'mouseover', function () {
+                    // Raise this point
+                    if (point.stackIndex > 0 &&
+                        !point.raised) {
+                        point._y = graphic.y;
+                        graphic.attr({
+                            y: point._y - 8
+                        });
+                        point.raised = true;
+                    }
+                    // Revert other raised points
+                    points.forEach(function (otherPoint) {
+                        if (otherPoint !== point &&
+                            otherPoint.raised &&
+                            otherPoint.graphic) {
+                            otherPoint.graphic.attr({
+                                y: otherPoint._y
+                            });
+                            otherPoint.raised = false;
+                        }
+                    });
+                });
+            }
+        });
+    },
+    /**
+     * Disable animation, but keep clipping (#8546).
+     *
+     * @private
+     * @function Highcharts.seriesTypes.flags#animate
+     * @param {boolean} [init]
+     * @return {void}
+     */
+    animate: function (init) {
+        if (init) {
+            this.setClip();
+        }
+    },
+    /**
+     * @private
+     * @function Highcharts.seriesTypes.flags#setClip
+     * @return {void}
+     */
+    setClip: function () {
+        Series.prototype.setClip.apply(this, arguments);
+        if (this.options.clip !== false && this.sharedClipKey) {
+            this.markerGroup
+                .clip(this.chart[this.sharedClipKey]);
+        }
+    },
+    /**
+     * @private
+     * @function Highcharts.seriesTypes.flags#buildKDTree
+     */
+    buildKDTree: noop,
+    /**
+     * Don't invert the flag marker group (#4960).
+     *
+     * @private
+     * @function Highcharts.seriesTypes.flags#invertGroups
+     */
+    invertGroups: noop
+    /* eslint-enable no-invalid-this, valid-jsdoc */
+}, 
+/**
+ * @lends Highcharts.seriesTypes.flag.prototype.pointClass.prototype
+ */
+{
+    isValid: function () {
+        // #9233 - Prevent from treating flags as null points (even if
+        // they have no y values defined).
+        return isNumber(this.y) || typeof this.y === 'undefined';
+    }
+});
+// create the flag icon with anchor
+symbols.flag = function (x, y, w, h, options) {
+    var anchorX = (options && options.anchorX) || x, anchorY = (options && options.anchorY) || y;
+    // To do: unwanted any cast because symbols.circle has wrong type, it
+    // actually returns an SVGPathArray
+    var path = symbols.circle(anchorX - 1, anchorY - 1, 2, 2);
+    path.push(['M', anchorX, anchorY], ['L', x, y + h], ['L', x, y], ['L', x + w, y], ['L', x + w, y + h], ['L', x, y + h], ['Z']);
+    return path;
+};
+/**
+ * Create the circlepin and squarepin icons with anchor.
+ * @private
+ * @param {string} shape - circle or square
+ * @return {void}
+ */
+function createPinSymbol(shape) {
+    symbols[shape + 'pin'] = function (x, y, w, h, options) {
+        var anchorX = options && options.anchorX, anchorY = options && options.anchorY, path;
+        // For single-letter flags, make sure circular flags are not taller
+        // than their width
+        if (shape === 'circle' && h > w) {
+            x -= Math.round((h - w) / 2);
+            w = h;
+        }
+        path = (symbols[shape])(x, y, w, h);
+        if (anchorX && anchorY) {
+            /**
+             * If the label is below the anchor, draw the connecting line from
+             * the top edge of the label, otherwise start drawing from the
+             * bottom edge
+             */
+            var labelX = anchorX;
+            if (shape === 'circle') {
+                labelX = x + w / 2;
+            }
+            else {
+                var startSeg = path[0];
+                var endSeg = path[1];
+                if (startSeg[0] === 'M' && endSeg[0] === 'L') {
+                    labelX = (startSeg[1] + endSeg[1]) / 2;
+                }
+            }
+            var labelY = (y > anchorY) ? y : y + h;
+            path.push([
+                'M',
+                labelX,
+                labelY
+            ], [
+                'L',
+                anchorX,
+                anchorY
+            ]);
+            path = path.concat(symbols.circle(anchorX - 1, anchorY - 1, 2, 2));
+        }
+        return path;
+    };
+}
+createPinSymbol('circle');
+createPinSymbol('square');
+/**
+ * The symbol callbacks are generated on the SVGRenderer object in all browsers.
+ * Even VML browsers need this in order to generate shapes in export. Now share
+ * them with the VMLRenderer.
+ */
+if (Renderer === VMLRenderer) {
+    ['circlepin', 'flag', 'squarepin'].forEach(function (shape) {
+        VMLRenderer.prototype.symbols[shape] = symbols[shape];
+    });
+}
+/**
+ * A `flags` series. If the [type](#series.flags.type) option is not
+ * specified, it is inherited from [chart.type](#chart.type).
+ *
+ * @extends   series,plotOptions.flags
+ * @excluding animation, borderColor, borderRadius, borderWidth, colorByPoint,
+ *            connectNulls, dashStyle, dataGrouping, dataParser, dataURL,
+ *            gapSize, gapUnit, linecap, lineWidth, marker, pointPadding,
+ *            pointWidth, step, turboThreshold, useOhlcData
+ * @product   highstock
+ * @apioption series.flags
+ */
+/**
+ * An array of data points for the series. For the `flags` series type,
+ * points can be given in the following ways:
+ *
+ * 1. An array of objects with named values. The following snippet shows only a
+ *    few settings, see the complete options set below. If the total number of
+ *    data points exceeds the series'
+ *    [turboThreshold](#series.flags.turboThreshold), this option is not
+ *    available.
+ *    ```js
+ *    data: [{
+ *        x: 1,
+ *        title: "A",
+ *        text: "First event"
+ *    }, {
+ *        x: 1,
+ *        title: "B",
+ *        text: "Second event"
+ *    }]
+ *    ```
+ *
+ * @type      {Array<*>}
+ * @extends   series.line.data
+ * @excluding dataLabels, marker, name, y
+ * @product   highstock
+ * @apioption series.flags.data
+ */
+/**
+ * The fill color of an individual flag. By default it inherits from
+ * the series color.
+ *
+ * @type      {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
+ * @product   highstock
+ * @apioption series.flags.data.fillColor
+ */
+/**
+ * The longer text to be shown in the flag's tooltip.
+ *
+ * @type      {string}
+ * @product   highstock
+ * @apioption series.flags.data.text
+ */
+/**
+ * The short text to be shown on the flag.
+ *
+ * @type      {string}
+ * @product   highstock
+ * @apioption series.flags.data.title
+ */
+''; // adds doclets above to transpiled file
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       }
+                        doRedraw = true;
+                    }
+                    // set new reference for next run:
+                    chart[mouseDown] = mousePos;
+                }
+            });
+            if (doRedraw) {
+                chart.redraw(false);
+            }
+            css(chart.container, { cursor: 'move' });
+        });
+    }
+});
+// Extend the Point object with interaction
+extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
+    /**
+     * Toggle the selection status of a point.
+     *
+     * @see Highcharts.Chart#getSelectedPoints
+     *
+     * @sample highcharts/members/point-select/
+     *         Select a point from a button
+     * @sample highcharts/chart/events-selection-points/
+     *         Select a range of points through a drag selection
+     * @sample maps/series/data-id/
+     *         Select a point in Highmaps
+     *
+     * @function Highcharts.Point#select
+     *
+     * @param {boolean} [selected]
+     * When `true`, the point is selected. When `false`, the point is
+     * unselected. When `null` or `undefined`, the selection state is toggled.
+     *
+     * @param {boolean} [accumulate=false]
+     * When `true`, the selection is added to other selected points.
+     * When `false`, other selected points are deselected. Internally in
+     * Highcharts, when
+     * [allowPointSelect](https://api.highcharts.com/highcharts/plotOptions.series.allowPointSelect)
+     * is `true`, selected points are accumulated on Control, Shift or Cmd
+     * clicking the point.
+     *
+     * @fires Highcharts.Point#event:select
+     * @fires Highcharts.Point#event:unselect
+     */
+    select: function (selected, accumulate) {
+        var point = this, series = point.series, chart = series.chart;
+        selected = pick(selected, !point.selected);
+        this.selectedStaging = selected;
+        // fire the event with the default handler
+        point.firePointEvent(selected ? 'select' : 'unselect', { accumulate: accumulate }, function () {
+            /**
+             * Whether the point is selected or not.
+             *
+             * @see Point#select
+             * @see Chart#getSelectedPoints
+             *
+             * @name Highcharts.Point#selected
+             * @type {boolean}
+             */
+            point.selected = point.options.selected = selected;
+            series.options.data[series.data.indexOf(point)] =
+                point.options;
+            point.setState(selected && 'select');
+            // unselect all other points unless Ctrl or Cmd + click
+            if (!accumulate) {
+                chart.getSelectedPoints().forEach(function (loopPoint) {
+                    var loopSeries = loopPoint.series;
+                    if (loopPoint.selected && loopPoint !== point) {
+                        loopPoint.selected = loopPoint.options.selected =
+                            false;
+                        loopSeries.options.data[loopSeries.data.indexOf(loopPoint)] = loopPoint.options;
+                        // Programatically selecting a point should restore
+                        // normal state, but when click happened on other
+                        // point, set inactive state to match other points
+                        loopPoint.setState(chart.hoverPoints &&
+                            loopSeries.options.inactiveOtherPoints ?
+                            'inactive' : '');
+                        loopPoint.firePointEvent('unselect');
+                    }
+                });
+            }
+        });
+        delete this.selectedStaging;
+    },
+    /**
+     * Runs on mouse over the point. Called internally from mouse and touch
+     * events.
+     *
+     * @function Highcharts.Point#onMouseOver
+     *
+     * @param {Highcharts.PointerEventObject} [e]
+     *        The event arguments.
+     */
+    onMouseOver: function (e) {
+        var point = this, series = point.series, chart = series.chart, pointer = chart.pointer;
+        e = e ?
+            pointer.normalize(e) :
+            // In cases where onMouseOver is called directly without an event
+            pointer.getChartCoordinatesFromPoint(point, chart.inverted);
+        pointer.runPointActions(e, point);
+    },
+    /**
+     * Runs on mouse out from the point. Called internally from mouse and touch
+     * events.
+     *
+     * @function Highcharts.Point#onMouseOut
+     * @fires Highcharts.Point#event:mouseOut
+     */
+    onMouseOut: function () {
+        var point = this, chart = point.series.chart;
+        point.firePointEvent('mouseOut');
+        if (!point.series.options.inactiveOtherPoints) {
+            (chart.hoverPoints || []).forEach(function (p) {
+                p.setState();
+            });
+        }
+        chart.hoverPoints = chart.hoverPoint = null;
+    },
+    /**
+     * Import events from the series' and point's options. Only do it on
+     * demand, to save processing time on hovering.
+     *
+     * @private
+     * @function Highcharts.Point#importEvents
+     */
+    importEvents: function () {
+        if (!this.hasImportedEvents) {
+            var point = this, options = merge(point.series.options.point, point.options), events = options.events;
+            point.events = events;
+            objectEach(events, function (event, eventType) {
+                if (isFunction(event)) {
+                    addEvent(point, eventType, event);
+                }
+            });
+            this.hasImportedEvents = true;
+        }
+    },
+    /**
+     * Set the point's state.
+     *
+     * @function Highcharts.Point#setState
+     *
+     * @param {Highcharts.PointStateValue|""} [state]
+     *        The new state, can be one of `'hover'`, `'select'`, `'inactive'`,
+     *        or `''` (an empty string), `'normal'` or `undefined` to set to
+     *        normal state.
+     * @param {boolean} [move]
+     *        State for animation.
+     *
+     * @fires Highcharts.Point#event:afterSetState
+     */
+    setState: function (state, move) {
+        var point = this, series = point.series, previousState = point.state, stateOptions = (series.options.states[state || 'normal'] ||
+            {}), markerOptions = (defaultOptions.plotOptions[series.type].marker &&
+            series.options.marker), normalDisabled = (markerOptions && markerOptions.enabled === false), markerStateOptions = ((markerOptions &&
+            markerOptions.states &&
+            markerOptions.states[state || 'normal']) || {}), stateDisabled = markerStateOptions.enabled === false, stateMarkerGraphic = series.stateMarkerGraphic, pointMarker = point.marker || {}, chart = series.chart, halo = series.halo, haloOptions, markerAttribs, pointAttribs, pointAttribsAnimation, hasMarkers = (markerOptions && series.markerAttribs), newSymbol;
+        state = state || ''; // empty string
+        if (
+        // already has this state
+        (state === point.state && !move) ||
+            // selected points don't respond to hover
+            (point.selected && state !== 'select') ||
+            // series' state options is disabled
+            (stateOptions.enabled === false) ||
+            // general point marker's state options is disabled
+            (state && (stateDisabled ||
+                (normalDisabled &&
+                    markerStateOptions.enabled === false))) ||
+            // individual point marker's state options is disabled
+            (state &&
+                pointMarker.states &&
+                pointMarker.states[state] &&
+                pointMarker.states[state].enabled === false) // #1610
+        ) {
+            return;
+        }
+        point.state = state;
+        if (hasMarkers) {
+            markerAttribs = series.markerAttribs(point, state);
+        }
+        // Apply hover styles to the existing point
+        if (point.graphic) {
+            if (previousState) {
+                point.graphic.removeClass('highcharts-point-' + previousState);
+            }
+            if (state) {
+                point.graphic.addClass('highcharts-point-' + state);
+            }
+            if (!chart.styledMode) {
+                pointAttribs = series.pointAttribs(point, state);
+                pointAttribsAnimation = pick(chart.options.chart.animation, stateOptions.animation);
+                // Some inactive points (e.g. slices in pie) should apply
+                // oppacity also for it's labels
+                if (series.options.inactiveOtherPoints && pointAttribs.opacity) {
+                    (point.dataLabels || []).forEach(function (label) {
+                        if (label) {
+                            label.animate({
+                                opacity: pointAttribs.opacity
+                            }, pointAttribsAnimation);
+                        }
+                    });
+                    if (point.connector) {
+                        point.connector.animate({
+                            opacity: pointAttribs.opacity
+                        }, pointAttribsAnimation);
+                    }
+                }
+                point.graphic.animate(pointAttribs, pointAttribsAnimation);
+            }
+            if (markerAttribs) {
+                point.graphic.animate(markerAttribs, pick(
+                // Turn off globally:
+                chart.options.chart.animation, markerStateOptions.animation, markerOptions.animation));
+            }
+            // Zooming in from a range with no markers to a range with markers
+            if (stateMarkerGraphic) {
+                stateMarkerGraphic.hide();
+            }
+        }
+        else {
+            // if a graphic is not applied to each point in the normal state,
+            // create a shared graphic for the hover state
+            if (state && markerStateOptions) {
+                newSymbol = pointMarker.symbol || series.symbol;
+                // If the point has another symbol than the previous one, throw
+                // away the state marker graphic and force a new one (#1459)
+                if (stateMarkerGraphic &&
+                    stateMarkerGraphic.currentSymbol !== newSymbol) {
+                    stateMarkerGraphic = stateMarkerGraphic.destroy();
+                }
+                // Add a new state marker graphic
+                if (markerAttribs) {
+                    if (!stateMarkerGraphic) {
+                        if (newSymbol) {
+                            series.stateMarkerGraphic = stateMarkerGraphic =
+                                chart.renderer
+                                    .symbol(newSymbol, markerAttribs.x, markerAttribs.y, markerAttribs.width, markerAttribs.height)
+                                    .add(series.markerGroup);
+                            stateMarkerGraphic.currentSymbol = newSymbol;
+                        }
+                        // Move the existing graphic
+                    }
+                    else {
+                        stateMarkerGraphic[move ? 'animate' : 'attr']({
+                            x: markerAttribs.x,
+                            y: markerAttribs.y
+                        });
+                    }
+                }
+                if (!chart.styledMode && stateMarkerGraphic) {
+                    stateMarkerGraphic.attr(series.pointAttribs(point, state));
+                }
+            }
+            if (stateMarkerGraphic) {
+                stateMarkerGraphic[state && point.isInside ? 'show' : 'hide'](); // #2450
+                stateMarkerGraphic.element.point = point; // #4310
+            }
+        }
+        // Show me your halo
+        haloOptions = stateOptions.halo;
+        var markerGraphic = (point.graphic || stateMarkerGraphic);
+        var markerVisibility = (markerGraphic && markerGraphic.visibility || 'inherit');
+        if (haloOptions &&
+            haloOptions.size &&
+            markerGraphic &&
+            markerVisibility !== 'hidden' &&
+            !point.isCluster) {
+            if (!halo) {
+                series.halo = halo = chart.renderer.path()
+                    // #5818, #5903, #6705
+                    .add(markerGraphic.parentGroup);
+            }
+            halo.show()[move ? 'animate' : 'attr']({
+                d: point.haloPath(haloOptions.size)
+            });
+            halo.attr({
+                'class': 'highcharts-halo highcharts-color-' +
+                    pick(point.colorIndex, series.colorIndex) +
+                    (point.className ? ' ' + point.className : ''),
+                'visibility': markerVisibility,
+                'zIndex': -1 // #4929, #8276
+            });
+            halo.point = point; // #6055
+            if (!chart.styledMode) {
+                halo.attr(extend({
+                    'fill': point.color || series.color,
+                    'fill-opacity': haloOptions.opacity
+                }, haloOptions.attributes));
+            }
+        }
+        else if (halo && halo.point && halo.point.haloPath) {
+            // Animate back to 0 on the current halo point (#6055)
+            halo.animate({ d: halo.point.haloPath(0) }, null, 
+            // Hide after unhovering. The `complete` callback runs in the
+            // halo's context (#7681).
+            halo.hide);
+        }
+        fireEvent(point, 'afterSetState');
+    },
+    /**
+     * Get the path definition for the halo, which is usually a shadow-like
+     * circle around the currently hovered point.
+     *
+     * @function Highcharts.Point#haloPath
+     *
+     * @param {number} size
+     *        The radius of the circular halo.
+     *
+     * @return {Highcharts.SVGPathArray}
+     *         The path definition.
+     */
+    haloPath: function (size) {
+        var series = this.series, chart = series.chart;
+        return chart.renderer.symbols.circle(Math.floor(this.plotX) - size, this.plotY - size, size * 2, size * 2);
+    }
+});
+// Extend the Series object with interaction
+extend(Series.prototype, /** @lends Highcharts.Series.prototype */ {
+    /**
+     * Runs on mouse over the series graphical items.
+     *
+     * @function Highcharts.Series#onMouseOver
+     * @fires Highcharts.Series#event:mouseOver
+     */
+    onMouseOver: function () {
+        var series = this, chart = series.chart, hoverSeries = chart.hoverSeries, pointer = chart.pointer;
+        pointer.setHoverChartIndex();
+        // set normal state to previous series
+        if (hoverSeries && hoverSeries !== series) {
+            hoverSeries.onMouseOut();
+        }
+        // trigger the event, but to save processing time,
+        // only if defined
+        if (series.options.events.mouseOver) {
+            fireEvent(series, 'mouseOver');
+        }
+        // hover this
+        series.setState('hover');
+        /**
+         * Contains the original hovered series.
+         *
+         * @name Highcharts.Chart#hoverSeries
+         * @type {Highcharts.Series|null}
+         */
+        chart.hoverSeries = series;
+    },
+    /**
+     * Runs on mouse out of the series graphical items.
+     *
+     * @function Highcharts.Series#onMouseOut
+     *
+     * @fires Highcharts.Series#event:mouseOut
+     */
+    onMouseOut: function () {
+        // trigger the event only if listeners exist
+        var series = this, options = series.options, chart = series.chart, tooltip = chart.tooltip, hoverPoint = chart.hoverPoint;
+        // #182, set to null before the mouseOut event fires
+        chart.hoverSeries = null;
+        // trigger mouse out on the point, which must be in this series
+        if (hoverPoint) {
+            hoverPoint.onMouseOut();
+        }
+        // fire the mouse out event
+        if (series && options.events.mouseOut) {
+            fireEvent(series, 'mouseOut');
+        }
+        // hide the tooltip
+        if (tooltip &&
+            !series.stickyTracking &&
+            (!tooltip.shared || series.noSharedTooltip)) {
+            tooltip.hide();
+        }
+        // Reset all inactive states
+        chart.series.forEach(function (s) {
+            s.setState('', true);
+        });
+    },
+    /**
+     * Set the state of the series. Called internally on mouse interaction
+     * operations, but it can also be called directly to visually
+     * highlight a series.
+     *
+     * @function Highcharts.Series#setState
+     *
+     * @param {Highcharts.SeriesStateValue|""} [state]
+     *        The new state, can be either `'hover'`, `'inactive'`, `'select'`,
+     *        or `''` (an empty string), `'normal'` or `undefined` to set to
+     *        normal state.
+     * @param {boolean} [inherit]
+     *        Determines if state should be inherited by points too.
+     */
+    setState: function (state, inherit) {
+        var series = this, options = series.options, graph = series.graph, inactiveOtherPoints = options.inactiveOtherPoints, stateOptions = options.states, lineWidth = options.lineWidth, opacity = options.opacity, 
+        // By default a quick animation to hover/inactive,
+        // slower to un-hover
+        stateAnimation = pick((stateOptions[state || 'normal'] &&
+            stateOptions[state || 'normal'].animation), series.chart.options.chart.animation), attribs, i = 0;
+        state = state || '';
+        if (series.state !== state) {
+            // Toggle class names
+            [
+                series.group,
+                series.markerGroup,
+                series.dataLabelsGroup
+            ].forEach(function (group) {
+                if (group) {
+                    // Old state
+                    if (series.state) {
+                        group.removeClass('highcharts-series-' + series.state);
+                    }
+                    // New state
+                    if (state) {
+                        group.addClass('highcharts-series-' + state);
+                    }
+                }
+            });
+            series.state = state;
+            if (!series.chart.styledMode) {
+                if (stateOptions[state] &&
+                    stateOptions[state].enabled === false) {
+                    return;
+                }
+                if (state) {
+                    lineWidth = (stateOptions[state].lineWidth ||
+                        lineWidth + (stateOptions[state].lineWidthPlus || 0)); // #4035
+                    opacity = pick(stateOptions[state].opacity, opacity);
+                }
+                if (graph && !graph.dashstyle) {
+                    attribs = {
+                        'stroke-width': lineWidth
+                    };
+                    // Animate the graph stroke-width.
+                    graph.animate(attribs, stateAnimation);
+                    while (series['zone-graph-' + i]) {
+                        series['zone-graph-' + i].attr(attribs);
+                        i = i + 1;
+                    }
+                }
+                // For some types (pie, networkgraph, sankey) opacity is
+                // resolved on a point level
+                if (!inactiveOtherPoints) {
+                    [
+                        series.group,
+                        series.markerGroup,
+                        series.dataLabelsGroup,
+                        series.labelBySeries
+                    ].forEach(function (group) {
+                        if (group) {
+                            group.animate({
+                                opacity: opacity
+                            }, stateAnimation);
+                        }
+                    });
+                }
+            }
+        }
+        // Don't loop over points on a series that doesn't apply inactive state
+        // to siblings markers (e.g. line, column)
+        if (inherit && inactiveOtherPoints && series.points) {
+            series.setAllPointsToState(state);
+        }
+    },
+    /**
+     * Set the state for all points in the series.
+     *
+     * @function Highcharts.Series#setAllPointsToState
+     *
+     * @private
+     *
+     * @param {string} [state]
+     *        Can be either `hover` or undefined to set to normal state.
+     */
+    setAllPointsToState: function (state) {
+        this.points.forEach(function (point) {
+            if (point.setState) {
+                point.setState(state);
+            }
+        });
+    },
+    /**
+     * Show or hide the series.
+     *
+     * @function Highcharts.Series#setVisible
+     *
+     * @param {boolean} [visible]
+     * True to show the series, false to hide. If undefined, the visibility is
+     * toggled.
+     *
+     * @param {boolean} [redraw=true]
+     * Whether to redraw the chart after the series is altered. If doing more
+     * operations on the chart, it is a good idea to set redraw to false and
+     * call {@link Chart#redraw|chart.redraw()} after.
+     *
+     * @fires Highcharts.Series#event:hide
+     * @fires Highcharts.Series#event:show
+     */
+    setVisible: function (vis, redraw) {
+        var series = this, chart = series.chart, legendItem = series.legendItem, showOrHide, ignoreHiddenSeries = chart.options.chart.ignoreHiddenSeries, oldVisibility = series.visible;
+        // if called without an argument, toggle visibility
+        series.visible =
+            vis =
+                series.options.visible =
+                    series.userOptions.visible =
+                        typeof vis === 'undefined' ? !oldVisibility : vis; // #5618
+        showOrHide = vis ? 'show' : 'hide';
+        // show or hide elements
+        [
+            'group',
+            'dataLabelsGroup',
+            'markerGroup',
+            'tracker',
+            'tt'
+        ].forEach(function (key) {
+            if (series[key]) {
+                series[key][showOrHide]();
+            }
+        });
+        // hide tooltip (#1361)
+        if (chart.hoverSeries === series ||
+            (chart.hoverPoint && chart.hoverPoint.series) === series) {
+            series.onMouseOut();
+        }
+        if (legendItem) {
+            chart.legend.colorizeItem(series, vis);
+        }
+        // rescale or adapt to resized chart
+        series.isDirty = true;
+        // in a stack, all other series are affected
+        if (series.options.stacking) {
+            chart.series.forEach(function (otherSeries) {
+                if (otherSeries.options.stacking && otherSeries.visible) {
+                    otherSeries.isDirty = true;
+                }
+            });
+        }
+        // show or hide linked series
+        series.linkedSeries.forEach(function (otherSeries) {
+            otherSeries.setVisible(vis, false);
+        });
+        if (ignoreHiddenSeries) {
+            chart.isDirtyBox = true;
+        }
+        fireEvent(series, showOrHide);
+        if (redraw !== false) {
+            chart.redraw();
+        }
+    },
+    /**
+     * Show the series if hidden.
+     *
+     * @sample highcharts/members/series-hide/
+     *         Toggle visibility from a button
+     *
+     * @function Highcharts.Series#show
+     * @fires Highcharts.Series#event:show
+     */
+    show: function () {
+        this.setVisible(true);
+    },
+    /**
+     * Hide the series if visible. If the
+     * [chart.ignoreHiddenSeries](https://api.highcharts.com/highcharts/chart.ignoreHiddenSeries)
+     * option is true, the chart is redrawn without this series.
+     *
+     * @sample highcharts/members/series-hide/
+     *         Toggle visibility from a button
+     *
+     * @function Highcharts.Series#hide
+     * @fires Highcharts.Series#event:hide
+     */
+    hide: function () {
+        this.setVisible(false);
+    },
+    /**
+     * Select or unselect the series. This means its
+     * {@link Highcharts.Series.selected|selected}
+     * property is set, the checkbox in the legend is toggled and when selected,
+     * the series is returned by the {@link Highcharts.Chart#getSelectedSeries}
+     * function.
+     *
+     * @sample highcharts/members/series-select/
+     *         Select a series from a button
+     *
+     * @function Highcharts.Series#select
+     *
+     * @param {boolean} [selected]
+     * True to select the series, false to unselect. If undefined, the selection
+     * state is toggled.
+     *
+     * @fires Highcharts.Series#event:select
+     * @fires Highcharts.Series#event:unselect
+     */
+    select: function (selected) {
+        var series = this;
+        series.selected =
+            selected =
+                this.options.selected = (typeof selected === 'undefined' ?
+                    !series.selected :
+                    selected);
+        if (series.checkbox) {
+            series.checkbox.checked = selected;
+        }
+        fireEvent(series, selected ? 'select' : 'unselect');
+    },
+    /**
+     * @private
+     * @borrows Highcharts.TrackerMixin.drawTrackerGraph as Highcharts.Series#drawTracker
+     */
+    drawTracker: TrackerMixin.drawTrackerGraph
+});
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M624 416h-16c-26.04 0-45.8-8.42-56.09-17.9-8.9-8.21-19.66-14.1-31.77-14.1h-16.3c-12.11 0-22.87 5.89-31.77 14.1C461.8 407.58 442.04 416 416 416s-45.8-8.42-56.09-17.9c-8.9-8.21-19.66-14.1-31.77-14.1h-16.3c-12.11 0-22.87 5.89-31.77 14.1C269.8 407.58 250.04 416 224 416s-45.8-8.42-56.09-17.9c-8.9-8.21-19.66-14.1-31.77-14.1h-16.3c-12.11 0-22.87 5.89-31.77 14.1C77.8 407.58 58.04 416 32 416H16c-8.84 0-16 7.16-16 16v32c0 8.84 7.16 16 16 16h16c38.62 0 72.72-12.19 96-31.84 23.28 19.66 57.38 31.84 96 31.84s72.72-12.19 96-31.84c23.28 19.66 57.38 31.84 96 31.84s72.72-12.19 96-31.84c23.28 19.66 57.38 31.84 96 31.84h16c8.84 0 16-7.16 16-16v-32c0-8.84-7.16-16-16-16zm-400-32v-96h192v96c19.12 0 30.86-6.16 34.39-9.42 9.17-8.46 19.2-14.34 29.61-18.07V128c0-17.64 14.36-32 32-32s32 14.36 32 32v16c0 8.84 7.16 16 16 16h32c8.84 0 16-7.16 16-16v-16c0-52.94-43.06-96-96-96s-96 43.06-96 96v96H224v-96c0-17.64 14.36-32 32-32s32 14.36 32 32v16c0 8.84 7.16 16 16 16h32c8.84 0 16-7.16 16-16v-16c0-52.94-43.06-96-96-96s-96 43.06-96 96v228.5c10.41 3.73 20.44 9.62 29.61 18.07 3.53 3.27 15.27 9.43 34.39 9.43z"/></svg>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   INDX( 	                 (   ¨   è      \  m                        p Z           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s                     WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s                     p Z           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s                           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s     \                   p Z           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s                     p Z           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s                     a   1 ) . j s        p Z           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . m i n . j s                     . j s        p Z           WÓ©PPØnˆŸ•‡ ØnˆŸ•‡ Ø@câe RØ p     8d              C h a r t . \i n . j s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   \                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \xì½	{É‘-ú~
+nÛ÷]Û$E€;5sıŒ*€EQµ´Z¶üµ@°€X
+ÄÂEıÍ'NäZ(”ºÛc{Ú322cËØrAñlŸU¶·÷w6wşŸŸ¾»Î&Ó^>úîéæêwÓ|>igÓïşí»'OÖñÿÓötº~–ç³élÒ?‘¯ß­†°' –¶g2ÌBÎ{ÓÙzŒKQyÜ¨‡½ÛŞhºşc7‹QÀÖ³»qVÒnÇ@sZÿ±7lu²2ˆÉ%#-ü,Ÿœg“µIë¼7/Ãóc;?/ãìÇÎ¤w~ŞÀg“¬Õç½Q©X–9A²v1i³›|Ò/¡öã¬u6¸W~vX›ä7e£/òÉ°LhK†2šöf0©’Ñ¶ÓCH:¢Û¬\ĞÏæ³Y>º‡å=~ôì•!øñ|’Ïó›ûxo·&™3ìÀ­l£ÖõÚyïº)Ñ€á~­3Éç¥Õç³åàö|:Ë‡kËø#¨—QEóY«”ˆSf“?Šµ·'óáY¾q«Óµ˜å{;ıxÖ:ï”y‰Õã2ø—à)ŸMJìÇÖ ›Ü7;Ëà?'yg’MK­b˜÷Zej³t®¬ ÷vú±=È§ejøq˜Ÿ·eDgy>˜õÊŒÇR„Ùlm–İ–iâÇq>^Raù|š•‘Ïz¸u†ˆÜô:÷yÈY«İû¯]·&½Ö¨Œ Ÿï_"nØq·l†¬àíAÖš\ônïÇƒl4´îîï”Ï²2Çø¹dPºä­2á-¿Ëà‘q¾4š½¦íI–Äe‘ÎK³µßšv,é¢ì¶	Ë…z_z£ÎˆÆ­öƒ–«å[Àk³É|ÔnÍÊ¼%ê—ÇİÖ´WÆzÔ¯‹}?ë×½iïLì¾ÌX,®{;!® a+•¿¯~7B^–ú
+ÃÖxµàÛwuüï?äõ´^_=®?;\=AÓê©|¼-yòĞã¨Aüğ#üG‚À·}T|‡õÕ÷³iC?ßæGø¶{è_'„MùĞG²~ßãIıè`õÃZ2Ê©¯öù¤Ì'¢â“âã#%+túÑAOàLë«7„µ%?Ş£§Êˆ³ç1yæŞ§ÏV›)¨`î˜»ÆEsõƒ`üPä¨6W©ÍBOh«!ùxE¼|TfßK‡-¶~¬ÕWÛ‚„µêÇ/ÔFø•t8/…
+r(\œÊXÊp\ÿ`øaç¦ãÇóëišG©‚CGœOœŠÒÀ3û©¶š'«Óä i„øX{°úLdbÏ2Æ‹cÌ±%]€§üÃ¥8÷ÇõSÌ¡CêGé 9X­&LæL¨	q‚Ôx(9° >qlQiŠ9p6ø• 3A.½¹g*¨=K7å³±—Q®ÓqZüX×ğÑXAOO‰:2ºFw~5ÂZräfÙ´çtÖ#!€‰1”Oê‡bâÛ wB~ˆ–­ ßÔq(:<L@~ØÈÑÊ¹x+üQE~Æ)H&óóVéÔ•híÈâ+-÷¸~òJgÅ›‡ê8°À]åôÙîKØûóÎ±q”•÷/V÷àó‹ £g_ë«y*åéó­’ÑGõW/¤ÇûCõ¤f:N_¨•6¶DâtŸGà§r¨i¢ü–(»£¥4ëM	`ôH¨aÌU}Õ†LÁ‰X©ñ?Ÿ27"<ÕNël)àÏ@\'2‡œRÕç‡&kfBz~V¼Óë‰Lë³ú3Ãõ©bµÜé(ÄqıXøu~mÖáê€O§UF/~¥2ï’t¿‰˜}ºNM òBr	¿Ã'?‘q­O¦L¤—tcb‡k=!&Š{”î‚ 2ŞècÄI:Æç0iÜ` *_P¬vR‘n…É¥“ı¡‰–¯ŠOè}•4®ĞQ×Î0“åmŠÓõ’t‚Ä‡nxî%GôT43ÜÓ*8÷œ¹·uØ2Å¦á´àÏLó„¤Ëy0y]8¹ô3"à“G`¦ıå,yM{Ã0fc™T§oğı.m`¶ğ9‡™‹£æííƒ-4¨ÖE•ªÜ£æ-`[vÌ
+º€ØÜ mp~Í„ˆ9y©Z¢*Ú2Å`']¯Cš“çĞéÁÆs3iY*0¿£òg£_’%©øLæÖëËk‰O>*òÉhœÒÜ‘¿Ş;_lÃœ,´AÀ…6è`¡­¬¬ç{õş‚«Š)2Ox[Xàâ»xƒüEº¼ÈS—ÃM›i™Ô/Ÿ¼i3(QÔjö<ÿöğlûƒ7æ„²ì=_AytL84a&Ÿ8µaËnš«ta:³F>ø9ÂbB	h
+<×FµV½q°:Lë‡‡Šå¸Ä„$òCë/J'Àgææ·YxaŒ	Ád5MÂj7GÏ_¬~HˆÌ"i¨×5À3 ­Ÿg*/q?öñJ<mşÕóIŞµ€«-.fuGóOšëd˜HhåûÙ5fJ7|rŒ‘ÜPÛ(«…/t1€£ğ¯øœW‰GÎdãÌºdúVÊé·6¯‹ÈF(<©¿«"ù¾½2&Q†ü´.1£~r¨£…
+lceóBªG0J1ˆ†O'é‘-%ãø §~Ò5_gş‰œ¥ÃFëˆƒkLá‡ô£!~’n@‡_×\-"9mÔ_Höùk˜	ÃS¶¾z”¾0+Y2ªqU$0 ¤×2¥¢6Øù¸q"š‡š¼—Ğ¬Ã“zÉ»ê%Kò·ãËäØV9Íg—,Ì@ÀÄv<‘¼±n ´ôã¯U)ùß×›W\h]S«Ãg2iİG÷¹ğáÁtöbü‚¨ú¿W#áê—ğãî 9Ôú‰õşqj¦Ó¾clgˆ NG×eTSÆ°;ã*¬ßÙHKa£±¤doSò°?˜ÿù¶Á2<;v&N^)Ç¾³Zº 
+[}ß<À2¥d™.Ğıà†}X6ŒAµ0‰ÖP;\6ì©}ã°&O¿mŞ~ÁaåÖi§û¨‰ı?Ä»›DK_n\ĞnQ>Ş&’‰æ% g“DŒØ¢År0ê >lµêP´ñõ ãF¼{£…ÀûæÛÓàë‡øëaüµ -|ıúÎD|MßKî"œruó-á”‹n®}4,7Ø%áô}‰="œ–{D¤*öˆHU6ì©}ã°&?”L÷#Tò+·Î(œÊVY,xš-§µvT1ş-ÉIO¿$ñ´åYS"¦ÿÊğê¿2Ìù¯Œ˜şkZøúõÛ+¢ò_?ş^éÿ.‘ë_"ü‚qò£òoáÂ¬?ƒ‚úO _Cï‰¼¿…W†*~”ğoÕ+•óˆ P'ÿ]rÀoá•VğkÆµ_<P~ÂßÂ+6ª¿mü»D®²¨üÁü‡=B“¿…×ßÂëÿÍgû8iõGÑ<ò2Û(5ı‘—¨<ÛXAÿ÷­õ@ß×OÍ©3ÏÜ3Yoğ¤ŒI?c†>­Ïsãö¡°7Q‡}.^È•€!á†’`e9×?ÛZÁ!i«56pHoØ8®ã,\¨‹§şg+"è0iue™ÛÊgÁz—´&ÒWx?¯æ<Å;<ë­àbnßáúÒUÒªí£ÃUr¶!ÿn$­Ù~jĞ5ë§@‘Ö›–×NòÃÇ}[É‡×†SéÙÁ‹Õìüª‡soâêW?iw{c#áé_Ÿ½Xí§O]Cıå«Õ«ô<—Wi{³ÛxoûÖGÉ<Ÿç—€a`Ë“öz[^Ä6OÏ‡2b¶k½¶ì|ØYÛ¿|˜µ¾Œ k_.È>÷ eÂXÖŞíÇ¨V’‚”ıô¼'ıûiû¶_@…Ÿ´C¾¶1²2•udøºµÏ;#€`S`¬—´7‡1²^Qcyz¾"Èò´=µÎW¬È:I»6Š‘uŠÈ†éùŒ¦íÉ¨€ìãù^ÑØ—<FU¦±éóªöùÎ 'äíØ!ë%be¡”è3ƒ˜[2bÆníU¾ÇEæú³ãà@Z=’×EP«ÊU`˜ÓwŒóÃE;½ÒìÃ¨cúœmˆMf­İK±–³=ùw}Ù0×Në¯_ÈÅ Îã~ÀÍÖF½ƒ»Šcšüp{øvıaåĞ¶Í“ƒ\n+iq÷×ÕáŒ¼PQ¸^cŠ
+ºµˆC°ŞÆC@xõ†T¤W3ì>{õ/‚rç¼~ñ½„­“ÓoĞáo`§õì½ê°Ùì¾üÁİ_~‚ê½Q„_ ğ™	«)“lŠVFc’“ŞÁY¼ÿU?²÷¿Òs‘©%¹ßÂéOå«1b1õÜj§¸ôFÈqãÅ¬Kêw.)áÂ!ÖlpÿB•rGztÊ×–ˆ•e—ÿàà<9è&¯$§ô‘d>\<5Cå7®ì.…áÎ÷Rly)¶÷†^pL»¬o{– ®NCŒIz€ãvQ¸Q6L.:·ğò<ÉöoplÁ-ß3¬B™œtÑ«¹Ã­¬$üíêÕ˜‡»fÈï°X;RiNËûËECIúã‡ĞÂÛ%MbgeÄ'Ï«áŠJñ†D¿ÒbXª4/înÃæêMšny¸Ş6ö­^5ê‡ûÏV;¸eV_İ¡Bz|ŞkfcQğUCz";•õÜ ÀzöH°YoÉ:™ì½ä"¿ÁX˜!°O¢™*Ÿç¬ë¦3Î˜YÔÕ›uÜÜ$şã×Û„prqs ˜¶ø|wM„øÅ¡7!äØ”c¤º”‘™c„ªóÕl0Éo¶_8Föv–1²YÊò†½ëJQø+ŞöFKGæÏxÅ‹ c
+Š,™±øêN(;Õ_ ^l7I6r³Ã›¥Úå5CŞ{à½5Ï»ğb¸Øº¹jÆ>¿Dí¤ôV.~î¤rÑÖX¢„;1æà¼ˆØ5±€„ÆÍy':÷$NäÓ‰ƒ€åYeğ€}È14›ƒWÖãI†ZñjŒÔb8§Y,,}†ˆŠ<y¤^ıl£ázõL˜c=jÔ®/“ê>ìé&é%“}x“†IıYÎKsôô2¹ÛoÈj¢—lJ?ıí¼	ÿÂÊ„¡Í-².“ÎJãü_¦rÖ_]5äŸtÒX×]*UQóK
+Oê%ã6.“Ş
+Xì£e¶ß°é›­ı~POkÕ´—lc7è¿!"ÍÑÿÚ÷—_ğÁb„İ†,¾Tû—ÉÍ~£'Ãëé—¢ƒÁ2·X¦À2Š± fÂ”ÃRÇ-ï¶Ş5ëÇ¶|ƒÎ®öÃÆ*VféncuÏ"ß°È«@¾¾çDªÿ9‡*ë¤_ø£¡tÚ¸Ãó€•&–”Ç¥‰—VÃJéUÏ'Š‹ÜsúJØÖj¡EÂÿœüƒÊQ‡—@÷2ÙÙkLÓPÅP…ª¸oU|ğ%³SNVÎ¥å£û%•OC_å.°â(8ücı¥×oJC¹D¹ ?šÛE®Šü¥Óo¾B•ÓK}ô[aF‚±Šê¿Æ_æıæÎ Ç½ºlµ^ßIaïõænJkßBb¹7Â¢XîîeÓûZ§©rÒ}±IØµôßBÿ¾ôß@ÿ}ß_ü%´ë/+—Møl`ÒÄ"&M,bÒµ‹³¬È_VhoH¨¡¿l]6çÉ¢ée“Oä+ùÏäğ—9­{¸è/Ö‘~¾¿ôÈ)üü{A‘)ı%¿lVÓPÅP…ªøîÒ¨x½ç¦D¶˜œrî÷—ƒêóïAÜVmÌ9>%´…ãx2)Ot«L a²Cî„Ùâ×œÓ£ãW²st¸Gj #Ä\ ±€œt‰Y×.~“¬YHıŸPûeè{íñ+E³L5ë› õ@'5âğg„*°ä#Î ;dpÛ¹ëu±³‹Ü±•dH>òäú@fØ6:C$Ù*éÑò\Ğœšõ2+Äû²¨PkP·ZkÔ·Ñ	¸Ó<¶r`†	ó3MË%B²yTè³ÃÉûWú; JBåßõùd¤ƒêEhZøĞz‚«Pµ >MLĞ0)óÇtŠLFŠü b_Ïğ+C5¬#<šÒÆRä×ThûF*ô¡Uñ38ÀÑs·*>ÇÏa‰áC/A+È~¹%t>ÔûX/“_VSll
+ÄP:èE7}js‘ÍA‡õ/Ø
+†öW€†
+9­¯£Ek'|ænAz$•z6J†7X˜Ş$Ãäò5T‹¢5Šİi8¨7
+N›Ø«¥à§øAˆl#±šUüÑ|[5uÚ<5e++l-‰ñ‰z©H c±‹¥DÂ'˜ñ¶k°Š3)qù¥gŸQ±ß'+wàj˜æÉöBàâ00j†‰¬vƒa[wˆ“wv}‡8ycÖ«ÕìQú¸z”>ômø¼O Cz×ŸëÕ,T—C°^ú¸‚`ûÕ‡õQå°*†íU%o`Ø—ê}úÀOš¡%ûnûèn>¬oMc›÷é¿‡>Ş?Ê>:²ø¼Ï>¸9$“ßyØ>´ÂZIÇÉÕ6ôÑÁD¶Ö‡VÙW°ş6ô1Å°İ­ûô‘íãôqñãôW‰\%>?æòÛ‰ã]«hØ’ø‘ïûXß¹OjeıGÙb.&Ÿ÷Ù‡ÆSj¶­={˜è;yùBú˜í[}0ÅZ5FúĞªraÓ}èãÃ.÷ÖÇ¯{ì£èc¹}(_ø¼OOµ À§ÕG4ÑQ~ÁêZî@°uè£Án×­>¢a‘>°÷‡aS»Y‡>æ6Z¿OOÿáñæó­ñc§‹ßéJü¨uÌ·>~T»Øè–ø1éÜ“oûIcˆ‚úÊÿ49P6w{u¾i’-Q6~.ÇÌ²dYLşÑœ¢úãÓOÂ—ò‡ÙèŠÏKù(|âŠ>$qvËõáY Ÿº{ÛiÃ®miºsŸ>?fĞÇü+õ¡¯Ìx@ºµ†ÏûôÏ¸8D>ğ¹L[4ü-ş•¼'eú\–ÚG¤>KÛ>ôa(^¡îå}ú€¿ˆ>ş…ìc.o‚ûÖ‡·SûîÓ‡±şWÚ‡Ì<`aù¹Ô_Ma¡kkäµèàÅİúD1=¬İìÜYaŞğ$jİ§Ô?Ó>ÎùØËçJ&r©>y!îWÄ±±Û±ÕÇ¢øaj³ñ}ú0ö‘¥}`?âáxŠNP>ï‹ª0Ô”Ú‡îrİa¢w&ĞG]›X}DõG?tsoE‡ÉÉ*Òôäú~¥>°cõ±dr0éè}àó>}h<Õ—ÿásY<õ‘•ô!Õí™ÕÇ`{Ã{Ğ†É¾*Ô8»O&ş÷ÅT"_?z7&~ì_[},·?0LãÇöõ}ú@ı;<œôÛT{™\‹3bo¾M ®İøî)-SüùôÇú;^¿“4šÔÛ‡fû‡}bØ•aå¨Ş•Z>¯°ã90›4l‡ÓôÜİ
+ nª¢p6w(¯jãN×qgÖŠø¯>4¹WTz.œ‚¥Âa.™:’×¶`ËÆVßÇ£äFTÇÒö–8Æ–¯ØÓÍM¢¿ÄM)ŠËÍ+n¥á•ƒrüvô/jz‰óP‚ŞğxÃÍŞ:Á‹PŒ›‘ø^8é¥DÜDÓ#Õ—ç¤udhá5G_¾²´ºÉ|ÌsVŞËaş‡i²¾Ã½DœĞëizÅi%~Ã—=mPaO“#Õ¸˜bæ“FİÓÈµDsà¤«Ùêdg||ÄnS²¢AÍF{µ™|÷;»ş¼Šx‰ÈèQÔ?™‰D-‡ìJ€—Šmf3Òv¦Á±£’
+PÿTìê ”zò[¶ä¢½Râ“lÖ†9¶1—,˜iÃ»ìpvŒÙ÷Ò™YµDÙ›ˆÄÈY¶™ÿ–¹Ú¤åCéÄ»tšÌÔ‰…¹êc®prççêõ+¦M#ñú90rFÒåiÚE#6x4c+á—Æ´”Ëk® EÚ yœÄ;iê—ry8Å®ÙBÆQÏ/ì=B>R?Må>cÿçÉ‡ÛÀàvÒy	å1*#Ëœõ•µfïVe~Úiq¡Ş® ¹€`]´·mAO`O·ÚñBL¹OZR´á|â³ÇS[oÆºqhÖOš„raøÄÔ±;Ù(§óyç:=˜"ÉfÎpèá]ƒ¸¨ à´‡wH,jú:¡$;enœÜêMRÈs•äÉØ&ZÔ(pôböÜŞà¶­ÛÿÏmÊct±İwİİúdÃv
+£r×‹hß„2¾o3øYLRÎ 5é3¨çÚˆ4Z‹¦ ¿Óg—ˆTxuäİšÈ“»äZN™|p&m“‹eÚ™İO¾$;|‡&]æàÕs~(ŸLÆHÚ?‚¶/I'‡JñÒàu¡;Mğ›A¿$ı—s±œ‡¿éç
+hí
+-½—£Ÿ˜>.S=h½J¾$ùİ°‚àú	ƒÅ³$#Êgı¬¦w	ˆÚ€ˆ'Ä_3Ô&1s©zÊàéØFı«|ËXXn Ô`+S¸ÔĞ†B¼‰Ì[ ;£,A²ÛPCáÄê®ùz~…;è¸-ûÈ(TjöÓµM³ŸT‘©Ñ¶Éobµd¾ŞJá³}lÈ# B—S 9‰ùD”W¾ÚÓ¸‘6K8™zZÀi™„ŸÔqİÕŸmNmF”Ï'ª†ÚE¹VvtÎSy˜˜Üõ–iŸí}‰#¹=."õi³…©d?ŸÕI*ßB“W»¤&ƒ:M¨u¹Ñ³p`Tùzc†StìŠÊ7 ò:7ÓÔOr\‹fèØ‡Noè©Ş	Æf»"Á]
+vå;˜\ ´ôŞB«j;ıàßHO4Dß‡†ø“¤†ÃÎOm±–Üİ ÆBXp±•T“İ‘w"¿Ösåı—Ä‰wz›ùk;Ö´²~ZM®%¾Âñ†Î?kIïNKn`@ÍÉÇ=ã.a]øÔö*Ğì
+t¾ŠTK:‚fÀ/w n¥£—“K\hx‡yØC¿ué·ƒ~rß;˜O3ñÃ¤†š_¦8uÇĞ3âã¤~ŸÛkÔ’­/@|Õ<¹ü‚é_ä`˜à^ÎJcİ×;Â`©¸4Ékµ"ıZr%¯¾C/ªlÚ‹˜şÎ(Ô?¿a5èaTì—šÄ»Ü"ş
+„Ü2¸y(>Eó€îß€wU­¸?ŠZ\Uù©ğ×‰øs}ÊWÀI$?Å;t°$^%4íQ"~”å0W’g÷O´0Æº4ÇÊ'Mè3Æ¥Ä(¹D>¡3¼®nB-sØÀD”€°/…Bg¢3½ÃŒë„HŞpQ0œ7«Éí5ºÏñŠû©<ä“Áæ’)Î¡´):Î¥#.láw¡€ïéJìáyÚ<é
+‚EãÃù>Œù-¸;‹ /¼	±0÷Ti1?›yC'äÆE”ôX„¼ø][Ãçªw¬DŒZßfğ‡F½eU%ÆĞtÔ5?R×æ¡œ7ØÌ™\¤«÷låÃy¶³6€È8y¹S›i¾Å9öB6’SËCıı›4Âj^Î½ÂÈ-ƒÑ”†A9•$…¼ĞTùÄ~ÔŒ˜º)W”U"3å€ŒŸ`F­(ÜI-ŸÃŒg¾:\ß+7¾lS>Œöq{\Ëw‘ÊÔÔóD6všï6ÑdçqM¸ÿŞŞÄ½;®P`¬9fCÇM_ÔÇ˜\Qªº6Zm[õ°í-šP‡òc‘jóİ%*9ËBşËÀ…áe!øÉp4{T„_s~¨(Z'¸ğá#Ca!`‚†™¢ Šû–Wª]O•Ê6&Šà¬š–c«ßÍÃĞé¢
+B•_Ã¶d6½520°‘ÒkÌ„¢ŸNpÁ©¶‰„‰”Ú79+<ªïcjtwwøä•·sÃsĞy†ì…dUE·"¦Óú&€(
+:¸İL=³&Ô€OœVŒP,*™O¬‹±•‡õ-C»ËÉ=İ‘OÌŸ\ğŞó€	PV®˜ƒÅGS,?‹j;ä‡`#Vâ°]Üşô“Ä©á¬ø"
+ÜQExoÛîgğ†¯oŞÊ¦B‘%Ng‰O4š(ˆ¼M|©a«kyù+'—o¬æÉKLÅèTàiA7à‰Zbø$Ô1K™#ôí»ı7.F¾íàÆIì°rêótœĞj&­¤¡l ’!º¡ Ì9GäZ¥çjô^/Ä¯V Q¬KÍtcé ÿ‰xŠŸ2ºµšê•†púnû—bÏÊà8é¾7¼åÉÏ#&Ìà®(f¥n5ô¿Ì¼¼ûŸhObïFúnÖjë”„ßq­{{ğ9ÏodrúÌPqIêóã8™|ï%µCEò»@ÒõŞÕĞÏRŞÂ³ÕÄ~0¾‡?m$K£‰1®csqn/s¿]·ØF/j|÷†
+|&F?Äš@<İZÄxôîı¬&ªx¶šØÆ¯àÙˆ/Çä+8$ÁÛ»	C˜á½áEñÁìJtÚD®ŸÖ¡†àLâ¸>Ñ…Dåªsœ\cg¾
+{+ÁBcp¥•¸»®'®@ğo-®i„˜b«Ãóı~
+ÑÑ<L\°.ÃMRÔDn« *S§»–à»^ë$$jk…/yš„.;â/hğèÄÈ lÊÅ@°@ÙbøÂß±Ò¢}Ï“du²ÖñŒºì;y‰Í4]OVÁ‚løQri>şªwÕ7àZõLÄ6VÏåúVr{ƒõrñGPé
+G¨Ğä¼_­Ö7IÆXæ«³H½Jöà•WÉ$™ØÚíä*¹Â°-lH­ÌIÌŸ‡.e&Y~¹å` “¶Ï”Ìl&½ab	 £d†‡gàã2û&@ZùrMÂÇ‰¡!0’ªÄ‘ªø­ZA*;.ˆpK(f3$ÊŒ..8Ë~uÉ~¦†ÄÍ%%½ñç¸¤ÜM:5Yá%;É¸
+E±Ã/F"3++b¢æ¢Ÿ<û>ê˜:c”7,@^•h3‘cÌXÇNw2„¬ƒ€
+Œ¯ÜE5©Q5FI@Ó,å>ú’‹NøŒ÷^Ó'Ë°c,'i0t4îò‡[®^J.=®äû/À£ZíËÄVğ³h5X€/Ì)*vHlå¤Hä¢ 4Ê¸dÑùgÉ¶ÛZx	¾ìyÀF’£İêÒî¥r‚Îá§òû1)ƒ’ıâ†B²—\qÊ¹ ¥œdÒólÉˆ!’]İmáê¼™â{7©Ş=è±“ÌîŸgâÙ ù‚üq‡ş9ÎŒ¡;„FÎ#išù
+ıÊÉRºê?<—ğß>2E»Rá‡õó—R‘ô’»¾L^ËfŞZ"kBÇõ`Âñ°ºÀ±gä¤¾›¼”s§^z¤¦:§Š2ÙlY´ŠqúRÎ«nìˆãA²ÎW}x-å5C³[ûÑÒÎÆÇ¿º–ö6ÍÚæ¿ˆ–æÛÿ*ZÚ	<îfÇĞï,ÕRõŸÊãz{ÿÂZªïâO¾eõÌD ¯ˆ.]¼ÛşÉÎ>Rkql¼ÿü½Fg“Q¾ÿ^2Ê0y_…FÉ÷²ôš&mš%•7VÑ²†6‚½uCp}Ï•2€@XcLÓ÷C_0…ÿqTo}P-Uãi¶™\#eêÉz?İHª/-Dßã$o0³=»H"zòVEÏ!~*¬úù	¹}ì›j2À~Q®»üzp-îŠ:@6ôÌHYRJo«ËÌ­²z¥;‚®ÿA^şº.ïª‘jÔ®³ú-Zpoªj
+‰Öñ·Ê0¹i>û'ÚÉle?ÚL6q±	çCèÙCÏ=¬ÓÉ×‘ÈVö«d3cé3 t½C×ùkƒ™ ÒCR'ıó8ñ!89 /“v’/">P8ñ¥Vf9îÄ×*šE˜¯€ª* %¾S º‰0¥Nk„Û`~N§o³8Õ{û"¢(lu*ÆÒª‹I™öÏ'œjÂÚÏ¦f$WÚ,ıêÄ›·!„ú¨ãµQLâ#õ¦îÖ_'ØS_\ÚÌÑã×$ì¹)Ë]îœÌ¬ªğGñŒ`M™'~,]0yó0™µ']’³&h~ùÀâ– nõÉ®£Yµ5·“äì%[‰\ô±ÕVèş:Á*-SsQ)¬J"F1Ïl•&¯<Á…ˆdÛ ê¬è§J8Oä]ØüèŞï`m)Ÿ§©¥”XĞE”psJòÛÃœÕŸ¥	JÅÄáÄyåøzß·{£¾7µòVv®·A2CS Áğ‰¼óÉ¬æ #?i\ˆ³óÑu2ÃŸ)5š'x}F°o§P5($Z¬q×ã]¡ˆd1íÂ‚" ½öUó’¾CôõW;ô\{ f,É×Ñ(‘?a{‡‹¨ñƒlø@Á)Ÿ/yı²š%9I×ñŠ: l—üØA¦°æ_}2Z³ÉR^g“šeµLâ‘¨™{èÈÅÏÒ¿be™1±¢Nf	xy+ã²ëyÌƒå|Æp{‰Š)Í‘}È5MÆ<MÈ÷`Ø_^øõ>¤Ón¾ŞÛ‚-n¤{Éìâx/¢1æ~²1;D‚´&ĞÙåüh‡ÖGé_‘v®“Ml×¨q‘®ÚKóõ–`®bìà†$ğâ‚¶ß~RÌ	ë´Nã£Ù¸iÖ»Å<³Æsòz¸k°í*6x*€‹AòuÏvÜñu2€ä*n.{Ø\š6á–JóucğÇš‘®ôs~ ÙQ~t|C,ÖÍÎÁ	¬=\fzˆ¡-yÉZ¦Õ>ÒÔ¨(µDú³FO>221ğ+{š8€-H"Î.`a¤òÚc]cL.‹»şxªùş†/vÀ€ùîMAâ‚™»ú·åà,˜XÍ´vßfÑzo¦O‘]Êà]ŒO~û@cóém‚?K'8”f·Û›ÇòN T(¹¼øìÊÁèåÕvX‡ıÙ\Â_ —­h’m<›­nÑ±¶Ğ¤R9”+õ÷í‹\?yÊú3¬ú•İ»›v>¤“Org`4Aº&5àŸ¼ ª‚©4Ÿ¦NëoSFˆ‘íZ©0‘FŸ®”<•)E£L©êŸ(/øDÄ089ñdÍævRp”ŒÒ
+—§4Æ|IÀVàŠ¦ Á-ĞÄµ«ˆªñPzã‹²ûÁº;4¥ì‹"\¢ÿÊ’ß9 x4È;M7õİ)Q!Bf˜s|ú>”·Höp¥HnĞ©Hœ@é¸štq÷¼8®2«H«H _p÷9"Ã¿(™äì…R¸“Ezå™T
+Kàù;=4Î¶·D>1¾İLŞY‹Şsƒ–ì÷‘ü˜áÜ¤nùi„pc|D©uáûö¦ş1ÖPY–Ö õlš9¾LÛ6#m$½ô{·AçE£nÁŞş¼•ıÙãPırL}¼‡'µ¼ÖîQâ<Ñ8ïW»,QTûÔªñê°GñÔò˜xÂy‚Û]€é>~=¥He¾eÊaÜğVh”¶›XÛ<>D–—¸Í‹5Ãw(ÍÁÇríClgzŠü]çM¬Ôïy7 0úPhÏ@!|ÜOì[3OödÑ,øYj:‘ñWÜÇòÛ9•Æ/T*lÙŠ¡À
+=í´w¿fé¾õ<œùKãŒæ	>$e©B4ÌüàŠ§q†ã=
+GŒ	NcúÅXúø8²CğÈ_‰¡öãRc”Œ9j=\?Ö5Ü1Fô¨(ÅÅı•
+ÜåÄœcÑsà)¯W±à:2¬Õ^ËNøxdÿg¯å¾]ù˜Ïí´ŸºùdTØM_ÙäÕIñÃGnG§2inPºÔ:NÂ˜FRbö©ª,gº×É%*v`“¥Jjàå˜xãõu‚=Eí0O:(c¦8òí!9*†ŞÑUraéR¥<iGıuèÚA\ÕRT³ü¿ş2‚dg'›`ÃÈbäÔé¤¦XË–VÂRT.j0ª©Ëfİ½ÙÙ«‘O“TÇéuŠ÷!¨Bí{(ğwŠ|ÅŒ&¿EˆšÄ÷²şƒxŠG(ÌGHÊïp¢æ|ˆÖÑeÅ6 ø}éN2€>í:ˆ6aJÙ~*?>Ä®#êW•WzÚ:†=M!üò­%çqÇš8Œ•Q'6óUmEõVhËN)ãxv[R/ãİmC^
+Õ,&óÆ9oRÙŠQ¦ûiÛ1¸"üÖíŸaé„ëÒxí¢öà©~Q‘ÑúmúÇ¯æe67©İëƒ:~Äˆİv#y	¯g|9"TS”û”$ìÏÜ—“ Ç“øH¡[¤åRàŞ"ì|ØX.^ÏöO!E˜‹ÓmßÕ³\
+ÄÃRht+W”}Kİr`âa¿ò\¤rHG7Fëzt~ºZaáå½UQÌÁ”qx¢kĞµŸ}IåíŠnİIVómÀ€²ë!_Ò,§ıny¿÷{îŒê­ˆæf•ÌFáG)6]4Ğ›ÔŠJ”Bñ+…*«4L‰ÇÖ †!/ŸR¤´˜= 4ŸQùÄ&S¶à^l’;–•	ùQv«äÂ$VM“ä”ã‰Ó,ƒ¡Æ²62”Š’ÃÁ[Éò§¶è'±ôAl,€®y@BüÒJq¼•Hm¬õ›"›™ÉÂB­9õ|¢‚Ø‘â@Û!óV˜Š¬$¥0,&cğgTç†¶ Ù©y‹ â8&›¤]{Çşï‡Ä[ÍÌÌƒÌTæ7Z†å¹•Ëûù÷?È÷æû³úÑH? µTed–šà1s;«h$Á^ÈÓIz­Æ`‡G³:î!‚O˜9‚
+õÁRHÕèÖşNUÓ¤Ğ#;ØC
+ê­˜*5ÆâŠ¦Æ¾°Í3Mß/|Á^¼t*<O¡ûÀJs
+„¯ã¼g¾§wæçd'õ7_)ÖßâOŞ3êà’ ş´»¦KòNŒDÁÜn4 Üä$ğôËt ÅÊN€¼e¶]ïãFİ€öÂŞ†1¹,ˆ	˜b‡—b;IèûQœ\¦“gßUEj H'GçP©µÄ‚´Dï©5Ófb(YêıäO”‰OªD>r¦
+ÕßŠ=áö°JRÿ™	¥²øD&•i>>(ø'ød¦Èœ‡5PMS"¾íOôê¤YÿAìªå|ììqèøg	^{Ô‡×ã1_&7™Ú*¯w¬‘+F>ó‡VKÖ“‰´)÷|õ ÇG4‹f2ú¾Ş˜Â±ÍŒÓ ´şä4d¾0[ƒ¸¥B¯:*8ÑHBé¡¬CÍÉÑp]Bk¸
+aÃå"e0ÙSÈëËöÑ`É›^ ¯àyäé=R+(diD·¤ç”mØEÁ#…Ô@ |Z*^H\³@/L¨xùÎŸÜ	a*~¨£%ÃÍ@ûÄšÊpqĞü.ŒEí„Ìó+G{Ë¦IšP?KımÍ›s\ğ\£Hë'ˆØ‰ÎÛ£Òn¼üŸãÍ)d-óf›C¡2¥yü6ıÁl‡Síè*Ça>œ{ÕúÙó3j“ö çdš+ad[‹şï-âQ‘ ­öVğ&ˆt¾ÌÚk¬¤›û(ûõ´*{ÉJZ“Dûk1cã`²){.z`‡À;–ª«Ì7ól…ù3dvdx¶zE½†kj@
+û‡·1,—GÉ®(ÀqÑnù¤>EşÅ÷VÒK¡›C¢<tÒ•´+ˆ:ö6—HKyïB“„jï$‚D®‘Kğo+Z8¬éH¹l¬‚\a¬29¨,LÉ4ìÒÜ2}e™îY¦¿ì4„Q‹ƒ¹pAsá]\šğ¼gÑ“gh@~ÎäÙF>yƒ½¾­QNÎn½ız¬Ô	‡•Ù4ç‰Pš(M¨æS©ÑÃkB"t³\9ç+"_ê£­¡¾+™œXñÄÌR4ç¡1ç.RËœS€iDıÁ‚ÿå:ÑrÎÙ‘Šğ¡§Ş>i°uA0“2ÄĞh.@G]ÁŸgªºM»8?Ğp b¯õ±pº“;ü³’T5ß¼â+YO\	¥›¨”¹çk&eòê'™=ÉÛüı4ßÅ#™8-=ÏÏ¹"èâµ‹+EÚİ€: emØˆ Ú±“^Á8±h‰ªÍR»ö e¥ËWŒõØ™Æ¢®+'nêİänŒßGa È“Nc–#ìC‰¸‡e¬jÁûnW£üe¸ÍInxİlš^7©é¥fÀ¹¦ˆízóÌê ş¢†¿Ñƒî[‚Kº_Ëƒv×xÁşBw/[ [SäÔJ;ª•°#s·±“¿¼ÅiÂ€Ë1VçV: bA#0æ¡H¾ëEÌÚñh1÷Ç‚YÌŠ˜Õ9 9
+›ÁØT¶?T¢•ëŒ±å´Ûè	}ìVAóó‘â­øÛ¤n‡gU(icÍo@IÛ96ò9+MÃ=ÊXŒ®Š¾¯ĞiˆŞ}ö+´CkVüÅy L…G³{	šê&dHô‚º´h
+óSó¯Åv]aŠÀüxï0ÖfèMY¥PÚåı¾C~9Lëš6Šzô¾ISBl·1•	Â™\ñgS×¯!‹=–ßK;¸­è+n_íqºÈØ³º®‘„MÚCÀ€€øÎá:	¨òa˜y¡Ï±ş~”ÏÇ|"¯ÖBñÈºåzTÇ¶ÚøÊË’œo`§ }¼¶•-™zâ%AÃ:ÚŒPö©0¥Úf"â¤ñ‰zç8>Q–£ú_y%“#YbNáy0Œ@>ÓFü4ab-£DšTû;üPß’âµ!áû”hx¬
+X:3F=—ø³F+(VqŸİ+–T¿[Ø`y+Ø(Ô©ä¯İTçÂæm~Ş¨Î*sŸ¼
+ÕÒ[ìcˆ1]%š‘à¯é$‘xo[Ñ€	·`­¼E|İv’ıl‹Q§#ÙÆq–ÚG\Å¿Æˆar°²	GDH”+øI¿1Úziß/`IÈô¬š1C1¡0‘«äànC±xÅPür¦±[zÕávDõz»@•kÀˆªz_'9Ø‘¡àTñ—r—;…¡÷PïDT7‹Cy_$¢
+@Ö~rĞÛÅP„Pƒêd·@•eJ4T¿ô’ƒŠ¹ÁĞ)†®‡Ş#ëÕ^$ë—½€j
+Ã¨âWv¶:RÊÓ$Å~L³Ÿh°1Gyê(7¤ò ŒF¹ ƒíf<ChÄâÓŒáhaF f"P0ïs“¼>4¼`’`–@2 2Éh!YmYĞBbÚêh ü	…KÚ;¬›cÀ Jra3j Ú¸çÁˆ…Ya ½ !ÀÚÀÃ3Ù¥ä”’gğTÁîZ‚ aå(´\€z]PÊ™kTJ²!^tÆ@.Úb´nUd*¢X8q5dê5¥¸±Œ§DóØÜäÚ™3Û$¹MË¶Eø/m2m©mÑ¬ÙI›h	¨keHÆ”˜í­…aÓd3­ÊĞ;üìd !a\¶›è$Ú>F X—m1,¶„r	€Ğ3"ôDàbÉ2Ì“EfqQë‹-¿ş<àEÿº¶T».ÿÂùu!œßˆæl‹øšÄFm“øšàh¶E|¡´E\Èv_@'YOÙ&ñ4Ä¾ º¸î‘/¤ƒ´fßeèË=JQØYf[S¢+ûÈ1â!Ştà{óé™ìŞ¥×)^´fjìÚ`á£{77É¼q}»øâ:âfıÇ'_¶K0g­ç«CÓ¹ÛéXiÂp%Åßù²6ğCßÒkˆƒ¼ÙÁ¢2·r0%ò„ûD’öLÂÙäéT"Œ«Î9¥;0d·£E #ví™ÔËQ\!Šî3C[R%L¨(œZ¨&'BÅ U¬œ¢¦PäñÖ!%Äl•JÇE9ÁC ãè¸e0ü¤I"–b«v÷\ÜDjÍz:V•YpĞ"T²¸…ª^t°(`Q±+g
+Æ°âh™Ë Xjb´¨µ—ê’AÇQ$aì2åâÅBÉÂ€âŒ¨|*l*†a¡BÄ(ÚŒN,4P'›+Ğ¾5NåŠÔ…«¶;0üÔ€
+aU¾¾ –©p`%M°¨«8Zø0Ş!vvÏha`!ÛÍŸaÊSà7
+T©©àÒâÆ’%BE*@E…ªR,Ry§SÜÒ×œ
+›ÑÒîF«ĞİOvÓ÷Ø0µØMÇ“ºÃŸ•Bc¼ÄˆÁ‚£ˆYç&Ò *]S²aXJ*Së6úèËŠöÑaÁRÑ˜ƒ¸p/P†,K¤¸¶î+$¬ŠUœŸ3¢} GJ	o«n,s°l[°
+¥`ÂÑjê
+6¡!ô`„¡ALÊz0CƒÌ„*_ahé·P5ˆp¬XŠ…3G	uî«\‘º¨«è¾ğCÔ¨vƒ•/‚E] ËT8°’&XÔU­ú"Ø„†e£…qŒ\6NÔĞ ØœªT„ŠTEç'MBE*@eÜ`•Š`‘
+`Ñ˜«ºÃÑ2U¬Bğo¡¡)î¨ƒLJìà¿…†eUÃo¡fó[h`ô¿AxÑ¸£Áé·ªAjaYjH¸ƒ
+áÀßªcN¿UAêşçªª¿-(ÄÁ«áôz –#¿-(LYğ?tA‘nËzäcŠÓ4nnfÜ›h¥ø¿v¼N`œ*)x=â]'wÉO–²x\')ÌÜ@¹©öß5²úÜ¦p)îxÈ¥Ïøm„ÔL¶IË›$ÄØ^òŒ^!.İjášñzl•bÛÜêæakS6¸©t>ùMhnmó‡Á<ôÃ|ç²½k3ìp+‘_y6	?Êv4‡³üãovxúº¡°‰ÛÚitˆÄüE	=‚Üz\äŒÚûoòdØÃ‹úeÎİx‹›ô‰»°ÍNŒ¼mBŒ„²Ø8I·ÁÖÇ-ù0ÛÌä›d°¡’ÉÁÀû l 7À{!£€ut«^Ïtt–¦?È¤àO2Vø“L7€;ºÆ07(²"½¯A‘²GˆÔ4ê¹ê{½e‡ó÷²´~ W©°`w”·Çİfo†7CwšëÓ£0X	œ¿ÛìHw4"ª¡\
+„k,Éd SGãÕ8a8€¡|7WÊ×sK0%P5 [‘´mĞ‘¶mPM@$PLÎiå¾1r_[ê€Á¨{c©;ĞĞ€.Dê”Ğ@@¤PLs¢J¿»5¢ßZâx#•^5[PrÙ0/!iÙ2š@H9+†¬Ø_ŒØw–²S_ß€º_,iĞ¥€b¥ç4P¹Ò½ØU#vÕ·"TäV ±ØòE ±ØRHQlÆoäFêšíj¶o İ‹ŞB†r)ÆKÉd 2ûÑë›„½¾ï6È›–²SjÕ€n+uÃ€¾ˆ´İ¨-ª	Èº†33R‡İÙÙŞ6roYêÎ\ûÔİ¶Ôhh@—"uÊh  R(¦îg{Çˆ¾c‰»Ù6[Dsºa _BÒvÌ–Ôb,$&ì•ŞÛ3bïZÊN}}êîYÒ44 KÅJÏh  r¥{±÷Øû–¸¡j ·‰Å6/‰Å6š@ŒØÇ¯$°ãª”	üráêm·¹µ‚¤İi¢«y£	²c ›1Hn Ù3mx– Y1]¨wM-y+ëUãRÿ8UœK0æ®ƒW>€ƒëÎëSMŸt™"„”BÈA)„ĞÍ º%lfø·ºJ¹Öµ”uZ‹ ;w*}4Š´ËGa- Ë7‰•RßíYêê0E©—ƒH½Dê ÁÚêjo Ğï+ñnß·ÓA¢i Ñ´Göa¯ô«R,e§¾+=ÅJ@åJwbß•ølh‰[±#H$v‰Ä E±¡unêdoŒ”ğ—³«5ØBô¥úw)„ÌFNÂ^ß{¹RŞÎ-e§ï+5a¦ì,93#uØ1òŞ•R_[êÎ\#©—ƒH½Dê ÅÔİlç%>˜Xâv¶#H4§ÄUÈAH™“zWAéó©RL-e§ô+=ÅJ@åJwbWgJüvf‰[±#H$v‰Ä Flä¬…â\ò±Û¼™á5;ÍÙìµù¹	!	¢iâY*Bè2äÁd2¼QÙ/o ;zÖg"Y(……RˆñZgkÌ£ŞÏ¦·Jy|k)»)@vò4™D Ø"‰aL¦oüìîN©_ßYêÎc"©—ƒH½d´_ înë‹¯}±Ä­ÁE?ïğ¦âç½!åÀÏ
+J_©*åİª¥ì”b¥G Xé¨\éNìş†ïnXâVì‰A"±#HQl†]˜@CW›Jx´	Âìj6‚})„^
+!³Ë“ÉÍ–RmYÊNß(VjŠãZ²³äŒ¼L6¶•ú—mKİ™k"õr©—ƒH ˜º›í½%¾½c‰ÛÙ ÑœF(ªFc!1a(ÖæĞ=¥¼¾k);¥÷BP¬ô+=•+İ‰ï+ñÁ¾%nÅ ‘Ø$;‚±—$“ş¾&“î~1™DƒD“Iñ,!™DºÌ#’ÉÎºÊ¾¹Ù£dAÈ‚õ¦BJ!Ækİ”âZ§{Ê5Ñ~çÔPvSìäi2‰@±5D Â˜:LßÜ°§Ô/{–ºó˜Dêå R/í¨;ƒ›^*ññ¥%n.‚øyG@Œ ~Ş‹R^LîúJùºo);¥G Xé(Vz*Wº{k ÄkKÜŠA"±#H$v)Š'“•¡Ş‚0»Zƒ D_
+¡ƒ—BÈìòdÒÏ•r7·”¾#P¬ÔÇµdgÉy!™\•úhl©;s@¤^"õr©Sw³}s¥ÄgW–¸íÍi‰¢j1†booL”ò—‰¥ì”b¥G Xé¨\éNì½©ßZâVì‰A"±#ˆ{I2ÙšâÙX™Ô¦øù#9	#1DƒD“Iñ,ÇĞeL2©Ş³Í5¿VÙ'×=J&„,XoŠ d¡b¼ÖMy!™To”òí¥ì¦<ÙÉÓdbkˆ@$„1u˜¾1¸[¥¾yk©;‰@¤^"õrÑ~º3¸Î%¾g‰[ƒ‹ ~Ş‘2"ˆŸ÷"„”—'“aU)_V-e§ô+=ÅJ@åJwbOkJ|\³Ä­Ø$;‚DbG¢Øq2¹ÛPÂ× Ì®Ö`#Ñ—Bèà¥2»<™lm*åÚ¦¥ìôb¥F 8®E ;KÎÈÉdeK©ïnYêÎ\#©—ƒH½Dê ÅÔİl÷w”xwÇ·³A¢9 QT ÆBbÂP¬ñí«]¥<Úµ”Ò#P¬ô+=•+İ‰}³§Äg{–¸;‚DbGHìbÄ^’L¦{šLÆ{ÅdAM&Ä³„dAè2¸ó?æÇ„»ßÎsDZÇ2/ğéX¾ò‰ÆÈ'¨ß6’<ß×ñkû6~›a~\Ë«)~(h±¡DZ²uĞ_ÊÀùñ¤»”Ñhó5¼ø§I¡é-ÇÛp,-Àk[zÉ¬1•¶»dÚ¸" ´0L$ ˜Û`†‹Ü¶©ÿÏ2¾ú­ü×·õ2!vKip¸b/Go"e¡I&Ï6áç#‡è%—‡¦fp;f¦¿£[ä*rÜ‚	@ç81
+“ÜÖ«(~:øWLnÑ€úÉeïÿĞÅ\%½æ+óş0 ÅÛdNâò«¹Xìùh”¼ÅÒä¥ßŒ‘?g1ÊÏäİWEŒØA‹…ÑËíÃ…âñà
+^
+-·¬&å
+‘×4ÄjËœÃÉÈ.tÑÉ|Ë
+fn÷áÙ·å¼gÓk›"BÓİîëænï4©£³‘Õ^3Åfy›B<N{?iÈR¼8É˜¼½¡uÛÄ;ˆšéÕn~*/ y;o^OŞ˜_#|šßòå!ÈÂöOŸ½—7dAW@ÏXCV8o›W¯Voš—øSkl&×Íéşê‡ys|J‡ò’%ré_Â+Z:ñÇu„S\h3¸exG†Î›»cæ_ v|İ\Äwò=3p¼ÊÌ¥¶Tò‚‹g×Í1şÖ:~CHÕ™'G)İâ·i¯Vnšò!ş2¨“ì7®ñZç{*ş¾§i«¥ûM¡WÓáù›rG“t—ıä*íã›<ª5Føóå'ÕÆ@ñv¾È(ß_7¯„­÷ófwŒ?4«le×Í|Œ¿Q4LZ£ Ã¤Ú˜6O‹hûI­Ñ~³ú±ÚxgŞ;{zİì‰Np3¥!#Òæ*Ğ¡UüzŞ¬å ÒNk‹7¸Ì[mäx÷’!ÀïV¿›æóI;›¦ùh–fß=ıÛwëú_ŸF•?U’<ŸMg“Ö¸r½õ¤ö¤VùCw6OŸ®¯w²Ù™>içÃõ?r@šï&½NwVÙ¨ÖjkøØ«¼ëf¢ú|ÖÍ'Óå½oz³Y6Y­ÚOØëe¯¦Ùye>:Ï&•ãÃw½Yw~Ff7gÓuÇÓúÙ ?[¶¦Àµşò0m¾zÛ$‹ëŸFŸFéÇùdVùôİÅ|ÔõòÑôÓwÿ¶_·&½ÖÙ +¶{·½…Îh¢0~’	+…ÆÙİ8+4õ†­Î‘v~^ì×™ôÎCgeü]ä“a‘ç³ùl¶(!¦u4í•É~>ÉÇçùÍ¨@OÑ¬u&ù|\ õFãù¬ÒOgùp­Œ­Qëº€-g­I¡±İš%?›d­óöd><+ô·:½QKd* ÎZç¢J/1>ŸMú¶Ù¤8sãIŞ™dÓ¢f‡Ùy¯U 5èM—¨bO‹<óóÖ €`–çƒY¯¨âq>Î¯³åäóiVD1Ÿõ˜ÚÃOz#nÿTÌ¶ò|¬²¾^I9Qk÷xÌ³i%î*Óù˜îò¶5¾mOzãYNĞ;Ï*Ÿ÷Ó}7­ü%kµ»•ß·óAçı=‡£—i™*Jemíw?i§ÿzZÁ#ûı\¯Rù/ñÌ{ÍºÙ0[#¯Gw6˜wZ3ês¨$Àç…Ó³ñ26¡²÷S( ŠgíÙç
+L¼"s?­LóÊ¬ÛšU®æùa«7Ë†ÓJ?ËÆhÎ´uJÇÛ,«¸˜êƒÙš^çGo:Å<¬olîmşÏ¶C„éµÍÍÍ­ıÚî†(m†¶‹Ö°7¸[›Â³×¦Ù¤w!:6şá÷å]ş¨Ú1óQ>·ÚÙR®Çcî`Qg:»d¨tí¼7• UiÍÖ&óA¶6Ê×®³Ñy>YO²‹Şíjå<kZº«@5&#®V`ÑĞ)º¢ùjŞô.îz£ÎšÄÏÕ
+|q½[À(öŞhèÅ#¿¾BD†/¤SÉ/*Ïß¿¬€€hqºZ¶F  +Çö1]“|X±ƒ²'íé´2Ë+“l÷#BŠˆÆÖIlUz“	Ğ]ƒóÊÙ$¿â§•›nOdÂye”İ¨jdâŒe•Ş–c’ÒÛ“2‹e°üÖt}dÄ!g"1yjäí¹Èã×TÒnkÔÉTÏgùíÚ´÷¼<­´5Ñ¯¡í³3ÖÏ7½óY÷³ğ2BXh]\` ³»Êçqëü#?W`âÀ4A§‡®71íóì¢5Ì I¨BmQB ´ë£Ã61,‡ÖÚ3ºì^±n(í¿õ¤òz’Á|ÀØù%"çN&“¤ t}T{è¥sİ¦¦ÂÂa‘¬ò¡û»™V^wslà›£Jïä­2µıŞ8ãŒşåº—İ0äµ[¯péö$œhˆ(ŠŒ"•@­FŒM$pNõT*•Ì@òªÒ‚^Gkfèê\eCk>Ë×º=Ñ¯§"×Îç¨Ç&­öLÙÛ)Uõlt¡¸•‡agFÇƒl–Á¦™äÇ­‰hÎÉúiô§Uü÷ôéYÖ2}Võ1„¶¢³-¦ò’%jŸFÓİÙp !=*O+>ğ°7C“LîšNîÓ
+jÈm‚6µn²³~o¶6ËngbÙšÎ.úU«ÿ›ı¶Øo8}TQîÅ ¿Y£‹‚;kDµ‘l¡u£7M*O+“ÎYë¿?´ÚıÕJõµc$†ğ‡ÍZu¥rgÓÑÿ™U`Câÿ9Ìf˜ÚÖ0û¿Ÿ¾³fóé»?Ã“F0ƒ!¦£ÂşE"¡K¹YƒP¶¿ÍôÁ§ğ£k„ƒ5~³©‘j‹ÖKV’Zkˆ7Ô;g•¦ø¶ÛŠ%¢æğÓwƒÛ@7™·góIkàB¢‚÷xĞºƒ)ÑKaIéW+ù@jpæPQ·&³^{ “oIA°Z¹èuÚ­±”`|Ã¾@‰UAeÿe)¡·‡^¨ú$â³WEêO+(âÛ}h ÂG¢g#¦–GHÎI~~'ü‚Èø†Áœ¡gˆ(.Q¥ÜêSøíY6!ëÀ1+T‚:šm´û|{‰FçjH&6"È! (T²Û1â{O\UTMƒGRêŒ´ÎrQÑ¢ƒ–Ä2Dá‘\#’H„ıÜu‘×Qnh… 6ë"tHéüŸ³.,Ï&7İ§Ñ„Wµª¬O+U6\¹Âğiª†§•¨@8ƒÕÒöèàâœ¶5ß0vÛúmÍu‰"Àïƒo¾«:ŒfU‰¤íõô´2È.fdœ¡£¨s;ö¬Ã>ˆ<ÖaŞ¢x•Òú»@DQ;Ÿ	’¬ª EÅİKòCmµ±"–Eçu¯…Úíî,Ç2Dñ».r$PJ:‚yŒ°.½Aî—Ò!ÂÎBÆ’a)‰àŞ¢…Ä9µC†î)JöÊŒé8G^‚²0…(’f÷t‚EÇìiY0÷f¨WÖEóŸFÃ	/»E`Z«}úîïO•¿Ÿdâ
+`•ÿå
+/õ4SR˜í€
+}q2 ªŸƒE˜£	¤‡
+ÌBÄ„'ôPàå·ª-8ÑÛn~Ãî6>K'É“L˜‡Mtü4êNÔHÃä*Şdm*	¬Øâ}ŠÙšöPtF6àw7Æ*®5îš`@il,ÈÇG¦Z1I¬Çr£“;ëñ«ğ³níÏŸ×ğÏÜMêÔ2Yïş
+<RX`e‰u¯Eù¤ò!«ŒæğPÑú´‰=”3DOÌµŒB£‚=xuEê]$1,Hag¨cL®óŞùÔ E÷Ê)ØT]SnèÖ˜7ğß&şÛÂÛøo'Œk`X¢†ØòŒz@ÄƒÓY5­E 5¤Ÿ²ßdSÄN;#pT1-NŸ‘·=¬vZ“ÁİªU«UúşÏñŸ?O+(ÑÅ©²Ù“Êóü¾„4„ Û`‘ÆvÊÙˆfLPÂïgÔıŸáà=x:Lc£ªó3Z¡òñcµä˜/S©×Ï°ğD¬Ñı˜ÀÕ¬}Ân‡Z’VÙÜ_SŒUpM	¡0\xªÅ0«´‹%™–ª‡ÍÕÊ	T-d6îÛÖâ•¢Ct.}µç“)ŒºA\éµ‘¤*ZcÃŞ³nëº—Ot êõÆ\rt± 'æŞšµÖş„uálÒÃëcÄ#ÁËÊx0‡JPhA+›õfƒìï¨Rù£QåËFÏ`Ma•Ÿ¤6e©ÈŒáÅ}ª›†ímL@"•r³´Š;l>û®*1‚m6³U“—@Î	\$bÊÁZ	†ev"¯@Ys¢iR•µòS¬dÊæ 7>…™êÕ—>òT0—sSzäË½Ó#[ˆ*C…HğÿÎ¥=²cëÛâğznv‰È´KõçØn=mp}ÏKq=Ù¶’¦%›ÛJä=Ve¶¤´1ÖfÈ}”­d­ªU¦²x1Ò¡b{3”XmN[Ñ+¤›–ÒâGõ¶<{ç•­'›k¾pXŒ¦¼Ø|ĞU&
+,L	ÊèÉï'WSY5±`^Îƒö&b¯ô®H†ÊBi97àÖ.Î´vÛ3ªrMÈ<„+u§Æ'»üş<Ÿ!ã!PàiìKMMšºk e€8:k,·¬'š C…x9PŠ
+ç&œsİ–Æz,C!Œ¬
+ã2¥ªÊ²»ı¿Ù¹‹æ'xTéˆ¬®±‚@)Dï7â€¢…5ñµ'ÛğHÙz$y„ dºµ'¶QK!rş²7ê›ÔƒH¤3m«Vè«Ö0¾HÍÛ"™_¬`ƒÅ:&ıÈ|wÅ®3¤r•å
+Am·8jUè›á²Úó±6í÷ ]~v‰µÖ4¤ĞA!Ó¯¸xÌ‚GZvG*{+AfÀ72éÚƒ96»R©F*R“ä™@3%±7ìèy¥†0+tn?<T"9Ò2]…’–©í¬«ËRò¿.kñspÜ–s¦Ê¤–Bµ[é¢(ÅzÈ°7‡­jä+Ôd¬ö³
+b–w¶äGŒÃŠ«M‡ÉÖÕ„"€îpV¹ÉçÉ•!öSdMİ’šìİ`Õ yOö¬XP´ş&|ü]´-Kˆvïu•»ZA.„Û´¸‡‡•ˆî;ao¹w!kÇ;ìÌÉN°ŒÄ–å]%‡‹M¬&¸zÁ6äPLìÿÜ
+]ì³*“Kö™‡ff³¹¶¿UÅ
+
+vş
+úƒ²üG}¶Âÿı‘ødU2ÇØø^4ÕnÁtBTË‘¹ó‚ÿ7\Ö„›È†d¦8[©œ­ñê7n~ÉiâOÿì\¢PkhÂÃ«nbÂœƒoknë›Ñ¸T“X‹÷6sPR.r©,’
+‘†~TÀaœßì´Ø´(Ê¹¢ÍÅ
+€#¥t.”ªü}«p•-šCbc¢«Q€ª‘ËNXÅÎnvb<ÏHd	)[>‚Â/Àd;“jÁh¬yèd~7USï³ömwè¾b_•ÇU¨áá^?w[±»p–ûÅmC€œñô:ØĞri {]øê¦¬n6† ©)‚dÏU'ˆa–u°‹6lÍÚ]9W“z—Ë;)§JìL,V7ş!O‹ÍtXSîMõQL€ÃŞù9Ä‚Şìå2xJÙijâ Í˜¥²‹K#Øğ˜O"Ïa[³²Ø ½N¯;
+<I4ñÀ*53(g#:Äs9+”’ÀB%Š6‹ê}§'ÚÆ;ip„òSÀ¹Yï¢f¶OÄnk“ó|.#TLy4›‘ŠÇdè‚ö÷$°ÖÎƒ5 šl'ëËúÙLgĞè¦gì6¯DÃv»Ï!†’ U²:ë:S:6fâöÿsvÎlÊÙ‡Ë˜8)Õ·šD¿ŸÿSvĞşüµ°/YÙÒ[Úrô,›˜z )˜âŸ=—zë¿/¬@œğ’™¦Aë,3å&|¾ÎXÁ6º4Cz‘Ê©¢nXTì.³’zcÍn÷ZOp+¬ßáÒÅs`ÁNaÆØ'ØÅ™Oõd{oØj£œÑBIçÁa\»ø½¶YP(Ø+.ş8¶<MnlU÷7QÿózEd¨JU÷L8µq¼h7[vlu6ï (f’¼1ƒAˆ³6¢şT~2²qc6–­
+¦áä‚ƒ½ôf îøi¹¯µ9ğq[ˆH˜Ê@˜aİÆam|k—Ëbe®}í’\JÖdÔ9uÂK#H¹JCr/6cÛ3<äã™|Â¶ê-Z3Sp«!Ùuc0í&Î"ª˜ÍÇ bî‚ôšu´ªëš£İiô òíø¥ :ï6®Å;K7>Ã;L*¹¢¢Ò
+à°ÅV§G¨qR1õ²Çã†Hl5Z0t`2Ø´µa²…Ä|v„ÍDoxØø#*YÄŞáø—k®ÊçÖü¼—›µŞ5ÂUş™Æ‡“³MIôkgBå@88ÙÅ&Í™\EÁId®µj¥5yŸ¡]òqÈ"Ã/xa§N1<gü›tÄ&¶¶b#{ÕEZ 7ò¤]6½µ/ÖyÃ®ºü]•j—Dº/zCğ¥0ƒÇÆ¨z£ªk“…7“4ÔõjÍ~Î"	<àÂ‚Éræ|g2ş*•ëéS”_´ö]#¡€q'ä½½¬Ä÷vr:Xì¥Z12iœ*­ŒÑÒ­j%¸åªí¨uM»í{§ôp+ß„c4Qá! .¢Ğ×˜”i‡~ogÅ•&†áO£ˆ5lâæ•ØGÔ<ëËš¥·€Öpú(·³Æa0ë:1ÁTÀ‘ÁŞÒÔCåÂ!NşHŸ™‘[ùÈÂÇ9<$3û®&_{ÏDæ„VEoÒqSÅ§ûC( g™Ô¶à¤C ÔÈ0çîd™†¬°î„áúÔ§OtáI>é¬Oq~ó#Ÿ´;½ÿ¯wşk›û{[{³øÆ£3f­¶±ƒu¿Eáµ„>ÔÌbf
+ãÈï,Wb	%J·rû“	†<a¢Ş™l‚ØÀ’™E®şğ–|J¶Á,4ó"W†sz¸®z£{\@Åô˜AkğG†CœdãÚµ©x	ÌV”è¢—Î¥æúÉ¨.±—…¤18OöFzöÿ´"¦ÒÿÏ²ëc‘LaËiÒ	çJÙ“ÎTç½kœzàˆÃoq|ĞU•£±Q7÷¹‰0¤h„X·²´qätßlp"êÇ&_68X·Ù“M‡µüf[y)UÛØÜŞ/±(‰ÿOä‚İ“p7ÚãÅOW=³õßa6Ö,kàfmupÉlÍë
+ÊH~Cã—¤Ş²şjêZ¼j1›+}Ît›‘	G˜¸%¡:ˆT¤ËãÄ8¸Æ%!¢`˜,éÅ78 ”ÛAb¸ñ©¿p W èÈsŒŸ-ßÁö¬uÕšàÂ5ÜV’K`æúÊpkMÑ]ÉáÅRY]½î·ûÃİßº¤¼r»‡¶âbÀ>`Ï³lÍÜH4&¦`Mfïçª`Öó6eHqÜvÆ6‡]\AYv7Şez‰s<&ÃTÛ’>š=c©-›£^1deƒMóMó;Ë¥|6³p#Y®øş	Ûìá²<€àˆ:2(JºÃ³IØ]b+Y³;Cş-Ñ)î'´£lÆpqIšx	âæ¤Uá$‘v>‘h'ñHGCZ\ wµœ½ ‹MãoŸŸH1ËP†óíÏ(qÁ•W]ô6§[ÙbÃ'¸~‰cA.ÙpÎ~²Q;ÅE—Ñäö¸»ZÄÎ³òÿ£%xÈ*"Z>ïtŸT°x…Ósµ'×ìù+rØöŞıİ„Œµüâçc­n
+E°-*!ŒË±–'B³]j¬Œeuë´2µ…˜%n­`ÃÔ³e5µLW¿`\ŞæÜô{›Ó¦5E»hvËGøı{5;kÄa–/®¿qÍ`Â£¹ô*ç{æ¢0®ÁËêã³	*¼˜çf@•áe¿@-¶†£ë¼…ûáÁÂ^â˜_9º¸T&¡Ó2×Å
+Î¢&;Ùı·ŸC‚sao„V1ã’ßÄ\ëraœ÷ÿä¶9iãœ½Òû÷ÅAí)·¹rd`Âé
+<‘‹#ã¤÷Pp{{p7-,+±(~l™ÀJ”±å³n~Ö‹ÙşZÀ˜Ì^£Iß¾5g-¯²L|ÁÄÌ®Õ!"ßœü›b4k¿ˆñ…ÛNrmıßú×NÁÏ<Ö°Ã6ÇÊ÷wÕêîÙÅæhMîrtr´îìÔª¦u<ŸàIZ/¶6Ú5ÛŠÓF´e{›Ù^Û´aY¦óöæöÖ¶iÂRWÏÑzq¾›Õ¶LëvZói½h×ª»¦¿«ÉFhÜØkí:¸h3¶j{ßvlßµ¤_m·µq¶g³. F+œ”¢a§½»½{îH´îÖP©
+ë›[›­-=+^Ã/°Ï=‘ş‘Fp—ğ!šÎy-ı#n{£Ñ_ÌYk‚Å&nÛÇÒ‹bp>ë‹··¥ëŞÅşEËp]Æpğë”Û©--1­î—,kSlmïî éì !æiwg¯4 £ûû’¿Fİb"jÕªƒ{iÑ/MÖæ<§w8ú®V948nµßòûâç*î¿Í:yVyøé»ÕÊ›ûß¹´>Ï×Xr·[•WÙKòÕJ?¿ ?»_²H·º@ÉŒæJs˜_ö¤§ÇYÚöönˆ;ü‰•{È¼;Ç{Zy{pŒëÜko²Î7ÊV+ÇÙh ÎĞØjãß':òë¡ö²‡MïRÉe!E©#ø^ÉÕj\l€Å*ÔÉ€ıMîÍØ‡ïÚËœE%5¯Ùs&Ã« ²¼oØ³ËòËõlßed¾„ÁO¯ÔÛÙV%7ßËï½Ssÿ¨ûåØœ+¹(-L5Ş?¿‘“_s E=šmöNÒVUã_Ád4x›S­ßmÔ6¶7ö9XÖ¥v)Å[Ø¢Ewõè$sÖ¾ıîñC÷€…¶]Î¨Ö:ıŞ»uœŸs³µjW«”ç±7=Ãw¾¼("QÇ¾~ï-
+ØÖ™Ë»…g1ëe«>Şmä”¯5=b…Í¡û»tN7îlü$Aq€{¦%Û`o1Eı·-*¬óºThº.¿ïg;ü£ï×©1éqsÅÎ±b<)¸hg@ñº° [0g³†,Bq¾Yê8…»p–…§ÁU6«Õí³M—9©f«_ôÂÔÃ(•aÜÜ¾nx|k¤²l2SËÔûê¥?(±9àñ·«~Åê+:á•ûYfªİU+ãÉ^¢.½äô¨ÛCá-!¥†Â½pù¯ïX¯zÌ=Ó÷Q·jLßåwgªOv·mma¶¢\”aÖ‰‚UÍÍÜÎuÕÄc®Å„½ıÒJƒ;(nµ_Ø7Yæq‚÷z¢«#Á½ö	½ÉììaôßzB¼8ªR½z"û›£âÏ¨NÔ–j*\Ze¹Î^b0Vå,9Ü÷{“<’ÒóW·[ıèsıˆÚâ	x°®é¶ûòƒyËÌ½¨şIÜÅ@¢Nstş«‘Ûò‹'œ6èõ‹¯9îş¡şÕ×ØHn»LÅæÏNuu‰mƒ€İ9QO\üg-èÙtÁÑ®*"¿¬ùÖ%n¹p2&”ÊÅŒÕ?ò<Ìô¶ÎUr ô?*=TiËl(<L°B,?øõ4¾öa™\‘¬…ÿbÇBÎ®ú¾b¯ßZÉWìªã÷¼¥‹oDİ'y"¿8}"?9}"¿9}"?:}RøÕ©½ëõCIÎîol—ïoèÎöBÌP¨<Õ4†(Ö3µ™ŞXì¥¥ö¡L›}j®bÒn”z«¤›©«´Õ²]Òk#ê¶h/à>Üx2ß®ş$&öÀ lÇf«ÃM¿~bJªµEõìÜ3vaKRôO©ÂEMn[}.cvrQñ[?åâ$m~#J»·®9ÜÏ-L£µz×æ(wGË):±-.òÅ%x;‡ùÿ'µ?Z]ss@¼î¾]‚‚²uS¦ú2ZşUãñùôÉ†Ù\,Û
+l_ìe²hÖ	çÉä8â7FhW~Ef¯Nc'sí5¯}Ä®ûèÏHÅ¬3zMGÅ²…BÀ±YBÈı fkm¼ÚéÜüÚÁL_yˆ2ÂÚ…â0oûèMÅÀïöñkLá™kws»~(&òÂ§ºò=%WO83	×œS+?äM,Nv$ò{Qæı=Ÿ?P[‚Ó¾MHq›;kOq^òéŞ¹Uùô©Z­Wyc´3ì¬]æ°ŞŸ„Î°ß4’6»Ï^[y‚¥ò^ú8<áÂ¾mÒ…³2«4gÖ¥¼ıî<Ë6²J\\ş9m~“ášÿ~CÓxù™ùıN!8“*Æ>°ªz4¢µz0ÖÒVâ-¿}SCövŸ˜ØÚAÁyï6‰õ¼7¨åØqMZ,7­ÊŸq;Èâ,Ïµø¡İâ´!‘À}¶¢|¢õş"7vİïaİDpj±8Šœr%|pşMğÎ›X"Ûl2
+6Šİ6’›ärgZĞ¨c”ì¯¶€¿0/_“anÅY³ Ê5}ÿ•ÿ•ø˜õ©Í-{¢kWök8×v6ñ^UÜp•›­:aÅÛ6†›ğWÃO?¨AÛ®ÑÙ5ÇÁÒ8µ[!içĞÕÿÂ×kâ7s~MÇ“m{‹ÜEî¹íÄƒ‚©ãl<¶İ«¬{°ñüü1ØöwMÜƒ®V[Õ«&±ÿàé{‚ëÍj7Î9d¿ô?MÖkŞÁÀ¤‘¦c{¬É=Ø§ùT§D‡b[lOkE;Sƒ²Í´'8ãïàV—\^üI³xlş&)ƒÖ—Cÿ\‚åM!¾?WşÆ[Â/U ]s¿°Ş±E*2RÖGò¯¬6ä_YQÈ¿²deQ ÿJÕ/ÿîš÷Ì¿ûæ_y_;Ô,ÆšA)¬ËHñ6Óg:ttñhIãÑRÇ£e –<Z6ğh9Á£e–<:–äÙr%Ï å­{ÃsÇmo<ZöğhÙÃ£e–=<ZöğhÙÃ£e=y¶ìÉ³'hÙCkÀŞ ãØÃ£íGË-{x´ìáÑ²‡GË-{x´ìáÑ±'Ï–=yö-{hØ»õF…GÛ–=<ZöğhÙÃ£e–=<ZöğhÙÃ£cO-{òì	ZöĞ*ì™: ü…Åp%iÀf/TnôUëFÊ@êÇ°{%ëBRå.;gç|¥İ”$/¨ëù{V&z­éJ®qÁMïÅ±+~±ˆ»mÚ°XÌ:ÚÜ–PÄÿ‰>\¨+4U¸.şpL=–N1í=Ùäÿ´¦~ËÚ´á Ï»Y°ÇŒ×vìÈÿv‹È€ {ñèÍâ=F¿ajQÏ´m	j“ÇdÖì1¦ÍÍ%Z( ¼Ä£7;21ú­Ú= úâÑ›·¯Åè·Í‚ÌëÁ¶µÉcÚ-3†íprQÛ:k( B¼á~¯ıÎ2{( ôÄ£ß/Co_şãÙ¶-Bmò˜jÕ2T{Ë¢ G ¿Ù‹§l™E şà/÷<yK.—'n
+İŠ%ÀiÚ›Şñ¹èMğ:€Ÿd¬eyÜpÓ~GÊHùÀš^’0ù-X˜KÎÜá’wJ#$AšpLA«vLÄ¡|	Ç4eÇèî¯aÎoE²a­xì˜H ¿›¥c
+!ÆÑËÎ†|	y+Ä;FoŞ™1ò%SvŒîU˜1ò%Sp{;FoR›1ò%Sğe;fİp÷AçG¾„c
+jÇèµA3F¾„cŠ®hÕ"Kà·hØ2[ˆ¡hµ%æP‹ìß5ş˜ÇîuGkÅ¨¿üY34¢Î%)Îô6Æõó—éfì+êV’LocYQï’ìbzÇ¯÷Ô5H˜:L7cFÒ(GD*3õ.	ì·1¨wµM7k-Q¿’ l»+‰º/ÆÔ’½€ÂÎÂ é5Ì²¼PÔ—Šá V·¾X4İÃr1Ú¹pÊ­èúÍ,…ŠüŠÄ0“»JÑı¤3h	Rƒ»I3JôB”‹!¹Ğ3ğ~ˆp37EdŒÛÉD#Ø|¦_ ¢`%ãrEJ¶Iø¶ ·mŒ-"|4f(À"JÆ¹‹”"ÿ)-€JXDÉ†"%[i†ŠòmnÛ!5adilî"($Ã"J&)EQ(VÔ( T€E”Lø*R²¥h(ŒopÛÆ©vE¬Q¼‹ù_ 4
+°˜ÔbeLj*ÀbRËüÜV¯¡²\ô‹‚ˆkUÄ¬, ñÓWÆzÙ‚Â²®x1ß(|=»ˆÁT´ƒù^À`
+ÛÅáZĞ¸Ñúµ0xa,÷ZÖ¸Áúµ0xA±v°7n°~-^ˆ‰v°V½n°~-^ˆ}v°–¿n°~-^gv°ÖÁn°~-^ˆPv°Än°~-^ˆDv°VÆn°~-^.v°–Èn°~-^ˆv°ÖÊn°~-^Œv´)šİpó½8~¹•Í¬ÔÎl½hâ¦Œöô#SÓR~ê\$ªË"‡p}¯Qß² oj>àw)­ü ç Ñ 8ÕûŞÎâ£Ş¥YÛr–*MÀ~³ğhPœY}ogÒqïûõåL9Tšï<%gÂÑ 8‘ùŞŞf£î¥9)U>û‹é¿¨³x@X8Ò¬Ías`»ÿ]e¼92øÇ”ñrjQN)60ù!A‚A_ä	dœóÙ$]-¼/¤³ 
+`%ç±1%ë²!	ßà¶RçØ1Ò‚g‡¸@‰,¢ä¢AL©BJ €RQr!$¦dcHHÂ·¸mc„ÔEšÒØ4"ÜEPH"†E”\xŠ)âSHiP*À"J.¦Å”lPIø¶ ·mŒúĞc-Ä¾ù( Q€Å¤–øx!`†¤@©,&µÌÏfòsËx ø™e<0¸ÅNš­±,ã1xaìàb}ÅİTÕ«®b0xA±vğƒe</ÄD;øÁ2ƒbŸü`ÁáÌ~°ŒÇà…e?XÆcğB$²ƒ,ã1x!¸ØÁ–ñ¼/ìàËx^Œvô#Êx¿ÜÊŠf¶XÆËø¥†ö˜2œ‹D%]I/Älñõ-ú¦úÃÇ_4¦´"ğƒœDƒâTï{;‹z—fm?ÈYz4¨4ûAÎÂ£Aqfõ½IÇ½ï×—3åhPi¾ó”œ	GƒâDæ{{›º—æ¤`Tùì/¦DÂÒ2¾p—n°60×cÿ	ÊxsµÆÚ·M¿În¼Üî)§›F˜á‹ ÁÇ ŸßAÆ9_,PÁûB: €PQrS².’ğmnÛ!u#-xvˆ{(À"J.Ä”
+á ¤´ 
+(`%BbJ6†„$|[€Û6FH]¤) M#Â]…$bXDÉ…§˜R!>…”@¥,¢äbZLÉµ„opÛÆ©}1ÖBì‘/€XLj‰fHj*ÀbRËüüg–ñˆ ?·ŒŠŸYÆƒ«Qì¤ÙëÁ2ƒ¦Á.ÖWe</(Ö~°ŒÇà…˜h?XÆcğBì³ƒ,ã1x!œÙÁ–ñ¼¡ìàËx^ˆDvğƒe</;øÁ2ƒâ…ü`Á‹qÁ~D/ã—[YÑÌËx¿ÔĞSÆs‘¨¤+)ã…˜->¢¾eAßTãø‹Æ”V~s€hPœê}ogñQïÒ¬í9K•&`?ÈYx4(Î¬¾·3é¸÷ıúr¦*Íw’3áhPœÈ|ïÿŸ½7ÿq,7òÄÿMŒª¶KY)åYi´1¶áÁ0Æ;À]^@ÇËJ¹•©üJÊ:ºıÛ¿Á¸$ƒ|Oyt·±;»”ï‘q|Œ6›wû$SËoı²{ÆMãóXÖã/¼ùúWÇ'{Ğ£</“Ç‡mğâJÒ3½À®`£Ş—²ÉÜÏ¦Å+“Jdïb*œÔeSNâ³–E|fhËÃ„¨zvJ4smK»xeXdïNRNY<°œŠW†Sö.á¤1$å$AÄ²ˆÏmy˜ÕP“McMB;eY¤ïNŸRNY€²œŠW†Sö.á¤A-å$QÍ²ˆÏmy˜±/¥š?K¼xexdïRVÏ"¦eU¼2¬²w)«šŸ?1¿~j$˜ÇMR¤Ñ$ÉêÍã¡rÑR9O°Š<*ÀJåŞ<*1Q*÷æñP¹ˆ}R¹7‡ÊE8“Ê½y<T."”TîÍã¡r‰¤ro•‹à"•{óx¨\Ä©Ü›ÇCå2.Híy|¨_·²ÜÌÊ<>Ô¯Ú<¨‹$9“Çf’|$e½ ÏéÔQù’:nF+©$•Ò®>–V‹OJ»½v¬¤–Tr;àXI-<©”ö¬±´štZº—šrRÉíï"'5á¤RÚ‘ÅÒÑf“ânŸdjù­_v/ĞÃÀ—ÁæˆÈâLç”–¤<¸¦8!=œÕ2Ûß„/C‰ñ¾<"6)§¿ÉyÔpÆp>í!;'ë‘2G!Ém«9EÒÃÍàx|>o§BOÿİn1[~%³bõU·¸W/1z„/nøg	İ‰9õ‚8ÀÙ1ák9ˆ‡ş¢#,é4!W»XËòTRÒh F¡íoá+Ö‰(óÁ7r)İX`A¡bp¥r¸¸('JÃ=ß	\Ú„^ÖšÆp`*V 8µyuî%Â*ûíÜWÃÅ”oà6p>Ò¡láü§ã3=Å‰¥¥Ó‰•°9¬x µ‹‚ß~Ñàp†‹…Î<•¦(<ûÕür	·¢eP€,¼ÜµÑ”úÕûëÅò: ªiÎÃ ûd)½ËUo‰ é£¢äy¤åùòr9o¤„ìIÔeã¾Z\.æ‹&Ü9¥PNÑ:T.g¾Å E¥ä0Å§u'İù¢ßÂÒ¶¤ùdy=?€N „aÓ’\®á~˜ˆMø+FÕQ™wİY×Ô/¡iC2›Ãia8`ãUâ3†H´TİV\~Ÿébœˆ?È 1Oë¨\_wİ<Ü—SUˆÉô¸Ğ¹œ…$} 6)Ã¦­¸\é‚ ˆı6°9[ôøßEÔ¶™ëÉüxrUh2dòru»qyâIü3ƒEŸ5PY^/¯»–:tS”nÑ-®ÃĞ¸
+Š¥ÒÀ$+V‡ÄånˆŠˆ„¿2@äQ°‘ËEÓƒğª6ó÷óù¼	ª!Ò@#-UÃå7[ìWŸºıV!)Ò°2qJB&‘l˜'Ñl –ğ†rUÈúÁÕ›pé!šŒ‚ş›pYÙA'îI¥“é	\—:‰p!OÍÙœ¾?;>£I#'çéŞƒĞ5o<Nzx£uGTä§ğµ¢EAÁfÂ„É7,8ŒY&šbœ@ò±X>¦|¸ÂÓ†Ó38Û)şÏñQ9È0¼ÈÎoDÊøÈçÑ¯uâÂÙÅÙÑ{¸N¹Ã	€1œô~®7›ğõ¹xÀ¢~Û®Ÿ‡Âwh0œ¿†[ÇpÀ‘ùä]××tĞ!^Ğ·ß<,nÀLÃ×®a²9–	ÇÕÂ(ğ,‚ã¯¡<ª8Ÿm±
+Ø|¤ïÉ‡ÄÑc²ib9Â—£@›sĞ¹8¿h£¿múçBä~::ïaúªi;qËè?: ÷ÓÑ™LŞ¿oÃWâÿ¹à¹„§pOŠÔÚùt§†M†Å’#‰íwbü«iJ!ÅÎ=]›ëµ«Ç§ç£œb…qªÕC«§L'×SÀµ¥mwß^ï»^ÁŸr†Ÿ
+*Ê™Ó™İòtI÷¢rÿº-Wád>s:3N/¯ö«\ËÅP4(49Û:8V.»Ãu
+oáı—ñîf¶„#J‹· ”ÉĞUÀµx™öútt]Ôò„ßnˆı-İXÙpÒ7\{²cáì©+Ôğ¶F¸`f7î¾Ü‡»½
+ıK™¥3éiŸâP4÷tØXô‘’Tº<Óìt´û`ÒE<á	ıçhu–Ìs2…³&9+˜š©ÈLs½ö.ÂÃíÓ‹îf³†ÙjBä0×Imîg‹Õ.Ã÷Œd¸Òç9(…VÁ+s…6ò3’{!"†Ã¢—p$¬Åğ{8æ{¹¹[åµKs|eró²Aèb¨„$]Wøşû·ôûöa½_Áõ¾g'’“>³õâÍ”¼|ô»Løë¬¸G-<èÓ.»NífH„*İ6D¬q`iAã×C-Ñë…ø··°;bŞ¥G×qá
+uÕXü»p«XPVïnâÅ«Qµ`¶GkÁ&ÛóÄXîÉ©ŸŞHœ¶¢†Óö¡UúÍ‹‰âeù	÷Ø»¸ÉÑ\DxŸÉ ‘ŠrF¦ã£ËØVaJ¬Üounsh±MNit·µ“—n;2Æa¯5HGB+~7#‹o¡ƒ#UÄëa8¡…‚œöpÆwÌ¨æuÊŠö	tÍ÷ô˜uz¶thª~šá¾²g&Ù/æ|÷’*ƒÿÎ… hªhaî×Ö–ö¥¤ùäF)Iö‹é4JI¦W2 BñA"× 3á“–àBıÖcôíÃŸ<Ô–ŠZÚ§^Û•ucÑ²|ä•C§©?äïzçË1\rfèÇu$a¶J8¹«VÚ’9êâPi’8 È1é¼	F^á~ê±ñ™<´éóÊÛC|/É,'G—pÑ=e16·Lû¤!2wº2:Dõ“Ìsœ²²¶Ì#êÆÓµxyN‡`é„€ñ¸LÎq8»7Éqè™šæ‘¦¨‡C¥I"s¸‹ˆİ3¸DI^›õE¨Â÷øG¿çòötnÊ¹u6–#Ã¤*ey.œœ¿¡¢ÎD×æÜZî84µæ»iäf$–‹¯¦¡§™T¿Â@14öûAĞ¡WËÉ.ø`g¼+ÃpYÜt¹ÍÏ¿zÃA4¥}=§KS$Ô0tOF˜›Ía@ñ°«á`O¼tG>ÔëêcÆ¦Ã•LVŒş¤¹A-;¶.f‹
+YÍ@<³·|\ƒ´í„
+Má,T,³˜ú/ïPûP>ü!;XŒi1	oEÇ+
+afÓ<O±§A=Ë+	¤ÎÛ:²ĞÜ¡±0»–7Ñn?Û¯eÙ'Êí„:MûÚ-âÓ/+8Ú©ë–a¾(óTÍgÜSÛÇ…fà&2¾%¿™pz9»8»šˆï~³	óI¹’‰¢êÚá`¹Ëp/
+Mjkû©¨æÃ­Ä-s5Š9¨ÕàÈë'ë“§X­7_NËñ8¥z
+—;MÎáNs¸&,h¢(›Ç)X JFñy¶#:³=¬F&Î>ÏŒG+.Ï“º›»ıævLİ×Îk}j;%{
+²fKxÂ]áÔ^MD}›ĞÉ%"A¹lşRÅ¥÷m¡C6#+ŞŒwÖ<vÆ;‘ĞÓ4D´Ô{Bop@56şV>};ÊT(bÑH3$‘ÕÄÿú*
+¿¼œ#šå‘Ø¥S6‰êã²§ ×Op*x°iãºuEM§¨#½ÕÔ¶’vÊ?ZÛØMDe‰aìdÕ¼báD„¼<9”„·!î	G):F½jx,™H_ò1úà¨Û)ş¼Ù`ÃM›[X@ÊQÛì-æ+€{ö¸'+`òœaøgõH%÷ÿ>V:©Ïa·Ü£1Y./ãNÅ$
+ùˆDËÆ|Dõh8:5XoXåYè
+}èê¡?Éø£Aä}M6”NµéNNîësãk&š±5îˆŸ*>­~÷P‘î>ïÔÃ"GØÿIV±¬=¼“gÃBbÅÅñUæß±xb]–˜ñìƒò+KÃ nL%
+TÚÉPÁ¤¦€¾;“»šãRdË*"§Ã½¹^·påX4AºŒnNùÇ;qƒ´- ô[I£4Enç°‘&Ì‚zc›¼®îRLˆœ&R:Xz†qİrqrfÆuÂ9A·2ÃğO=²›Nahw»egdÇ¸i¶F‰F0Ûø&éóŒûJÊå/±*ëà¯²L˜¤ù®° »­‹ªïZ¹\µüµ›ıä'Üd•nuRáûFzYsYgI¤ô5W,ÛæVÍŒ¦5>ŠGÚ‰P9¬‚zÓÁ•…oÎh€V¥eR]MİÊ–Ä`¹é,İ­H£A§¾¨Ú‹ğœ–£mÏVGk‡K¶ÁÍØHz'óHÇ'FxóÚä02:QïssS—rC—êÄc1ñ ¸úŠHõ¼béæ—ËW©òˆ6`ÃNG‹Fûì½´EöØk¬ÈÁm’Õ/Ú%{ô%=l@zt
+Üÿ”£Æîz6…Ó`\CÊ„*„k°–Ä±b`U%ÊcZ±Ë÷€jÏlXCÇıÍ8”R½9OÏÏ—iÎ"%:Ğ‡Ñ‘|(Ï²[£Éá‰›‚-”nÒ?RhÕùÈçJ7ÚLÔ&sK8i,OÈƒG•…áŞeµ Ô/\=ÏT“Ÿ÷Öy¼“GÒ"}aÔXÁîi FMiÜìH³aóØ‰VW\İ¥Ör5|
+x5
+kèŸ·³{ˆtô,ÀÏ^—¥ÅŠiÖXIùtŒô;?ø…_'W[zØ Di4ÒU••fóJˆÇ™:ËÌ£Qm¡ÙTƒÏ*~H¡G£Àšßêú+LàÀŠõİ>{ë, ã×ğy¤Õ‰ş0=Œø‡iFËnæ#Ï }ñPhzM^7b•éZÇï ¸*Z˜·ÈX$|˜Ê¦b´ÍÏ­º]-—kÚ`†æ¢.]^¶Yİ´@ÁÙ!…)Î[’ëœGkz‰f¹ôU´³3Å%Mø+3ø\©¸¥?n…¨{ ªJsÁ‚RœÌÚvkØŒñ‰ZSwÆĞ†búLwdÄ­ú®Gn©ÌìŸ)n8–Êe7ô¨fr"m…ğÿ0M Û5VöŒûH>w«7¿N‰@ØJæèûùfµ‡OĞ!ÂgnwíA'ß†>ì`¢›7G@Õ;jIø\ğÇqíÕ®òÆ/O“ıöÔ¶ü[İš"ŸÀ.‘øU‹ÙO£{TÜ¯H²%µï-qà^~J	Zfc2·Œ™zóßKQ¾•± ÷«‡¬©FÓ÷fØëˆ'"@J~›*Ñ€–İb³·ûİ¸ÉÕ,©0U„Lœœş¹¾¢yÀèåë½ üÉŒä3Éã£ó¸W*”»ÛìßhaúOIñ·x‹‡í.œr¿	ß8…½jQ±fõ+: „k=â£Y~Â¹Øh4«ÛÙGt?ô!ä;ğ«ŒĞ]¯ºõr×íU!ÍYèq÷	rØW—7ÍXÎ·CÎ2Uß}õêøøbGÔéf©¤o!n‡‘ÒMçï—t†m¶ªw||>]„]z%

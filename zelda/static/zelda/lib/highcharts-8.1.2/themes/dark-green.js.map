@@ -1,0 +1,135 @@
+    var chart = this.chart, region = this.screenReaderSections[regionKey], content = region.buildContent(chart), sectionDiv = region.element = (region.element || this.createElement('div')), hiddenDiv = (sectionDiv.firstChild || this.createElement('div'));
+        this.setScreenReaderSectionAttribs(sectionDiv, regionKey);
+        hiddenDiv.innerHTML = content;
+        sectionDiv.appendChild(hiddenDiv);
+        region.insertIntoDOM(sectionDiv, chart);
+        visuallyHideElement(hiddenDiv);
+        unhideChartElementFromAT(chart, hiddenDiv);
+        if (region.afterInserted) {
+            region.afterInserted();
+        }
+    },
+    /**
+     * @private
+     * @param {Highcharts.HTMLDOMElement} sectionDiv The section element
+     * @param {string} regionKey Name/key of the region we are setting attrs for
+     */
+    setScreenReaderSectionAttribs: function (sectionDiv, regionKey) {
+        var labelLangKey = ('accessibility.screenReaderSection.' + regionKey + 'RegionLabel'), chart = this.chart, labelText = chart.langFormat(labelLangKey, { chart: chart }), sectionId = 'highcharts-screen-reader-region-' + regionKey + '-' +
+            chart.index;
+        setElAttrs(sectionDiv, {
+            id: sectionId,
+            'aria-label': labelText
+        });
+        // Sections are wrapped to be positioned relatively to chart in case
+        // elements inside are tabbed to.
+        sectionDiv.style.position = 'relative';
+        if (chart.options.accessibility.landmarkVerbosity === 'all' &&
+            labelText) {
+            sectionDiv.setAttribute('role', 'region');
+        }
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    defaultBeforeChartFormatter: function () {
+        var chart = this.chart, format = chart.options.accessibility
+            .screenReaderSection.beforeChartFormat, axesDesc = this.getAxesDescription(), dataTableButtonId = 'hc-linkto-highcharts-data-table-' +
+            chart.index, annotationsTitleStr = chart.langFormat('accessibility.screenReaderSection.annotations.heading', { chart: chart }), context = {
+            chartTitle: getChartTitle(chart),
+            typeDescription: this.getTypeDescriptionText(),
+            chartSubtitle: this.getSubtitleText(),
+            chartLongdesc: this.getLongdescText(),
+            xAxisDescription: axesDesc.xAxis,
+            yAxisDescription: axesDesc.yAxis,
+            viewTableButton: chart.getCSV ?
+                this.getDataTableButtonText(dataTableButtonId) : '',
+            annotationsTitle: annotationsTitleStr,
+            annotationsList: getAnnotationsInfoHTML(chart)
+        }, formattedString = H.i18nFormat(format, context, chart);
+        this.dataTableButtonId = dataTableButtonId;
+        return stringToSimpleHTML(formattedString);
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    defaultAfterChartFormatter: function () {
+        var chart = this.chart, format = chart.options.accessibility
+            .screenReaderSection.afterChartFormat, context = {
+            endOfChartMarker: this.getEndOfChartMarkerText()
+        }, formattedString = H.i18nFormat(format, context, chart);
+        return stringToSimpleHTML(formattedString);
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    getLinkedDescription: function () {
+        var el = this.linkedDescriptionElement, content = el && el.innerHTML || '';
+        return stripHTMLTagsFromString(content);
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    getLongdescText: function () {
+        var chartOptions = this.chart.options, captionOptions = chartOptions.caption, captionText = captionOptions && captionOptions.text, linkedDescription = this.getLinkedDescription();
+        return (chartOptions.accessibility.description ||
+            linkedDescription ||
+            captionText ||
+            '');
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    getTypeDescriptionText: function () {
+        var chart = this.chart;
+        return chart.types ?
+            chart.options.accessibility.typeDescription ||
+                chart.getTypeDescription(chart.types) : '';
+    },
+    /**
+     * @private
+     * @param {string} buttonId
+     * @return {string}
+     */
+    getDataTableButtonText: function (buttonId) {
+        var chart = this.chart, buttonText = chart.langFormat('accessibility.table.viewAsDataTableButtonText', { chart: chart, chartTitle: getChartTitle(chart) });
+        return '<a id="' + buttonId + '">' + buttonText + '</a>';
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    getSubtitleText: function () {
+        var subtitle = (this.chart.options.subtitle);
+        return stripHTMLTagsFromString(subtitle && subtitle.text || '');
+    },
+    /**
+     * @private
+     * @return {string}
+     */
+    getEndOfChartMarkerText: function () {
+        var chart = this.chart, markerText = chart.langFormat('accessibility.screenReaderSection.endOfChartMarker', { chart: chart }), id = 'highcharts-end-of-chart-marker-' + chart.index;
+        return '<div id="' + id + '">' + markerText + '</div>';
+    },
+    /**
+     * @private
+     * @param {Highcharts.Dictionary<string>} e
+     */
+    onDataTableCreated: function (e) {
+        var chart = this.chart;
+        if (chart.options.accessibility.enabled) {
+            if (this.viewDataTableButton) {
+                this.viewDataTableButton.setAttribute('aria-expanded', 'true');
+            }
+            e.html = e.html.replace('<table ', '<table tabindex="0" summary="' + getTableSummary(chart) + '"');
+        }
+    },
+    /**
+     * @private
+     */
+    focusDataTable: function 

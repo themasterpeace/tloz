@@ -1,0 +1,83 @@
+th: 0,
+            lineWidth: 0,
+            title: null,
+            tickPositions: []
+        });
+        extend(this.yAxis.options, {
+            gridLineWidth: 0,
+            title: null,
+            labels: {
+                enabled: false
+            }
+        });
+    },
+    translate3dShapes: H.noop,
+    translate: function () {
+        H.Series.prototype.translate.apply(this, arguments);
+        var sum = 0, series = this, chart = series.chart, options = series.options, reversed = options.reversed, ignoreHiddenPoint = options.ignoreHiddenPoint, plotWidth = chart.plotWidth, plotHeight = chart.plotHeight, cumulative = 0, // start at top
+        center = options.center, centerX = relativeLength(center[0], plotWidth), centerY = relativeLength(center[1], plotHeight), width = relativeLength(options.width, plotWidth), tempWidth, getWidthAt, height = relativeLength(options.height, plotHeight), neckWidth = relativeLength(options.neckWidth, plotWidth), neckHeight = relativeLength(options.neckHeight, plotHeight), neckY = (centerY - height / 2) + height - neckHeight, data = series.data, fraction, tooltipPos, 
+        //
+        y1, y3, y5, 
+        //
+        h, shapeArgs;
+        // Return the width at a specific y coordinate
+        series.getWidthAt = getWidthAt = function (y) {
+            var top = (centerY - height / 2);
+            return (y > neckY || height === neckHeight) ?
+                neckWidth :
+                neckWidth + (width - neckWidth) *
+                    (1 - (y - top) / (height - neckHeight));
+        };
+        // Expose
+        series.center = [centerX, centerY, height];
+        series.centerX = centerX;
+        /*
+         * Individual point coordinate naming:
+         *
+         *  _________centerX,y1________
+         *  \                         /
+         *   \                       /
+         *    \                     /
+         *     \                   /
+         *      \                 /
+         *        ___centerX,y3___
+         *
+         * Additional for the base of the neck:
+         *
+         *       |               |
+         *       |               |
+         *       |               |
+         *        ___centerX,y5___
+         */
+        // get the total sum
+        data.forEach(function (point) {
+            if (!ignoreHiddenPoint || point.visible !== false) {
+                sum += point.y;
+            }
+        });
+        data.forEach(function (point) {
+            // set start and end positions
+            y5 = null;
+            fraction = sum ? point.y / sum : 0;
+            y1 = centerY - height / 2 + cumulative * height;
+            y3 = y1 + fraction * height;
+            tempWidth = getWidthAt(y1);
+            h = y3 - y1;
+            shapeArgs = {
+                // for fill setter
+                gradientForSides: pick(point.options.gradientForSides, options.gradientForSides),
+                x: centerX,
+                y: y1,
+                height: h,
+                width: tempWidth,
+                z: 1,
+                top: {
+                    width: tempWidth
+                }
+            };
+            tempWidth = getWidthAt(y3);
+            shapeArgs.bottom = {
+                fraction: fraction,
+                width: tempWidth
+            };
+            // the entire 

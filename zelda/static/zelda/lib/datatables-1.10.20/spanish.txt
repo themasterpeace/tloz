@@ -1,0 +1,42 @@
+turn getTypeDescForCombinationChart(this, formatContext);
+    }
+    return buildTypeDescriptionFromSeries(this, types, formatContext);
+};
+/**
+ * The InfoRegionsComponent class
+ *
+ * @private
+ * @class
+ * @name Highcharts.InfoRegionsComponent
+ */
+var InfoRegionsComponent = function () { };
+InfoRegionsComponent.prototype = new AccessibilityComponent();
+extend(InfoRegionsComponent.prototype, /** @lends Highcharts.InfoRegionsComponent */ {
+    /**
+     * Init the component
+     * @private
+     */
+    init: function () {
+        var chart = this.chart, component = this;
+        this.initRegionsDefinitions();
+        this.addEvent(chart, 'afterGetTable', function (e) {
+            component.onDataTableCreated(e);
+        });
+        this.addEvent(chart, 'afterViewData', function (tableDiv) {
+            component.dataTableDiv = tableDiv;
+            // Use small delay to give browsers & AT time to register new table
+            setTimeout(function () {
+                component.focusDataTable();
+            }, 300);
+        });
+    },
+    /**
+     * @private
+     */
+    initRegionsDefinitions: function () {
+        var component = this;
+        this.screenReaderSections = {
+            before: {
+                element: null,
+                buildContent: function (chart) {
+                    var formatter = chart.opt
