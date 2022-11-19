@@ -1,2028 +1,0 @@
-series. This is handled outside of the
- * dataExtremes, as we always want to just sonify the visible points, and we
- * always want the extremes to be the extremes of the visible points.
- * @private
- * @param {Highcharts.Series} series
- * The series to compute on.
- * @param {Function|string} timeProp
- * The time axis data prop or the time function.
- * @return {Highcharts.RangeObject}
- * Object with min/max extremes for the time values.
- */
-function getTimeExtremes(series, timeProp) {
-    // Compute the extremes from the visible points.
-    return series.points.reduce(function (acc, point) {
-        var value = getPointTimeValue(point, timeProp);
-        acc.min = Math.min(acc.min, value);
-        acc.max = Math.max(acc.max, value);
-        return acc;
-    }, {
-        min: Infinity,
-        max: -Infinity
-    });
-}
-/**
- * Calculate value extremes for used instrument data properties.
- * @private
- * @param {Highcharts.Chart} chart
- * The chart to calculate extremes from.
- * @param {Array<Highcharts.PointInstrumentObject>} instruments
- * The instrument definitions used.
- * @param {Highcharts.Dictionary<Highcharts.RangeObject>} [dataExtremes]
- * Predefined extremes for each data prop.
- * @return {Highcharts.Dictionary<Highcharts.RangeObject>}
- * New extremes with data properties mapped to min/max objects.
- */
-function getExtremesForInstrumentProps(chart, instruments, dataExtremes) {
-    return (instruments || []).reduce(function (newExtremes, instrumentDefinition) {
-        Object.keys(instrumentDefinition.instrumentMapping || {}).forEach(function (instrumentParameter) {
-            var value = instrumentDefinition.instrumentMapping[instrumentParameter];
-            if (typeof value === 'string' && !newExtremes[value]) {
-                // This instrument parameter is mapped to a data prop.
-                // If we don't have predefined data extremes, find them.
-                newExtremes[value] = utilities.calculateDataExtremes(chart, value);
-            }
-        });
-        return newExtremes;
-    }, merge(dataExtremes));
-}
-/**
- * Get earcons for the point if there are any.
- * @private
- * @param {Highcharts.Point} point
- * The point to find earcons for.
- * @param {Array<Highcharts.EarconConfiguration>} earconDefinitions
- * Earcons to check.
- * @return {Array<Highcharts.Earcon>}
- * Array of earcons to be played with this point.
- */
-function getPointEarcons(point, earconDefinitions) {
-    return earconDefinitions.reduce(function (earcons, earconDefinition) {
-        var cond, earcon = earconDefinition.earcon;
-        if (earconDefinition.condition) {
-            // We have a condition. This overrides onPoint
-            cond = earconDefinition.condition(point);
-            if (cond instanceof H.sonification.Earcon) {
-                // Condition returned an earcon
-                earcons.push(cond);
-            }
-            else if (cond) {
-                // Condition returned true
-                earcons.push(earcon);
-            }
-        }
-        else if (earconDefinition.onPoint &&
-            point.id === earconDefinition.onPoint) {
-            // We have earcon onPoint
-            earcons.push(earcon);
-        }
-        return earcons;
-    }, []);
-}
-/**
- * Utility function to get a new list of instrument options where all the
- * instrument references are copies.
- * @private
- * @param {Array<Highcharts.PointInstrumentObject>} instruments
- * The instrument options.
- * @return {Array<Highcharts.PointInstrumentObject>}
- * Array of copied instrument options.
- */
-function makeInstrumentCopies(instruments) {
-    return instruments.map(function (instrumentDef) {
-        var instrument = instrumentDef.instrument, copy = (typeof instrument === 'string' ?
-            H.sonification.instruments[instrument] :
-            instrument).copy();
-        return merge(instrumentDef, { instrument: copy });
-    });
-}
-/**
- * Create a TimelinePath from a series. Takes the same options as seriesSonify.
- * To intuitively allow multiple series to play simultaneously we make copies of
- * the instruments for each series.
- * @private
- * @param {Highcharts.Series} series
- * The series to build from.
- * @param {Highcharts.SonifySeriesOptionsObject} options
- * The options for building the TimelinePath.
- * @return {Highcharts.TimelinePath}
- * A timeline path with events.
- */
-function buildTimelinePathFromSeries(series, options) {
-    // options.timeExtremes is internal and used so that the calculations from
-    // chart.sonify can be reused.
-    var timeExtremes = options.timeExtremes || getTimeExtremes(series, options.pointPlayTime), 
-    // Get time offset for a point, relative to duration
-    pointToTime = function (point) {
-        return utilities.virtualAxisTranslate(getPointTimeValue(point, options.pointPlayTime), timeExtremes, { min: 0, max: options.duration });
-    }, 
-    // Compute any data extremes that aren't defined yet
-    dataExtremes = getExtremesForInstrumentProps(series.chart, options.instruments, options.dataExtremes), 
-    // Make copies of the instruments used for this series, to allow
-    // multiple series with the same instrument to play together
-    instruments = makeInstrumentCopies(options.instruments), 
-    // Go through the points, convert to events, optionally add Earcons
-    timelineEvents = series.points.reduce(function (events, point) {
-        var earcons = getPointEarcons(point, options.earcons || []), time = pointToTime(point);
-        return events.concat(
-        // Event object for point
-        new H.sonification.TimelineEvent({
-            eventObject: point,
-            time: time,
-            id: point.id,
-            playOptions: {
-                instruments: instruments,
-                dataExtremes: dataExtremes
-            }
-        }), 
-        // Earcons
-        earcons.map(function (earcon) {
-            return new H.sonification.TimelineEvent({
-                eventObject: earcon,
-                time: time
-            });
-        }));
-    }, []);
-    // Build the timeline path
-    return new H.sonification.TimelinePath({
-        events: timelineEvents,
-        onStart: function () {
-            if (options.onStart) {
-                options.onStart(series);
-            }
-        },
-        onEventStart: function (event) {
-            var eventObject = event.options && event.options.eventObject;
-            if (eventObject instanceof Point) {
-                // Check for hidden series
-                if (!eventObject.series.visible &&
-                    !eventObject.series.chart.series.some(function (series) {
-                        return series.visible;
-                    })) {
-                    // We have no visible series, stop the path.
-                    event.timelinePath.timeline.pause();
-                    event.timelinePath.timeline.resetCursor();
-                    return false;
-                }
-                // Emit onPointStart
-                if (options.onPointStart) {
-                    options.onPointStart(event, eventObject);
-                }
-            }
-        },
-        onEventEnd: function (eventData) {
-            var eventObject = eventData.event && eventData.event.options &&
-                eventData.event.options.eventObject;
-            if (eventObject instanceof Point && options.onPointEnd) {
-                options.onPointEnd(eventData.event, eventObject);
-            }
-        },
-        onEnd: function () {
-            if (options.onEnd) {
-                options.onEnd(series);
-            }
-        }
-    });
-}
-/* eslint-disable no-invalid-this, valid-jsdoc */
-/**
- * Sonify a series.
- *
- * @sample highcharts/sonification/series-basic/
- *         Click on series to sonify
- * @sample highcharts/sonification/series-earcon/
- *         Series with earcon
- * @sample highcharts/sonification/point-play-time/
- *         Play y-axis by time
- * @sample highcharts/sonification/earcon-on-point/
- *         Earcon set on point
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Series#sonify
- *
- * @param {Highcharts.SonifySeriesOptionsObject} options
- *        The options for sonifying this series.
- *
- * @return {void}
- */
-function seriesSonify(options) {
-    var timelinePath = buildTimelinePathFromSeries(this, options), chartSonification = this.chart.sonification;
-    // Only one timeline can play at a time. If we want multiple series playing
-    // at the same time, use chart.sonify.
-    if (chartSonification.timeline) {
-        chartSonification.timeline.pause();
-    }
-    // Store reference to duration
-    chartSonification.duration = options.duration;
-    // Create new timeline for this series, and play it.
-    chartSonification.timeline = new H.sonification.Timeline({
-        paths: [timelinePath]
-    });
-    chartSonification.timeline.play();
-}
-/**
- * Utility function to assemble options for creating a TimelinePath from a
- * series when sonifying an entire chart.
- * @private
- * @param {Highcharts.Series} series
- * The series to return options for.
- * @param {Highcharts.RangeObject} dataExtremes
- * Pre-calculated data extremes for the chart.
- * @param {Highcharts.SonificationOptions} chartSonifyOptions
- * Options passed in to chart.sonify.
- * @return {Partial<Highcharts.SonifySeriesOptionsObject>}
- * Options for buildTimelinePathFromSeries.
- */
-function buildSeriesOptions(series, dataExtremes, chartSonifyOptions) {
-    var seriesOptions = chartSonifyOptions.seriesOptions || {};
-    return merge({
-        // Calculated dataExtremes for chart
-        dataExtremes: dataExtremes,
-        // We need to get timeExtremes for each series. We pass this
-        // in when building the TimelinePath objects to avoid
-        // calculating twice.
-        timeExtremes: getTimeExtremes(series, chartSonifyOptions.pointPlayTime),
-        // Some options we just pass on
-        instruments: chartSonifyOptions.instruments,
-        onStart: chartSonifyOptions.onSeriesStart,
-        onEnd: chartSonifyOptions.onSeriesEnd,
-        earcons: chartSonifyOptions.earcons
-    }, 
-    // Merge in the specific series options by ID
-    isArray(seriesOptions) ? (find(seriesOptions, function (optEntry) {
-        return optEntry.id === pick(series.id, series.options.id);
-    }) || {}) : seriesOptions, {
-        // Forced options
-        pointPlayTime: chartSonifyOptions.pointPlayTime
-    });
-}
-/**
- * Utility function to normalize the ordering of timeline paths when sonifying
- * a chart.
- * @private
- * @param {string|Array<string|Highcharts.Earcon|Array<string|Highcharts.Earcon>>} orderOptions -
- * Order options for the sonification.
- * @param {Highcharts.Chart} chart - The chart we are sonifying.
- * @param {Function} seriesOptionsCallback
- * A function that takes a series as argument, and returns the series options
- * for that series to be used with buildTimelinePathFromSeries.
- * @return {Array<object|Array<object|Highcharts.TimelinePath>>} If order is
- * sequential, we return an array of objects to create series paths from. If
- * order is simultaneous we return an array of an array with the same. If there
- * is a custom order, we return an array of arrays of either objects (for
- * series) or TimelinePaths (for earcons and delays).
- */
-function buildPathOrder(orderOptions, chart, seriesOptionsCallback) {
-    var order;
-    if (orderOptions === 'sequential' || orderOptions === 'simultaneous') {
-        // Just add the series from the chart
-        order = chart.series.reduce(function (seriesList, series) {
-            if (series.visible) {
-                seriesList.push({
-                    series: series,
-                    seriesOptions: seriesOptionsCallback(series)
-                });
-            }
-            return seriesList;
-        }, []);
-        // If order is simultaneous, group all series together
-        if (orderOptions === 'simultaneous') {
-            order = [order];
-        }
-    }
-    else {
-        // We have a specific order, and potentially custom items - like
-        // earcons or silent waits.
-        order = orderOptions.reduce(function (orderList, orderDef) {
-            // Return set of items to play simultaneously. Could be only one.
-            var simulItems = splat(orderDef).reduce(function (items, item) {
-                var itemObject;
-                // Is this item a series ID?
-                if (typeof item === 'string') {
-                    var series = chart.get(item);
-                    if (series.visible) {
-                        itemObject = {
-                            series: series,
-                            seriesOptions: seriesOptionsCallback(series)
-                        };
-                    }
-                    // Is it an earcon? If so, just create the path.
-                }
-                else if (item instanceof H.sonification.Earcon) {
-                    // Path with a single event
-                    itemObject = new H.sonification.TimelinePath({
-                        events: [new H.sonification.TimelineEvent({
-                                eventObject: item
-                            })]
-                    });
-                }
-                // Is this item a silent wait? If so, just create the path.
-                if (item.silentWait) {
-                    itemObject = new H.sonification.TimelinePath({
-                        silentWait: item.silentWait
-                    });
-                }
-                // Add to items to play simultaneously
-                if (itemObject) {
-                    items.push(itemObject);
-                }
-                return items;
-            }, []);
-            // Add to order list
-            if (simulItems.length) {
-                orderList.push(simulItems);
-            }
-            return orderList;
-        }, []);
-    }
-    return order;
-}
-/**
- * Utility function to add a silent wait after all series.
- * @private
- * @param {Array<object|Array<object|TimelinePath>>} order
- * The order of items.
- * @param {number} wait
- * The wait in milliseconds to add.
- * @return {Array<object|Array<object|TimelinePath>>}
- * The order with waits inserted.
- */
-function addAfterSeriesWaits(order, wait) {
-    if (!wait) {
-        return order;
-    }
-    return order.reduce(function (newOrder, orderDef, i) {
-        var simultaneousPaths = splat(orderDef);
-        newOrder.push(simultaneousPaths);
-        // Go through the simultaneous paths and see if there is a series there
-        if (i < order.length - 1 && // Do not add wait after last series
-            simultaneousPaths.some(function (item) {
-                return item.series;
-            })) {
-            // We have a series, meaning we should add a wait after these
-            // paths have finished.
-            newOrder.push(new H.sonification.TimelinePath({
-                silentWait: wait
-            }));
-        }
-        return newOrder;
-    }, []);
-}
-/**
- * Utility function to find the total amout of wait time in the TimelinePaths.
- * @private
- * @param {Array<object|Array<object|TimelinePath>>} order - The order of
- * TimelinePaths/items.
- * @return {number} The total time in ms spent on wait paths between playing.
- */
-function getWaitTime(order) {
-    return order.reduce(function (waitTime, orderDef) {
-        var def = splat(orderDef);
-        return waitTime + (def.length === 1 &&
-            def[0].options &&
-            def[0].options.silentWait || 0);
-    }, 0);
-}
-/**
- * Utility function to ensure simultaneous paths have start/end events at the
- * same time, to sync them.
- * @private
- * @param {Array<Highcharts.TimelinePath>} paths - The paths to sync.
- */
-function syncSimultaneousPaths(paths) {
-    // Find the extremes for these paths
-    var extremes = paths.reduce(function (extremes, path) {
-        var events = path.events;
-        if (events && events.length) {
-            extremes.min = Math.min(events[0].time, extremes.min);
-            extremes.max = Math.max(events[events.length - 1].time, extremes.max);
-        }
-        return extremes;
-    }, {
-        min: Infinity,
-        max: -Infinity
-    });
-    // Go through the paths and add events to make them fit the same timespan
-    paths.forEach(function (path) {
-        var events = path.events, hasEvents = events && events.length, eventsToAdd = [];
-        if (!(hasEvents && events[0].time <= extremes.min)) {
-            eventsToAdd.push(new H.sonification.TimelineEvent({
-                time: extremes.min
-            }));
-        }
-        if (!(hasEvents && events[events.length - 1].time >= extremes.max)) {
-            eventsToAdd.push(new H.sonification.TimelineEvent({
-                time: extremes.max
-            }));
-        }
-        if (eventsToAdd.length) {
-            path.addTimelineEvents(eventsToAdd);
-        }
-    });
-}
-/**
- * Utility function to find the total duration span for all simul path sets
- * that include series.
- * @private
- * @param {Array<object|Array<object|Highcharts.TimelinePath>>} order - The
- * order of TimelinePaths/items.
- * @return {number} The total time value span difference for all series.
- */
-function getSimulPathDurationTotal(order) {
-    return order.reduce(function (durationTotal, orderDef) {
-        return durationTotal + splat(orderDef).reduce(function (maxPathDuration, item) {
-            var timeExtremes = (item.series &&
-                item.seriesOptions &&
-                item.seriesOptions.timeExtremes);
-            return timeExtremes ?
-                Math.max(maxPathDuration, timeExtremes.max - timeExtremes.min) : maxPathDuration;
-        }, 0);
-    }, 0);
-}
-/**
- * Function to calculate the duration in ms for a series.
- * @private
- * @param {number} seriesValueDuration - The duration of the series in value
- * difference.
- * @param {number} totalValueDuration - The total duration of all (non
- * simultaneous) series in value difference.
- * @param {number} totalDurationMs - The desired total duration for all series
- * in milliseconds.
- * @return {number} The duration for the series in milliseconds.
- */
-function getSeriesDurationMs(seriesValueDuration, totalValueDuration, totalDurationMs) {
-    // A series spanning the whole chart would get the full duration.
-    return utilities.virtualAxisTranslate(seriesValueDuration, { min: 0, max: totalValueDuration }, { min: 0, max: totalDurationMs });
-}
-/**
- * Convert series building objects into paths and return a new list of
- * TimelinePaths.
- * @private
- * @param {Array<object|Array<object|Highcharts.TimelinePath>>} order - The
- * order list.
- * @param {number} duration - Total duration to aim for in milliseconds.
- * @return {Array<Array<Highcharts.TimelinePath>>} Array of TimelinePath objects
- * to play.
- */
-function buildPathsFromOrder(order, duration) {
-    // Find time used for waits (custom or after series), and subtract it from
-    // available duration.
-    var totalAvailableDurationMs = Math.max(duration - getWaitTime(order), 0), 
-    // Add up simultaneous path durations to find total value span duration
-    // of everything
-    totalUsedDuration = getSimulPathDurationTotal(order);
-    // Go through the order list and convert the items
-    return order.reduce(function (allPaths, orderDef) {
-        var simultaneousPaths = splat(orderDef).reduce(function (simulPaths, item) {
-            if (item instanceof H.sonification.TimelinePath) {
-                // This item is already a path object
-                simulPaths.push(item);
-            }
-            else if (item.series) {
-                // We have a series.
-                // We need to set the duration of the series
-                item.seriesOptions.duration =
-                    item.seriesOptions.duration || getSeriesDurationMs(item.seriesOptions.timeExtremes.max -
-                        item.seriesOptions.timeExtremes.min, totalUsedDuration, totalAvailableDurationMs);
-                // Add the path
-                simulPaths.push(buildTimelinePathFromSeries(item.series, item.seriesOptions));
-            }
-            return simulPaths;
-        }, []);
-        // Add in the simultaneous paths
-        allPaths.push(simultaneousPaths);
-        return allPaths;
-    }, []);
-}
-/**
- * @private
- * @param {Highcharts.Chart} chart The chart to get options for.
- * @param {Highcharts.SonificationOptions} userOptions
- *  Options to merge with options on chart and default options.
- * @returns {Highcharts.SonificationOptions} The merged options.
- */
-function getChartSonifyOptions(chart, userOptions) {
-    return merge(chart.options.sonification, userOptions);
-}
-/**
- * Options for sonifying a chart.
- *
- * @requires module:modules/sonification
- *
- * @interface Highcharts.SonificationOptions
- */ /**
-* Duration for sonifying the entire chart. The duration is distributed across
-* the different series intelligently, but does not take earcons into account.
-* It is also possible to set the duration explicitly per series, using
-* `seriesOptions`. Note that points may continue to play after the duration has
-* passed, but no new points will start playing.
-* @name Highcharts.SonificationOptions#duration
-* @type {number}
-*/ /**
-* Define the order to play the series in. This can be given as a string, or an
-* array specifying a custom ordering. If given as a string, valid values are
-* `sequential` - where each series is played in order - or `simultaneous`,
-* where all series are played at once. For custom ordering, supply an array as
-* the order. Each element in the array can be either a string with a series ID,
-* an Earcon object, or an object with a numeric `silentWait` property
-* designating a number of milliseconds to wait before continuing. Each element
-* of the array will be played in order. To play elements simultaneously, group
-* the elements in an array.
-* @name Highcharts.SonificationOptions#order
-* @type {string|Array<string|Highcharts.Earcon|Array<string|Highcharts.Earcon>>}
-*/ /**
-* The axis to use for when to play the points. Can be a string with a data
-* property (e.g. `x`), or a function. If it is a function, this function
-* receives the point as argument, and should return a numeric value. The points
-* with the lowest numeric values are then played first, and the time between
-* points will be proportional to the distance between the numeric values. This
-* option can not be overridden per series.
-* @name Highcharts.SonificationOptions#pointPlayTime
-* @type {string|Function}
-*/ /**
-* Milliseconds of silent waiting to add between series. Note that waiting time
-* is considered part of the sonify duration.
-* @name Highcharts.SonificationOptions#afterSeriesWait
-* @type {number|undefined}
-*/ /**
-* Options as given to `series.sonify` to override options per series. If the
-* option is supplied as an array of options objects, the `id` property of the
-* object should correspond to the series' id. If the option is supplied as a
-* single object, the options apply to all series.
-* @name Highcharts.SonificationOptions#seriesOptions
-* @type {Object|Array<object>|undefined}
-*/ /**
-* The instrument definitions for the points in this chart.
-* @name Highcharts.SonificationOptions#instruments
-* @type {Array<Highcharts.PointInstrumentObject>|undefined}
-*/ /**
-* Earcons to add to the chart. Note that earcons can also be added per series
-* using `seriesOptions`.
-* @name Highcharts.SonificationOptions#earcons
-* @type {Array<Highcharts.EarconConfiguration>|undefined}
-*/ /**
-* Optionally provide the minimum/maximum data values for the points. If this is
-* not supplied, it is calculated from all points in the chart on demand. This
-* option is supplied in the following format, as a map of point data properties
-* to objects with min/max values:
-*  ```js
-*      dataExtremes: {
-*          y: {
-*              min: 0,
-*              max: 100
-*          },
-*          z: {
-*              min: -10,
-*              max: 10
-*          }
-*          // Properties used and not provided are calculated on demand
-*      }
-*  ```
-* @name Highcharts.SonificationOptions#dataExtremes
-* @type {Highcharts.Dictionary<Highcharts.RangeObject>|undefined}
-*/ /**
-* Callback before a series is played.
-* @name Highcharts.SonificationOptions#onSeriesStart
-* @type {Function|undefined}
-*/ /**
-* Callback after a series has finished playing.
-* @name Highcharts.SonificationOptions#onSeriesEnd
-* @type {Function|undefined}
-*/ /**
-* Callback after the chart has played.
-* @name Highcharts.SonificationOptions#onEnd
-* @type {Function|undefined}
-*/
-/**
- * Sonify a chart.
- *
- * @sample highcharts/sonification/chart-sequential/
- *         Sonify a basic chart
- * @sample highcharts/sonification/chart-simultaneous/
- *         Sonify series simultaneously
- * @sample highcharts/sonification/chart-custom-order/
- *         Custom defined order of series
- * @sample highcharts/sonification/chart-earcon/
- *         Earcons on chart
- * @sample highcharts/sonification/chart-events/
- *         Sonification events on chart
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#sonify
- *
- * @param {Highcharts.SonificationOptions} options
- *        The options for sonifying this chart.
- *
- * @return {void}
- */
-function chartSonify(options) {
-    var opts = getChartSonifyOptions(this, options);
-    // Only one timeline can play at a time.
-    if (this.sonification.timeline) {
-        this.sonification.timeline.pause();
-    }
-    // Store reference to duration
-    this.sonification.duration = opts.duration;
-    // Calculate data extremes for the props used
-    var dataExtremes = getExtremesForInstrumentProps(this, opts.instruments, opts.dataExtremes);
-    // Figure out ordering of series and custom paths
-    var order = buildPathOrder(opts.order, this, function (series) {
-        return buildSeriesOptions(series, dataExtremes, opts);
-    });
-    // Add waits after simultaneous paths with series in them.
-    order = addAfterSeriesWaits(order, opts.afterSeriesWait || 0);
-    // We now have a list of either TimelinePath objects or series that need to
-    // be converted to TimelinePath objects. Convert everything to paths.
-    var paths = buildPathsFromOrder(order, opts.duration);
-    // Sync simultaneous paths
-    paths.forEach(function (simultaneousPaths) {
-        syncSimultaneousPaths(simultaneousPaths);
-    });
-    // We have a set of paths. Create the timeline, and play it.
-    this.sonification.timeline = new H.sonification.Timeline({
-        paths: paths,
-        onEnd: opts.onEnd
-    });
-    this.sonification.timeline.play();
-}
-/**
- * Get a list of the points currently under cursor.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#getCurrentSonifyPoints
- *
- * @return {Array<Highcharts.Point>}
- *         The points currently under the cursor.
- */
-function getCurrentPoints() {
-    var cursorObj;
-    if (this.sonification.timeline) {
-        cursorObj = this.sonification.timeline.getCursor(); // Cursor per pathID
-        return Object.keys(cursorObj).map(function (path) {
-            // Get the event objects under cursor for each path
-            return cursorObj[path].eventObject;
-        }).filter(function (eventObj) {
-            // Return the events that are points
-            return eventObj instanceof Point;
-        });
-    }
-    return [];
-}
-/**
- * Set the cursor to a point or set of points in different series.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#setSonifyCursor
- *
- * @param {Highcharts.Point|Array<Highcharts.Point>} points
- *        The point or points to set the cursor to. If setting multiple points
- *        under the cursor, the points have to be in different series that are
- *        being played simultaneously.
- */
-function setCursor(points) {
-    var timeline = this.sonification.timeline;
-    if (timeline) {
-        splat(points).forEach(function (point) {
-            // We created the events with the ID of the points, which makes
-            // this easy. Just call setCursor for each ID.
-            timeline.setCursor(point.id);
-        });
-    }
-}
-/**
- * Pause the running sonification.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#pauseSonify
- *
- * @param {boolean} [fadeOut=true]
- *        Fade out as we pause to avoid clicks.
- *
- * @return {void}
- */
-function pause(fadeOut) {
-    if (this.sonification.timeline) {
-        this.sonification.timeline.pause(pick(fadeOut, true));
-    }
-    else if (this.sonification.currentlyPlayingPoint) {
-        this.sonification.currentlyPlayingPoint.cancelSonify(fadeOut);
-    }
-}
-/**
- * Resume the currently running sonification. Requires series.sonify or
- * chart.sonify to have been played at some point earlier.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#resumeSonify
- *
- * @param {Function} onEnd
- *        Callback to call when play finished.
- *
- * @return {void}
- */
-function resume(onEnd) {
-    if (this.sonification.timeline) {
-        this.sonification.timeline.play(onEnd);
-    }
-}
-/**
- * Play backwards from cursor. Requires series.sonify or chart.sonify to have
- * been played at some point earlier.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#rewindSonify
- *
- * @param {Function} onEnd
- *        Callback to call when play finished.
- *
- * @return {void}
- */
-function rewind(onEnd) {
-    if (this.sonification.timeline) {
-        this.sonification.timeline.rewind(onEnd);
-    }
-}
-/**
- * Cancel current sonification and reset cursor.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#cancelSonify
- *
- * @param {boolean} [fadeOut=true]
- *        Fade out as we pause to avoid clicks.
- *
- * @return {void}
- */
-function cancel(fadeOut) {
-    this.pauseSonify(fadeOut);
-    this.resetSonifyCursor();
-}
-/**
- * Reset cursor to start. Requires series.sonify or chart.sonify to have been
- * played at some point earlier.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#resetSonifyCursor
- *
- * @return {void}
- */
-function resetCursor() {
-    if (this.sonification.timeline) {
-        this.sonification.timeline.resetCursor();
-    }
-}
-/**
- * Reset cursor to end. Requires series.sonify or chart.sonify to have been
- * played at some point earlier.
- *
- * @requires module:modules/sonification
- *
- * @function Highcharts.Chart#resetSonifyCursorEnd
- *
- * @return {void}
- */
-function resetCursorEnd() {
-    if (this.sonification.timeline) {
-        this.sonification.timeline.resetCursorEnd();
-    }
-}
-// Export functions
-var chartSonifyFunctions = {
-    chartSonify: chartSonify,
-    seriesSonify: seriesSonify,
-    pause: pause,
-    resume: resume,
-    rewind: rewind,
-    cancel: cancel,
-    getCurrentPoints: getCurrentPoints,
-    setCursor: setCursor,
-    resetCursor: resetCursor,
-    resetCursorEnd: resetCursorEnd
-};
-export default chartSonifyFunctions;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     /**
- * @license Highcharts JS v8.1.2 (2020-06-16)
- *
- * (c) 2009-2019 Highsoft AS
- *
- * License: www.highcharts.com/license
- */
-'use strict';
-(function (factory) {
-    if (typeof module === 'object' && module.exports) {
-        factory['default'] = factory;
-        module.exports = factory;
-    } else if (typeof define === 'function' && define.amd) {
-        define('highcharts/themes/high-contrast-light', ['highcharts'], function (Highcharts) {
-            factory(Highcharts);
-            factory.Highcharts = Highcharts;
-            return factory;
-        });
-    } else {
-        factory(typeof Highcharts !== 'undefined' ? Highcharts : undefined);
-    }
-}(function (Highcharts) {
-    var _modules = Highcharts ? Highcharts._modules : {};
-    function _registerModule(obj, path, args, fn) {
-        if (!obj.hasOwnProperty(path)) {
-            obj[path] = fn.apply(null, args);
-        }
-    }
-    _registerModule(_modules, 'themes/high-contrast-light.js', [_modules['parts/Globals.js'], _modules['parts/Utilities.js']], function (Highcharts, U) {
-        /* *
-         *
-         *  (c) 2010-2020 Highsoft AS
-         *
-         *  Author: Ã˜ystein Moseng
-         *
-         *  License: www.highcharts.com/license
-         *
-         *  Accessible high-contrast theme for Highcharts. Specifically tailored
-         *  towards 3:1 contrast against white/off-white backgrounds. Neighboring
-         *  colors are tested for color blindness.
-         *
-         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
-         *
-         * */
-        var setOptions = U.setOptions;
-        Highcharts.theme = {
-            colors: [
-                '#5f98cf',
-                '#434348',
-                '#49a65e',
-                '#f45b5b',
-                '#708090',
-                '#b68c51',
-                '#397550',
-                '#c0493d',
-                '#4f4a7a',
-                '#b381b3'
-            ],
-            navigator: {
-                series: {
-                    color: '#5f98cf',
-                    lineColor: '#5f98cf'
-                }
-            }
-        };
-        // Apply the theme
-        setOptions(Highcharts.theme);
-
-    });
-    _registerModule(_modules, 'masters/themes/high-contrast-light.src.js', [], function () {
-
-
-    });
-}));                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             /* *
- *
- *  (c) 2010-2020 Torstein Honsi
- *
- *  License: www.highcharts.com/license
- *
- *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
- *
- * */
-'use strict';
-import Axis from '../parts/Axis.js';
-import Chart from '../parts/Chart.js';
-import H from '../parts/Globals.js';
-import Point from '../parts/Point.js';
-import StackItem from '../parts/Stacking.js';
-import U from '../parts/Utilities.js';
-var addEvent = U.addEvent, arrayMax = U.arrayMax, arrayMin = U.arrayMin, correctFloat = U.correctFloat, isNumber = U.isNumber, objectEach = U.objectEach, pick = U.pick, seriesType = U.seriesType;
-import '../parts/Options.js';
-import '../parts/Series.js';
-var Series = H.Series, seriesTypes = H.seriesTypes;
-/**
- * Returns true if the key is a direct property of the object.
- * @private
- * @param {*} obj - Object with property to test
- * @param {string} key - Property key to test
- * @return {boolean} - Whether it is a direct property
- */
-function ownProp(obj, key) {
-    return Object.hasOwnProperty.call(obj, key);
-}
-/**
- * @private
- */
-var WaterfallAxis;
-(function (WaterfallAxis) {
-    /* *
-     *
-     *  Interfaces
-     *
-     * */
-    /* *
-     *
-     *  Classes
-     *
-     * */
-    /**
-     * @private
-     */
-    var Composition = /** @class */ (function () {
-        /* *
-         *
-         *  Constructors
-         *
-         * */
-        /**
-         * @private
-         */
-        function Composition(axis) {
-            this.axis = axis;
-            this.stacks = {
-                changed: false
-            };
-        }
-        /* *
-         *
-         *  Functions
-         *
-         * */
-        /**
-         * Calls StackItem.prototype.render function that creates and renders
-         * stack total label for each waterfall stack item.
-         *
-         * @private
-         * @function Highcharts.Axis#renderWaterfallStackTotals
-         */
-        Composition.prototype.renderStackTotals = function () {
-            var yAxis = this.axis, waterfallStacks = yAxis.waterfall.stacks, stackTotalGroup = yAxis.stacking && yAxis.stacking.stackTotalGroup, dummyStackItem = new StackItem(yAxis, yAxis.options.stackLabels, false, 0, void 0);
-            this.dummyStackItem = dummyStackItem;
-            // Render each waterfall stack total
-            objectEach(waterfallStacks, function (type) {
-                objectEach(type, function (stackItem) {
-                    dummyStackItem.total = stackItem.stackTotal;
-                    if (stackItem.label) {
-                        dummyStackItem.label = stackItem.label;
-                    }
-                    StackItem.prototype.render.call(dummyStackItem, stackTotalGroup);
-                    stackItem.label = dummyStackItem.label;
-                    delete dummyStackItem.label;
-                });
-            });
-            dummyStackItem.total = null;
-        };
-        return Composition;
-    }());
-    WaterfallAxis.Composition = Composition;
-    /* *
-     *
-     *  Functions
-     *
-     * */
-    /**
-     * @private
-     */
-    function compose(AxisClass, ChartClass) {
-        addEvent(AxisClass, 'init', onInit);
-        addEvent(AxisClass, 'afterBuildStacks', onAfterBuildStacks);
-        addEvent(AxisClass, 'afterRender', onAfterRender);
-        addEvent(ChartClass, 'beforeRedraw', onBeforeRedraw);
-    }
-    WaterfallAxis.compose = compose;
-    /**
-     * @private
-     */
-    function onAfterBuildStacks() {
-        var axis = this;
-        var stacks = axis.waterfall.stacks;
-        if (stacks) {
-            stacks.changed = false;
-            delete stacks.alreadyChanged;
-        }
-    }
-    /**
-     * @private
-     */
-    function onAfterRender() {
-        var axis = this;
-        var stackLabelOptions = axis.options.stackLabels;
-        if (stackLabelOptions && stackLabelOptions.enabled &&
-            axis.waterfall.stacks) {
-            axis.waterfall.renderStackTotals();
-        }
-    }
-    /**
-     * @private
-     */
-    function onBeforeRedraw() {
-        var axes = this.axes, series = this.series, i = series.length;
-        while (i--) {
-            if (series[i].options.stacking) {
-                axes.forEach(function (axis) {
-                    if (!axis.isXAxis) {
-                        axis.waterfall.stacks.changed = true;
-                    }
-                });
-                i = 0;
-            }
-        }
-    }
-    /**
-     * @private
-     */
-    function onInit() {
-        var axis = this;
-        if (!axis.waterfall) {
-            axis.waterfall = new Composition(axis);
-        }
-    }
-})(WaterfallAxis || (WaterfallAxis = {}));
-// eslint-disable-next-line valid-jsdoc
-/**
- * A waterfall chart displays sequentially introduced positive or negative
- * values in cumulative columns.
- *
- * @sample highcharts/demo/waterfall/
- *         Waterfall chart
- * @sample highcharts/plotoptions/waterfall-inverted/
- *         Horizontal (inverted) waterfall
- * @sample highcharts/plotoptions/waterfall-stacked/
- *         Stacked waterfall chart
- *
- * @extends      plotOptions.column
- * @product      highcharts
- * @requires     highcharts-more
- * @optionparent plotOptions.waterfall
- */
-seriesType('waterfall', 'column', {
-    /**
-     * @type      {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
-     * @apioption plotOptions.waterfall.color
-     */
-    /**
-     * The color used specifically for positive point columns. When not
-     * specified, the general series color is used.
-     *
-     * In styled mode, the waterfall colors can be set with the
-     * `.highcharts-point-negative`, `.highcharts-sum` and
-     * `.highcharts-intermediate-sum` classes.
-     *
-     * @sample {highcharts} highcharts/demo/waterfall/
-     *         Waterfall
-     *
-     * @type      {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
-     * @product   highcharts
-     * @apioption plotOptions.waterfall.upColor
-     */
-    dataLabels: {
-        inside: true
-    },
-    /**
-     * The width of the line connecting waterfall columns.
-     *
-     * @product highcharts
-     */
-    lineWidth: 1,
-    /**
-     * The color of the line that connects columns in a waterfall series.
-     *
-     * In styled mode, the stroke can be set with the `.highcharts-graph` class.
-     *
-     * @type    {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
-     * @since   3.0
-     * @product highcharts
-     */
-    lineColor: '#333333',
-    /**
-     * A name for the dash style to use for the line connecting the columns
-     * of the waterfall series. Possible values: Dash, DashDot, Dot, LongDash,
-     * LongDashDot, LongDashDotDot, ShortDash, ShortDashDot, ShortDashDotDot,
-     * ShortDot, Solid
-     *
-     * In styled mode, the stroke dash-array can be set with the
-     * `.highcharts-graph` class.
-     *
-     * @type    {Highcharts.DashStyleValue}
-     * @since   3.0
-     * @product highcharts
-     */
-    dashStyle: 'Dot',
-    /**
-     * The color of the border of each waterfall column.
-     *
-     * In styled mode, the border stroke can be set with the
-     * `.highcharts-point` class.
-     *
-     * @type    {Highcharts.ColorString|Highcharts.GradientColorObject|Highcharts.PatternObject}
-     * @since   3.0
-     * @product highcharts
-     */
-    borderColor: '#333333',
-    states: {
-        hover: {
-            lineWidthPlus: 0 // #3126
-        }
-    }
-    // Prototype members
-}, {
-    pointValKey: 'y',
-    // Property needed to prevent lines between the columns from disappearing
-    // when negativeColor is used.
-    showLine: true,
-    // After generating points, set y-values for all sums.
-    generatePoints: function () {
-        var point, len, i, y;
-        // Parent call:
-        seriesTypes.column.prototype.generatePoints.apply(this);
-        for (i = 0, len = this.points.length; i < len; i++) {
-            point = this.points[i];
-            y = this.processedYData[i];
-            // override point value for sums
-            // #3710 Update point does not propagate to sum
-            if (point.isIntermediateSum || point.isSum) {
-                point.y = correctFloat(y);
-            }
-        }
-    },
-    // Translate data points from raw values
-    translate: function () {
-        var series = this, options = series.options, yAxis = series.yAxis, len, i, points, point, shapeArgs, y, yValue, previousY, previousIntermediate, range, minPointLength = pick(options.minPointLength, 5), halfMinPointLength = minPointLength / 2, threshold = options.threshold, stacking = options.stacking, tooltipY, actualStack = yAxis.waterfall.stacks[series.stackKey], actualStackX, dummyStackItem, total, pointY, yPos, hPos;
-        // run column series translate
-        seriesTypes.column.prototype.translate.apply(series);
-        previousY = previousIntermediate = threshold;
-        points = series.points;
-        for (i = 0, len = points.length; i < len; i++) {
-            // cache current point object
-            point = points[i];
-            yValue = series.processedYData[i];
-            shapeArgs = point.shapeArgs;
-            range = [0, yValue];
-            pointY = point.y;
-            // code responsible for correct positions of stacked points
-            // starts here
-            if (stacking) {
-                if (actualStack) {
-                    actualStackX = actualStack[i];
-                    if (stacking === 'overlap') {
-                        total =
-                            actualStackX.stackState[actualStackX.stateIndex--];
-                        y = pointY >= 0 ? total : total - pointY;
-                        if (ownProp(actualStackX, 'absolutePos')) {
-                            delete actualStackX.absolutePos;
-                        }
-                        if (ownProp(actualStackX, 'absoluteNeg')) {
-                            delete actualStackX.absoluteNeg;
-                        }
-                    }
-                    else {
-                        if (pointY >= 0) {
-                            total = actualStackX.threshold +
-                                actualStackX.posTotal;
-                            actualStackX.posTotal -= pointY;
-                            y = total;
-                        }
-                        else {
-                            total = actualStackX.threshold +
-                                actualStackX.negTotal;
-                            actualStackX.negTotal -= pointY;
-                            y = total - pointY;
-                        }
-                        if (!actualStackX.posTotal) {
-                            if (ownProp(actualStackX, 'absolutePos')) {
-                                actualStackX.posTotal =
-                                    actualStackX.absolutePos;
-                                delete actualStackX.absolutePos;
-                            }
-                        }
-                        if (!actualStackX.negTotal) {
-                            if (ownProp(actualStackX, 'absoluteNeg')) {
-                                actualStackX.negTotal =
-                                    actualStackX.absoluteNeg;
-                                delete actualStackX.absoluteNeg;
-                            }
-                        }
-                    }
-                    if (!point.isSum) {
-                        // the connectorThreshold property is later used in
-                        // getCrispPath function to draw a connector line in a
-                        // correct place
-                        actualStackX.connectorThreshold =
-                            actualStackX.threshold + actualStackX.stackTotal;
-                    }
-                    if (yAxis.reversed) {
-                        yPos = (pointY >= 0) ? (y - pointY) : (y + pointY);
-                        hPos = y;
-                    }
-                    else {
-                        yPos = y;
-                        hPos = y - pointY;
-                    }
-                    point.below = yPos <= pick(threshold, 0);
-                    shapeArgs.y = yAxis.translate(yPos, 0, 1, 0, 1);
-                    shapeArgs.height = Math.abs(shapeArgs.y -
-                        yAxis.translate(hPos, 0, 1, 0, 1));
-                }
-                dummyStackItem = yAxis.waterfall.dummyStackItem;
-                if (dummyStackItem) {
-                    dummyStackItem.x = i;
-                    dummyStackItem.label = actualStack[i].label;
-                    dummyStackItem.setOffset(series.pointXOffset || 0, series.barW || 0, series.stackedYNeg[i], series.stackedYPos[i]);
-                }
-            }
-            else {
-                // up points
-                y =
-                    Math.max(previousY, previousY + pointY) + range[0];
-                shapeArgs.y =
-                    yAxis.translate(y, 0, 1, 0, 1);
-                // sum points
-                if (point.isSum) {
-                    shapeArgs.y = yAxis.translate(range[1], 0, 1, 0, 1);
-                    shapeArgs.height = Math.min(yAxis.translate(range[0], 0, 1, 0, 1), yAxis.len) - shapeArgs.y; // #4256
-                }
-                else if (point.isIntermediateSum) {
-                    if (pointY >= 0) {
-                        yPos = range[1] + previousIntermediate;
-                        hPos = previousIntermediate;
-                    }
-                    else {
-                        yPos = previousIntermediate;
-                        hPos = range[1] + previousIntermediate;
-                    }
-                    if (yAxis.reversed) {
-                        // swapping values
-                        yPos ^= hPos;
-                        hPos ^= yPos;
-                        yPos ^= hPos;
-                    }
-                    shapeArgs.y = yAxis.translate(yPos, 0, 1, 0, 1);
-                    shapeArgs.height = Math.abs(shapeArgs.y -
-                        Math.min(yAxis.translate(hPos, 0, 1, 0, 1), yAxis.len));
-                    previousIntermediate += range[1];
-                    // If it's not the sum point, update previous stack end position
-                    // and get shape height (#3886)
-                }
-                else {
-                    shapeArgs.height = yValue > 0 ?
-                        yAxis.translate(previousY, 0, 1, 0, 1) - shapeArgs.y :
-                        yAxis.translate(previousY, 0, 1, 0, 1) - yAxis.translate(previousY - yValue, 0, 1, 0, 1);
-                    previousY += yValue;
-                    point.below = previousY < pick(threshold, 0);
-                }
-                // #3952 Negative sum or intermediate sum not rendered correctly
-                if (shapeArgs.height < 0) {
-                    shapeArgs.y += shapeArgs.height;
-                    shapeArgs.height *= -1;
-                }
-            }
-            point.plotY = shapeArgs.y =
-                Math.round(shapeArgs.y) - (series.borderWidth % 2) / 2;
-            // #3151
-            shapeArgs.height =
-                Math.max(Math.round(shapeArgs.height), 0.001);
-            point.yBottom = shapeArgs.y + shapeArgs.height;
-            if (shapeArgs.height <= minPointLength && !point.isNull) {
-                shapeArgs.height = minPointLength;
-                shapeArgs.y -= halfMinPointLength;
-                point.plotY = shapeArgs.y;
-                if (point.y < 0) {
-                    point.minPointLengthOffset = -halfMinPointLength;
-                }
-                else {
-                    point.minPointLengthOffset = halfMinPointLength;
-                }
-            }
-            else {
-                if (point.isNull) {
-                    shapeArgs.width = 0;
-                }
-                point.minPointLengthOffset = 0;
-            }
-            // Correct tooltip placement (#3014)
-            tooltipY =
-                point.plotY + (point.negative ? shapeArgs.height : 0);
-            if (series.chart.inverted) {
-                point.tooltipPos[0] = yAxis.len - tooltipY;
-            }
-            else {
-                point.tooltipPos[1] = tooltipY;
-            }
-        }
-    },
-    // Call default processData then override yData to reflect waterfall's
-    // extremes on yAxis
-    processData: function (force) {
-        var series = this, options = series.options, yData = series.yData, 
-        // #3710 Update point does not propagate to sum
-        points = options.data, point, dataLength = yData.length, threshold = options.threshold || 0, subSum, sum, dataMin, dataMax, y, i;
-        sum = subSum = dataMin = dataMax = 0;
-        for (i = 0; i < dataLength; i++) {
-            y = yData[i];
-            point = points && points[i] ? points[i] : {};
-            if (y === 'sum' || point.isSum) {
-                yData[i] = correctFloat(sum);
-            }
-            else if (y === 'intermediateSum' ||
-                point.isIntermediateSum) {
-                yData[i] = correctFloat(subSum);
-                subSum = 0;
-            }
-            else {
-                sum += y;
-                subSum += y;
-            }
-            dataMin = Math.min(sum, dataMin);
-            dataMax = Math.max(sum, dataMax);
-        }
-        Series.prototype.processData.call(this, force);
-        // Record extremes only if stacking was not set:
-        if (!options.stacking) {
-            series.dataMin = dataMin + threshold;
-            series.dataMax = dataMax;
-        }
-        return;
-    },
-    // Return y value or string if point is sum
-    toYData: function (pt) {
-        if (pt.isSum) {
-            return 'sum';
-        }
-        if (pt.isIntermediateSum) {
-            return 'intermediateSum';
-        }
-        return pt.y;
-    },
-    updateParallelArrays: function (point, i) {
-        Series.prototype.updateParallelArrays.call(this, point, i);
-        // Prevent initial sums from triggering an error (#3245, #7559)
-        if (this.yData[0] === 'sum' || this.yData[0] === 'intermediateSum') {
-            this.yData[0] = null;
-        }
-    },
-    // Postprocess mapping between options and SVG attributes
-    pointAttribs: function (point, state) {
-        var upColor = this.options.upColor, attr;
-        // Set or reset up color (#3710, update to negative)
-        if (upColor && !point.options.color) {
-            point.color = point.y > 0 ? upColor : null;
-        }
-        attr = seriesTypes.column.prototype.pointAttribs.call(this, point, state);
-        // The dashStyle option in waterfall applies to the graph, not
-        // the points
-        delete attr.dashstyle;
-        return attr;
-    },
-    // Return an empty path initially, because we need to know the stroke-width
-    // in order to set the final path.
-    getGraphPath: function () {
-        return [['M', 0, 0]];
-    },
-    // Draw columns' connector lines
-    getCrispPath: function () {
-        var data = this.data, yAxis = this.yAxis, length = data.length, graphNormalizer = Math.round(this.graph.strokeWidth()) % 2 / 2, borderNormalizer = Math.round(this.borderWidth) % 2 / 2, reversedXAxis = this.xAxis.reversed, reversedYAxis = this.yAxis.reversed, stacking = this.options.stacking, path = [], connectorThreshold, prevStack, prevStackX, prevPoint, yPos, isPos, prevArgs, pointArgs, i;
-        for (i = 1; i < length; i++) {
-            pointArgs = data[i].shapeArgs;
-            prevPoint = data[i - 1];
-            prevArgs = data[i - 1].shapeArgs;
-            prevStack = yAxis.waterfall.stacks[this.stackKey];
-            isPos = prevPoint.y > 0 ? -prevArgs.height : 0;
-            if (prevStack && prevArgs && pointArgs) {
-                prevStackX = prevStack[i - 1];
-                // y position of the connector is different when series are
-                // stacked, yAxis is reversed and it also depends on point's
-                // value
-                if (stacking) {
-                    connectorThreshold = prevStackX.connectorThreshold;
-                    yPos = Math.round((yAxis.translate(connectorThreshold, 0, 1, 0, 1) +
-                        (reversedYAxis ? isPos : 0))) - graphNormalizer;
-                }
-                else {
-                    yPos =
-                        prevArgs.y + prevPoint.minPointLengthOffset +
-                            borderNormalizer - graphNormalizer;
-                }
-                path.push([
-                    'M',
-                    (prevArgs.x || 0) + (reversedXAxis ?
-                        0 :
-                        (prevArgs.width || 0)),
-                    yPos
-                ], [
-                    'L',
-                    (pointArgs.x || 0) + (reversedXAxis ?
-                        (pointArgs.width || 0) :
-                        0),
-                    yPos
-                ]);
-            }
-            if (!stacking &&
-                path.length &&
-                prevArgs &&
-                ((prevPoint.y < 0 && !reversedYAxis) ||
-                    (prevPoint.y > 0 && reversedYAxis))) {
-                path[path.length - 2][2] += prevArgs.height;
-                path[path.length - 1][2] += prevArgs.height;
-            }
-        }
-        return path;
-    },
-    // The graph is initially drawn with an empty definition, then updated with
-    // crisp rendering.
-    drawGraph: function () {
-        Series.prototype.drawGraph.call(this);
-        this.graph.attr({
-            d: this.getCrispPath()
-        });
-    },
-    // Waterfall has stacking along the x-values too.
-    setStackedPoints: function () {
-        var series = this, options = series.options, waterfallStacks = series.yAxis.waterfall.stacks, seriesThreshold = options.threshold, stackThreshold = seriesThreshold || 0, interSum = stackThreshold, stackKey = series.stackKey, xData = series.xData, xLength = xData.length, actualStack, actualStackX, totalYVal, actualSum, prevSum, statesLen, posTotal, negTotal, xPoint, yVal, x, alreadyChanged, changed;
-        // function responsible for calculating correct values for stackState
-        // array of each stack item. The arguments are: firstS - the value for
-        // the first state, nextS - the difference between the previous and the
-        // newest state, sInx - counter used in the for that updates each state
-        // when necessary, sOff - offset that must be added to each state when
-        // they need to be updated (if point isn't a total sum)
-        // eslint-disable-next-line require-jsdoc
-        function calculateStackState(firstS, nextS, sInx, sOff) {
-            if (!statesLen) {
-                actualStackX.stackState[0] = firstS;
-                statesLen = actualStackX.stackState.length;
-            }
-            else {
-                for (sInx; sInx < statesLen; sInx++) {
-                    actualStackX.stackState[sInx] += sOff;
-                }
-            }
-            actualStackX.stackState.push(actualStackX.stackState[statesLen - 1] + nextS);
-        }
-        series.yAxis.stacking.usePercentage = false;
-        totalYVal = actualSum = prevSum = stackThreshold;
-        // code responsible for creating stacks for waterfall series
-        if (series.visible ||
-            !series.chart.options.chart.ignoreHiddenSeries) {
-            changed = waterfallStacks.changed;
-            alreadyChanged = waterfallStacks.alreadyChanged;
-            // in case of a redraw, stack for each x value must be
-            // emptied (only for the first series in a specific stack)
-            // and recalculated once more
-            if (alreadyChanged &&
-                alreadyChanged.indexOf(stackKey) < 0) {
-                changed = true;
-            }
-            if (!waterfallStacks[stackKey]) {
-                waterfallStacks[stackKey] = {};
-            }
-            actualStack = waterfallStacks[stackKey];
-            for (var i = 0; i < xLength; i++) {
-                x = xData[i];
-                if (!actualStack[x] || changed) {
-                    actualStack[x] = {
-                        negTotal: 0,
-                        posTotal: 0,
-                        stackTotal: 0,
-                        threshold: 0,
-                        stateIndex: 0,
-                        stackState: [],
-                        label: ((changed &&
-                            actualStack[x]) ?
-                            actualStack[x].label :
-                            void 0)
-                    };
-                }
-                actualStackX = actualStack[x];
-                yVal = series.yData[i];
-                if (yVal >= 0) {
-                    actualStackX.posTotal += yVal;
-                }
-                else {
-                    actualStackX.negTotal += yVal;
-                }
-                // points do not exist yet, so raw data is used
-                xPoint = options.data[i];
-                posTotal = actualStackX.absolutePos =
-                    actualStackX.posTotal;
-                negTotal = actualStackX.absoluteNeg =
-                    actualStackX.negTotal;
-                actualStackX.stackTotal = posTotal + negTotal;
-                statesLen = actualStackX.stackState.length;
-                if (xPoint && xPoint.isIntermediateSum) {
-                    calculateStackState(prevSum, actualSum, 0, prevSum);
-                    prevSum = actualSum;
-                    actualSum = seriesThreshold;
-                    // swapping values
-                    stackThreshold ^= interSum;
-                    interSum ^= stackThreshold;
-                    stackThreshold ^= interSum;
-                }
-                else if (xPoint && xPoint.isSum) {
-                    calculateStackState(seriesThreshold, totalYVal, statesLen);
-                    stackThreshold = seriesThreshold;
-                }
-                else {
-                    calculateStackState(stackThreshold, yVal, 0, totalYVal);
-                    if (xPoint) {
-                        totalYVal += yVal;
-                        actualSum += yVal;
-                    }
-                }
-                actualStackX.stateIndex++;
-                actualStackX.threshold = stackThreshold;
-                stackThreshold += actualStackX.stackTotal;
-            }
-            waterfallStacks.changed = false;
-            if (!waterfallStacks.alreadyChanged) {
-                waterfallStacks.alreadyChanged = [];
-            }
-            waterfallStacks.alreadyChanged.push(stackKey);
-        }
-    },
-    // Extremes for a non-stacked series are recorded in processData.
-    // In case of stacking, use Series.stackedYData to calculate extremes.
-    getExtremes: function () {
-        var stacking = this.options.stacking, yAxis, waterfallStacks, stackedYNeg, stackedYPos;
-        if (stacking) {
-            yAxis = this.yAxis;
-            waterfallStacks = yAxis.waterfall.stacks;
-            stackedYNeg = this.stackedYNeg = [];
-            stackedYPos = this.stackedYPos = [];
-            // the visible y range can be different when stacking is set to
-            // overlap and different when it's set to normal
-            if (stacking === 'overlap') {
-                objectEach(waterfallStacks[this.stackKey], function (stackX) {
-                    stackedYNeg.push(arrayMin(stackX.stackState));
-                    stackedYPos.push(arrayMax(stackX.stackState));
-                });
-            }
-            else {
-                objectEach(waterfallStacks[this.stackKey], function (stackX) {
-                    stackedYNeg.push(stackX.negTotal + stackX.threshold);
-                    stackedYPos.push(stackX.posTotal + stackX.threshold);
-                });
-            }
-            return {
-                dataMin: arrayMin(stackedYNeg),
-                dataMax: arrayMax(stackedYPos)
-            };
-        }
-        // When not stacking, data extremes have already been computed in the
-        // processData function.
-        return {
-            dataMin: this.dataMin,
-            dataMax: this.dataMax
-        };
-    }
-    // Point members
-}, {
-    getClassName: function () {
-        var className = Point.prototype.getClassName.call(this);
-        if (this.isSum) {
-            className += ' highcharts-sum';
-        }
-        else if (this.isIntermediateSum) {
-            className += ' highcharts-intermediate-sum';
-        }
-        return className;
-    },
-    // Pass the null test in ColumnSeries.translate.
-    isValid: function () {
-        return (isNumber(this.y) ||
-            this.isSum ||
-            Boolean(this.isIntermediateSum));
-    }
-});
-/**
- * A `waterfall` series. If the [type](#series.waterfall.type) option
- * is not specified, it is inherited from [chart.type](#chart.type).
- *
- * @extends   series,plotOptions.waterfall
- * @excluding dataParser, dataURL
- * @product   highcharts
- * @requires  highcharts-more
- * @apioption series.waterfall
- */
-/**
- * An array of data points for the series. For the `waterfall` series
- * type, points can be given in the following ways:
- *
- * 1. An array of numerical values. In this case, the numerical values will be
- *    interpreted as `y` options. The `x` values will be automatically
- *    calculated, either starting at 0 and incremented by 1, or from
- *    `pointStart` and `pointInterval` given in the series options. If the axis
- *    has categories, these will be used. Example:
- *    ```js
- *    data: [0, 5, 3, 5]
- *    ```
- *
- * 2. An array of arrays with 2 values. In this case, the values correspond to
- *    `x,y`. If the first value is a string, it is applied as the name of the
- *    point, and the `x` value is inferred.
- *    ```js
- *    data: [
- *        [0, 7],
- *        [1, 8],
- *        [2, 3]
- *    ]
- *    ```
- *
- * 3. An array of objects with named values. The following snippet shows only a
- *    few settings, see the complete options set below. If the total number of
- *    data points exceeds the series'
- *    [turboThreshold](#series.waterfall.turboThreshold), this option is not
- *    available.
- *    ```js
- *    data: [{
- *        x: 1,
- *        y: 8,
- *        name: "Point2",
- *        color: "#00FF00"
- *    }, {
- *        x: 1,
- *        y: 8,
- *        name: "Point1",
- *        color: "#FF00FF"
- *    }]
- *    ```
- *
- * @sample {highcharts} highcharts/chart/reflow-true/
- *         Numerical values
- * @sample {highcharts} highcharts/series/data-array-of-arrays/
- *         Arrays of numeric x and y
- * @sample {highcharts} highcharts/series/data-array-of-arrays-datetime/
- *         Arrays of datetime x and y
- * @sample {highcharts} highcharts/series/data-array-of-name-value/
- *         Arrays of point.name and y
- * @sample {highcharts} highcharts/series/data-array-of-objects/
- *         Config objects
- *
- * @type      {Array<number|Array<(number|string),(number|null)>|null|*>}
- * @extends   series.line.data
- * @excluding marker
- * @product   highcharts
- * @apioption series.waterfall.data
- */
-/**
- * When this property is true, the points acts as a summary column for
- * the values added or substracted since the last intermediate sum,
- * or since the start of the series. The `y` value is ignored.
- *
- * @sample {highcharts} highcharts/demo/waterfall/
- *         Waterfall
- *
- * @type      {boolean}
- * @default   false
- * @product   highcharts
- * @apioption series.waterfall.data.isIntermediateSum
- */
-/**
- * When this property is true, the point display the total sum across
- * the entire series. The `y` value is ignored.
- *
- * @sample {highcharts} highcharts/demo/waterfall/
- *         Waterfall
- *
- * @type      {boolean}
- * @default   false
- * @product   highcharts
- * @apioption series.waterfall.data.isSum
- */
-''; // adds doclets above to transpiled file
-WaterfallAxis.compose(Axis, Chart);
-export default WaterfallAxis;
-                                                                                                                                                                                                                                                                                                                                                                                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M272 32h-67.8c-5.5 0-10.7 2.9-13.6 7.6l-40.3 65c-2.3 3.6-4.5 7.3-6.2 10.5-1.7-3.2-3.7-6.8-5.7-10.4L98.5 39.6c-2.9-4.7-8.1-7.6-13.6-7.6H16C7.2 32 0 39.2 0 48v32c0 8.8 7.2 16 16 16h30.1l52.8 77.3L42.3 256H16c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h64c5.5 0 10.7-2.9 13.6-7.6l44.7-72.1c2.2-3.6 4.2-7.3 5.9-10.6 1.8 3.2 3.9 6.9 6.2 10.2l45.7 72.6c2.9 4.7 8 7.5 13.5 7.5H272c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16h-22l-58.6-84.3L244 96h28c8.8 0 16-7.2 16-16V48c0-8.8-7.2-16-16-16zm224 384H395.2c3.5-10.5 18.8-21.3 36.3-32.4 16.6-10.6 35.5-22.6 50.3-38.9 17.5-19.1 25.9-40.2 25.9-64.6 0-60.6-50.7-88.1-97.8-88.1-42.5 0-76.4 22-94.4 50.4-4.7 7.3-2.6 17 4.6 21.9l30.3 20.3c7 4.7 16.5 3.1 21.6-3.6 8-10.4 18.8-18.2 31.7-18.2 19.4 0 26.3 12.9 26.3 23.9 0 36.2-119.4 57-119.4 160 0 6.7.6 13 1.4 19.3 1.1 8 7.8 13.9 15.9 13.9H496c8.8 0 16-7.2 16-16v-32c0-8.7-7.2-15.9-16-15.9z"/></svg>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 512"><path d="M209.2 233.4l-108-31.6C88.7 198.2 80 186.5 80 173.5c0-16.3 13.2-29.5 29.5-29.5h66.3c12.2 0 24.2 3.7 34.2 10.5 6.1 4.1 14.3 3.1 19.5-2l34.8-34c7.1-6.9 6.1-18.4-1.8-24.5C238 74.8 207.4 64.1 176 64V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48h-2.5C45.8 64-5.4 118.7.5 183.6c4.2 46.1 39.4 83.6 83.8 96.6l102.5 30c12.5 3.7 21.2 15.3 21.2 28.3 0 16.3-13.2 29.5-29.5 29.5h-66.3C100 368 88 364.3 78 357.5c-6.1-4.1-14.3-3.1-19.5 2l-34.8 34c-7.1 6.9-6.1 18.4 1.8 24.5 24.5 19.2 55.1 29.9 86.5 30v48c0 8.8 7.2 16 16 16h32c8.8 0 16-7.2 16-16v-48.2c46.6-.9 90.3-28.6 105.7-72.7 21.5-61.6-14.6-124.8-72.5-141.7z"/></svg>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       // stylelint-disable declaration-no-important
-
-// Flex variation
-//
-// Custom styles for additional flex alignment options.
-
-@each $breakpoint in map-keys($grid-breakpoints) {
-  @include media-breakpoint-up($breakpoint) {
-    $infix: breakpoint-infix($breakpoint, $grid-breakpoints);
-
-    .flex#{$infix}-row            { flex-direction: row !important; }
-    .flex#{$infix}-column         { flex-direction: column !important; }
-    .flex#{$infix}-row-reverse    { flex-direction: row-reverse !important; }
-    .flex#{$infix}-column-reverse { flex-direction: column-reverse !important; }
-
-    .flex#{$infix}-wrap         { flex-wrap: wrap !important; }
-    .flex#{$infix}-nowrap       { flex-wrap: nowrap !important; }
-    .flex#{$infix}-wrap-reverse { flex-wrap: wrap-reverse !important; }
-    .flex#{$infix}-fill         { flex: 1 1 auto !important; }
-    .flex#{$infix}-grow-0       { flex-grow: 0 !important; }
-    .flex#{$infix}-grow-1       { flex-grow: 1 !important; }
-    .flex#{$infix}-shrink-0     { flex-shrink: 0 !important; }
-    .flex#{$infix}-shrink-1     { flex-shrink: 1 !important; }
-
-    .justify-content#{$infix}-start   { justify-content: flex-start !important; }
-    .justify-content#{$infix}-end     { justify-content: flex-end !important; }
-    .justify-content#{$infix}-center  { justify-content: center !important; }
-    .justify-content#{$infix}-between { justify-content: space-between !important; }
-    .justify-content#{$infix}-around  { justify-content: space-around !important; }
-
-    .align-items#{$infix}-start    { align-items: flex-start !important; }
-    .align-items#{$infix}-end      { align-items: flex-end !important; }
-    .align-items#{$infix}-center   { align-items: center !important; }
-    .align-items#{$infix}-baseline { align-items: baseline !important; }
-    .align-items#{$infix}-stretch  { align-items: stretch !important; }
-
-    .align-content#{$infix}-start   { align-content: flex-start !important; }
-    .align-content#{$infix}-end     { align-content: flex-end !important; }
-    .align-content#{$infix}-center  { align-content: center !important; }
-    .align-content#{$infix}-between { align-content: space-between !important; }
-    .align-content#{$infix}-around  { align-content: space-around !important; }
-    .align-content#{$infix}-stretch { align-content: stretch !important; }
-
-    .align-self#{$infix}-auto     { align-self: auto !important; }
-    .align-self#{$infix}-start    { align-self: flex-start !important; }
-    .align-self#{$infix}-end      { align-self: flex-end !important; }
-    .align-self#{$infix}-center   { align-self: center !important; }
-    .align-self#{$infix}-baseline { align-self: baseline !important; }
-    .align-self#{$infix}-stretch  { align-self: stretch !important; }
-  }
-}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            xTMo1å§X¹{2_±Q[	záÒkï% )ĞŠVIÕ_Ïó&-q@Úì×ã7oŞ¼Íçİİç"bòîìa[¾ï~<œ¯¶÷ï×ëÃá@£»Ÿ·keæ52VeÿíëáãİÓùŠ—&:«‹³û›Çmùr¾ºrîÔÃKâ¦›ªJÎRÍ¨^#H¸WWÒ´:*VÕ¨õ^u§WòçÅÛ\ñ°ŠCdæ•Xµz’DÕÄbÙH)ÅZa
-¬‚©s\ºS÷(ÂtÅ™˜eF=Éuì[Ğh¶ábJé‚Ò^ÂğÖ‹B/½Q˜ïF±à.d5-FÉó.³~K;†@l³F‚ŒMHÓDãµÅÉÍik–­¯û)¼ˆMĞ¶ {«ÜÑÑ¶’å÷n­AÑbPÇ'„d–Ijâ‘zZ@‚ıZ}ú¬mµ”xí"¦ˆhÂ¢FÒy¾rÌOsà¸	 p+§ÇºÔ‘´(„ÛM^`TFm37Ñ´‚„Ô¤Şm&²ŸbëîÚM?Iï{TT€—šCHaä#³Ê 6pÉ]]ä¯‹ü—š&vV+ŞAÖP5–-[—}}í´r/MgÔ,L&÷óÚo	ôµš|,ì9r—eÊÛ>¼ME†Òq-ÿ¶{ ó˜À3Jm¯%4(›À_È¿i\ŸÕ–k››ãkh³÷eRì+¨‰ÏyOÌOÈ‘¿‘ae(÷ÄÿD^<ÿ2>p?q¶ÊS£(ÿ`ü¸0îdŠ¯í¨ŒñŠ(°§{{^­/ÎæÈÅ/™Õí'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  xÍ\ısÛ6Ò¾ŸóW éõ$;e;—ëóÑ¤iÒä'ÎÄîõ2Ï™i‰	EêHÊMı¿¿Ï³ ¢d'›;N&–ˆÅbw±_X ¥ùHíüışƒİ?7Õæù§ÔA1	³ä·°JòL§aQ©Y-ÒØôÇjw{çïƒİíİmu”e'™z•gebaö“qœ•ñº¸¸¦Éd*ˆÊ`œÏ†©n³ ßèGüòşùõó‹£CuôşÙÛÃw¯÷_ü¤~ü >¼{qøüıëwGzñÓë#ˆ—hTo÷?Ê 0ø6‡wz‹2VeU$ãª÷ğN2›çàá•:+ò™êÁpÊáÏ`?LËàcé€~iıR%iR%±;5.KõXıàï–š'ãOò¶T€=ºšÇòÒ}İRE8——üğğÎp“WûáU¾¨Ôy˜.bu–ªšÆz’F*Ë£¸Tl˜©|iNõúLNÃl’d“Ó-ôKJ"d¯^©Qq¦.’4US£8Í/ˆ?)$gÕ–
-S¼ª
-“TÅlâ›üÌ¢"HW”„“"œFÒO+ğÅgêóİ,/faz÷÷»† »×ê•›ôC‘Š¯WoÉ›æıd‡w(ÜQˆ©{¬^NteP†Ù§ø*˜y•sÌZzOçErVì®Ó°<ÍÂYìïãò%iù“ÄQ®ê£Çª~ÏGÕÛR=†OvrŸuMœJJHÛˆÓVªœæ¥Ì<”v1®EñcŞÉ—?
-^EWÄ©Øg9Mæ@‡·úÍy¬
-«d÷‰¦³˜æy	U†•ÖX†³y+ı8+Fñ,úÄ|‡ÄÒ|–“0OW!Öâø¨‡Ó¼H~Ë³*L;ğ¿ª›‚z¾x¨Q^Dq‘ÆZOšœüX·)èf2á#ğx0 A*&½,ªçÒGªúãË*Î¢R3Oóê`®'©Ö:õ4¾§‹ˆV‰Glö]dÕaœÆcXñxQœÇ/Ãq•[*
-«ğĞZ>I6¶S¬¾v‚mycŠ jzX7õÒVÄÿ^$œíûË†:T.tjO¢|ÂıÙäğÎç;D$6Õœ‰5ÎSx=¨+—‡EDPóG‰¯QŸ=§òœáä³ÉuUûé}Â£ğ=Õûöoòô¶¤­›¦"Œ’…ØĞD­î½ ØS÷—ÆÑ-µ¯/òEA)Æy‘ÅE=hšĞŠGquÃ‰K(XImdnú†]F\=[ğ"ù_ÿwøï‚’M«rîU:iqĞr·³­ÙÓ"ş5‰ªéÚYbùiÃ9coú—bÂOPÜıQª4p0úõ¾MÔyİuOie#ÁÃM— ·DIàèf“hğ±Œò1õRÀÓLaS=ƒ
-¦éqPf	.Éh{T„è<6#õ¿dVşÅ–ÔÛ7 A¢ò§ìñR0œ*=!ª
-?ÁĞæE<F(…¥6ğœ#{à]N¥>ìëy3ƒ¸DÇ ysË.}\g‹l,ÙŸ1Ëğ<LR Ñ"$:0¼s
-…’Õ$Ï#¸Í³p‘š	Ó¢Ô®æ-Vl¤šB<ò—yO2'È­¨_šÖ#™¤Má‚ÓïI!Ù±FwŠlïÕÑ›ıSd_•ªr…o©YŒ,VÏÚ•Ïœ$D#ÄIxİ¸€å…½è¡ˆC…£1”";üÇÏ«dm£ÂvGr5µN¼VÌ¡Op‡ÿŞäQrv¥¹ÔbÔŒZ…ƒ°æ_´>íŞQ›×¡$NÎ°´î„çFÁ_š™6TOÚÓRBÆß‚í`×ÆÙ‹Sc ÚSµºô7<ë#.ft <†Ÿ¾‚ù=n5äB;ŞÎööwÆ)óµ}­"-…ß^ÑËCÉ p%î@ ïá ``Té ‹ü¢¾a’`³’P:šw~\”&k0FÒ‚˜î;işë-­Ş«yïÍÂËæHV°ØÓŞu £@TKCe«‡ºAÌó0bz±§ŒC·âçß^…e ÒñXõŒÓ ÷.¦Ş Ä"& ^,Êä|5³°À‚t´ù«’*ıš~ÈåÆE"©ÊêQsĞœTĞ¢íàûËœY¢zæ—-~6è[gQvˆAØÓìÃ… ÿ }nä¶ÍX|U[]IÛzVUE_>µm°EŒ5E¦t@°–*l ¸ÇıŞ#‡DÀÔ=ÂáÿŞ^ÿËàÇxsÂW±¦&¸ÿÀ zõønoƒ@w[@B¿äLõ¹ªæÌu	]TIÃ!…p,%ªŞ;·éİ‡¡,Ó‘Ô¦,!¿_‚lƒ™}‡µm•ÏşïPEy\f=¬Ûs)-Ğõl©"ÇJ[²Ä pTæ)<_C@b×`0¶FSÍ¬NàYß`v$FbÇ‹KÕ% çaãÉÑ(ÍÇŸÖso‰!¸%x}4>« İõƒ–µ‚­•w•³Ò‚iJš1cZÍRõ(JÎU­\¢ãYQ¡'-zk9Ş 42Â=‘Ì&ª,ÆĞI¨äcÔRRĞ˜,«Ô¢ÌB•ÓÁNªšº±—ÙsºÙ‰¨Å}i—F¸¦mÉ¯v¿ÿ
-Ö<AH5rx4œşµ-î&c-êÄe¯'oŞ¢ÎyùõäùAú¨ßW=íUç_D¦!¾ŒX¯£¸Ÿõ${õ:ÒŞH°›Î!4æI—:‰45­Ïø}öw×.À¹Rœ­[ ‰¢ûK+Z ÖÎê)<s\daê/§Øx†ÜèW›»™LÀ{«î‡Éo¨÷vîûA×#Ş¤ı{’½‹}šÆÖ¢>EuI4X«Í“K®°$1µJ½ºŞÒ’˜ñÔÔGQ/˜õRæ¤ÿ­ñĞşz%¥` A6ì:¤®Îšu„‰óíønâº¡æµP»‡»W‹™F¹DÖì7	X/m¬n]7!ö[UM$½Ñ‘Ô,5aÈ3fİX„‰|[ñ/Iä¿WËØGröëªÊWÕÊ(õb^/©{ê-+Y,îêÀ±‰2ZYu¬qQ¼E]ëü*AÑëj,_Yc[„‰j±^t[Dx1FÍfÛÃ
->9—¤ÙÈ~‘DÃç£[U§U2÷›Pz•Óû¬ƒ(‰¹~4*˜ïâpı?»Öùñõ${Ÿ…dÁÁ ™ŒJ­(ïYH@ıŞ÷»ŒÿÚÄL¢]
-İß¹= óAƒ1`©¦¯á±ÃLÑâÜRi|3Ğl$¥LÊæ«nÜ3ß¸7Äæ@^›®¦ÆægáÜ¼;Ê÷‰üXcAğÙ>aú¶M¤×|7d9œ}ék¾"‡Rıå/šêæëci=Ù°CÈvw¡ÍâPä¸	Q[­ıRëwïD«/åÔ?}ìLıñ^çõ$v¹°DÀ”¥¡æÙ|ó3¯¬ÓÔµmy¹áBé1±
-ƒ¹÷T¢k	Æ7şlúŠC$FS Í"ÿÄ‚ƒ–TPKÅáöÀ±,!ü@lZ–^¿Z€Í¾Šï(ŸÙÏ°Ïæ \^„XÿÛ<¹0øõÒ^Ï^›À p¬ø]Ü€vƒºOFª†JoÂä¸ˆ1Tzß,“È§ƒÆH—€áÅô\ŸGÚ
-™áÀÇGŞ„aÅó«"¢ğ¶2µÏ‡$"÷#¡ƒI\.f×-M}ÂÈ¯ámÇIáÚ}4Äµ‚kÄ¶Å¥†îÈ9‚- –y×=ÓM†åF/x~vÆŠd_|;ŠÇlós»Ñ –„'UÔ(YÕô6nkî%÷5™°}= ¿²mqG:»AƒlµI^±0qİÃq×êûP®f]]8²|dĞkTØ©	5œ*té¨pê¢&ú‰ŞI‚0LÑ®gÄÔ,ºĞ~DGØZ¾„çn3äiÇçlàcW»G9¢_—är–zyªEÎÂøÍú.™p§ƒ¾ë2 z®YaÇ¶Ävî’)’.lî‰úŠ%6z-O–éåh¹Yh"†rÎãgÅ¤t]R/‰BV2¹Ù¥l¤­n8J…C~#Àºší@7áø´GYÉTn1›÷Iğñ¿W²w¢~hğÖ¢A'x{ë@´Œ³	Mÿ9F)^­¶BÖƒæóô
-sÉM>lÑËş"_Cë±#2ÀöH†D»pgÌ]F.[â¦ÉÂE¡d/$Â°±Ë¯b.¦ØËĞy ìGï€×÷m5*_hö$s|âæ…&§B%hØ~ˆ?„DäEÙ¤šâÅ½{>ÎÁ/Î!““ãŸm¿òÚw[íÔ.SïÍce²Ål=fC¦ı½†6ÂšaïæH‹oìCü`ı·»:,
-æ‹rÚ?î½÷D-ïêÄóéÓ.ûF‚»COAaJwnlÍ`,Édvğ´†–Æ[Jù—ó„ÆóÃxRÏélM‡íBp–¯à÷V‚S;æÍô\%KÏåIÑDAq yÿÅ.^\îÂ`Óş‹¶.Yâùâ;È`uÚö`m#d<ŸšÉ‡÷õTxúEl¸¿?[íe_Ş‹E¯/rşƒ@˜7°jxµ»næÈ3Õ£ŞVû'æC<â ?¨Ô;8Šbwİ> ˆmİì|±µkkÅÎN=Ñ@—Póš˜b‡ş-u–d}ù€l OËºÈ›ñ]ùø>tâ#È•Æ·–<høñZ aòùm˜¼İ7ƒ\Şru3È%êš·øî­îá[#po­<»<»Õ¾e¯Ê–î·ğ.XUvÅ›eøE Ò*:õø–‘ÇáwŸLz5r‘:GÄöS#`Ä7p³-Ğ!Ë›}zWş©Tİ ¿"5-°û·bDrI×åmÎÆUw½zŞPß©]5T»`“>^:¥y^ôí@Ë>¡@Yì ‘üŒ5w!ÃDõX‘VŞ„Õ¤½ ÓC-1ÈC­à“ëÃÇ5¸[nS±ĞMÃ›$ŠR,7†Zsâô"`2‡½ŞCÉ,.xÒ¡~÷çaPÅeÕ·}7˜†aqVÆ¯3÷vKílÃxmNoéhfúÎÇK’´"ÿ‡:°Î·8§2ÃM3Á•æe%¤³‹K-µæŒICú56xmğ0|ëÑÊ•ÕO	J`<U9ĞÂçÂáW–7¨ßµ*8Êá+Şá´W¹´	…ƒõü\&0*S2'l>à°{ëIÃ
-x‚òn¨Wïkj€K`QK'Yˆ<¯kŠÀ Y2±Æ´¶b~¿9éO«Û,-6_?z¬¶7|7A8‰¶­‚bE¦mf~°<à–pğ Kœİ“Ø!=*FµÔãÊ‰˜@ËŒ?éNù­K‹üåññqªä>I¢¨U°.AHgu¸-3éÀ£Móhƒq<É=WcQzÎ¦í?ØO¨ñ$ƒZ{4¤ş¿éHº5×Â‹üánAÊ &¤µ¨rå0+‚äÈmlÒ±ZÁ—¸jG)²±¤ëİâu#ëËcÔL–½š¦nWwÄ½<,¹ÎôÎ=x¬Ü âsc¾#l‘Šòñ˜¸úÇ ’m–¾ÈÚ¯°ëh–üÄÆ [Á`õ¶
-’€«İ“F+áF$££4…ñîZÛ»)`Kq´>Ü¸”ßè£ğr,¸Ş ğ-ôü‰åYMsâR×Zu¤pßeášZ²¡fÚÇII2—Òsn©VœB·E©ÖÔ™¢¢rñ”!¦²™Qy­[!Œ#ïb%Ò!¹à•>á×²À/pL–¥.'ÉÁWò$›Ú©½×9€a»	¬^ÕŠY<ä±_	§¿Õá´\’ró™§lâÙ‚7fğítrZÏ&Gçtñ„#d]‹	ĞeÕ¤B$…·íÙ&
-Üë³G€-!^$‚°y½Š¾Òî‚Ì„)ÜcÖÀ3 8ã°l,ì ÅºgÅ«AÊ¯4ó;#Ôó×y…MÎj‹ æÈ1<‰ö¦PØ¿ÍÕ*Vx&A¾›|øZÙfd°êÜ+i°Ü¯ƒAÑ¯À:âÖS¤ÈqÖÜ- š¶xšúAA}°ãôãù¥+Û"ı‚‰£Äš©Ó¦¯9…—×{3™ ¢w ‘ÈQÊ£Ü;T"œvÙ‘Ömn‘l³¨ûÜ„||ê–½ş»„Ä8S2jê;x9€`/
-Ş¨I‡-AÁK^"SıowîãÈò†K<‰ª­ÏV
-¡MäHÓÛÓ˜›¢æ]@½±áîÍ™	¤Ø'NçŠÉB.ö¯‡S	ø$'j6.çúgxx}€—7åb%çï˜U½ç}Ø´a¯pØ‹—8:ÇÉYÂı6Ôå¡?I†º<$é{¥Ç:ÿ3ˆİÊP®ƒâ¦—½fÎ4¬¹Xeï…ñv%êßúr×»Ü%…Öİ®•»Ây¢Cœ•ˆ/&¹ĞeDhîpÚı›Y‡·½Úóû³¢¯}Í­ 'Ğ9Heo±µØ\ËC@iÉ:8ú<áòÎñêË\›™`_ûNœ&ÃÅ—ˆ»Ö\†A]è;ä#oÅDop“Bî	U>˜È¦5.BVríÔcş«.¸Ê;ÂRÑ«÷…v Y0¢ÄO&Hø>Ò·FN“ˆwƒºµÈŞ 2‰ÌŸ9=	›L¢óĞšÎ±Y9QÚî6‹ŠC°#¼å”’¢Ùá$øC•^ßùÉ3¸íïÆ©7‡+µö4¥³1šßMgEúëµSdé±†.µX©lqmß;rU«&ûÉ=+\6ç­oì'B×dËÕjI}EkSÖ¢	Ø±¾ä´ÈœÉs–5\q/˜<ÙçÀj?h@jÓ¢•Ó*°s Ï³7ÈËş=‰¹«¾Èàèåxöÿ´œ„Âÿ¨td_.ûú§¸ãK»£½“(]¿/Ğ†ÑjÆU6çô‹_ÀyMßşq¯Ò¾Wú÷ÌPEÂ|gç¹Ûå0õ"ğ•@ë¤±(¸>Ç,(WÆ×Û˜¶>à<Kf­Ï²ûSò¿hĞBåTYe_@0âÉC²ÄY9{K“»Á‰6w¦vœ9:sPi®á%¥ÈÊèM=<Cø×¿‰q{…èÂ^şğ8¡ˆô Ôşgc#¬!ñ&pıË,™Ï±6Õ?ïËV4‘ÅÈ¬*®Fq^®ŒuÜÓ÷p‘lÛ€È³cbSuFŠ_¿`Ú!‡#¬ ˆĞÈ¿€!æ‡$D=$±‹b”Mq›š§‘‹’·aĞläÆ§. ¸Ì:_©úş¯M0ÔéééG	Ñtûœ=uŒeŠ¬EbAöÇš&yqµÃÕ­k­r¯m·Ùvanàê©îp-O×ùPßïFı F}"ŸÀşò£ï*šyQ;1·)™—_éLühMONÖ¡LSâ‚Ù‡Kq6\ßFæ•fœ›')tMã;ÿBCö                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     8  eGÊOöìm/ u˜öìm/ &  HTTP/1.1 200 status:200 last-modified:Mon, 26 Oct 2020 00:58:25 GMT access-control-allow-origin:* x-datacenter:eastus x-activityid:f38ba9e3-2df6-4ba5-91c7-1e993a454bc0 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-type:image/png content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BBJX97i?w=16&h=16 x-source-length:634 x-cms-cdninvalkey:amp:BBJX97i content-length:592 cache-control:public, max-age=91959 expires:Sat, 31 Oct 2020 00:59:10 GMT date:Thu, 29 Oct 2020 23:26:31 GMT       .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                                                              `  eGESöìm/ öŸöìm/ O  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1awqNT?w=306&h=169&q=60&m=6&f=jpg&x=368&y=293&u=t last-modified:Thu, 29 Oct 2020 22:40:54 GMT access-control-allow-origin:* x-source-length:161515 x-cms-cdninvalkey:amp:BB1awqNT x-datacenter:eastus x-activityid:ba1d5b2a-9fd8-43c9-a007-638cd14eb678 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:8171 cache-control:public, max-age=429279 expires:Tue, 03 Nov 2020 22:41:10 GMT date:Thu, 29 Oct 2020 23:26:31 GMT      .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                      `  eG×Uöìm/ l öìm/ O  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1aw6Au?w=306&h=169&q=60&m=6&f=jpg&x=480&y=150&u=t last-modified:Thu, 29 Oct 2020 22:45:53 GMT access-control-allow-origin:* x-source-length:143721 x-cms-cdninvalkey:amp:BB1aw6Au x-datacenter:eastus x-activityid:b32b3bbf-0360-40da-9744-f9e5d199a655 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:6867 cache-control:public, max-age=429528 expires:Tue, 03 Nov 2020 22:45:19 GMT date:Thu, 29 Oct 2020 23:26:31 GMT      .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                      `  eG–‹öìm/ ·Áöìm/ P  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1av2pD?w=306&h=338&q=60&m=6&f=jpg&x=608&y=351&u=t last-modified:Thu, 29 Oct 2020 13:52:05 GMT access-control-allow-origin:* x-source-length:306116 x-cms-cdninvalkey:amp:BB1av2pD x-datacenter:eastus x-activityid:82b655e5-a62c-42be-b8a2-b51cd14cb81f x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:17727 cache-control:public, max-age=397527 expires:Tue, 03 Nov 2020 13:51:58 GMT date:Thu, 29 Oct 2020 23:26:31 GMT     .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                      `  eGĞöìm/ )Ğöìm/ P  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB17NQ06?w=306&h=169&q=60&m=6&f=jpg&x=1510&y=825&u=t last-modified:Thu, 29 Oct 2020 18:38:44 GMT access-control-allow-origin:* x-source-length:799857 x-cms-cdninvalkey:amp:BB17NQ06 x-datacenter:eastus x-activityid:21a3c024-1ae9-4b68-83f2-3d05b058a906 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:5250 cache-control:public, max-age=414662 expires:Tue, 03 Nov 2020 18:37:33 GMT date:Thu, 29 Oct 2020 23:26:31 GMT     .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                         eGšIèšƒ/ Oéšƒ/ ù  HTTP/1.1 200 status:200 last-modified:Thu, 05 Nov 2020 11:31:19 GMT cache-control:public, max-age=2592000 server:imgix x-imgix-id:aa58ab435ce8ffb075bc71a7c4da267a922072ce content-type:image/jpeg access-control-allow-origin:* x-content-type-options:nosniff accept-ranges:bytes date:Thu, 12 Nov 2020 18:43:46 GMT via:1.1 varnish age:630746 x-served-by:cache-sjc10053-SJC, cache-mia11382-MIA, cache-mia11380-MIA x-cache:HIT, MISS, HIT x-cache-hits:56 x-timer:S1605206626.158668,VS0,VE0 content-length:20400        ]  0‚Y0‚A .'W2şxâÍZ}3õFâd™M0	*†H†÷ 0J10	UUS10U
-Let's Encrypt1#0!ULet's Encrypt Authority X30201013055747Z210111055747Z010U*.outbrainimg.com0‚"0	*†H†÷ ‚ 0‚
-‚ Åæâ¨ÒTˆNŒA¨r4c¦x'¿±»£Ğ¯Ÿ5¡ÊÁÃßIï½nt›4£6N¶ƒmn±ÏÙ‡)o›®ï'İ¬Á½kBáèlØ9øµYÓK$ic/«!Òq gmb7ljƒxk˜ƒÀ!ÃÛ‚h5íB½†+”©cşlàYğ¹bÎ ºëïó[DÜjø‚ô‰ªãNJ¬³…~ gÔqE‰XâÏç×àËÚ("³ñ>¨iõCmAO
-'Etò®W‘h¥‹«ÅŞÑÈ‡áÃ’€ÜæåèÇ+Éj®Å`ğ«6*p›5ÌÜ©ÑóÆP¯
-iùªÔ¿ £‚e0‚a0Uÿ 0U%0++0Uÿ0 0UäØ</ÊÂzrmù‘–Ê›8N0U#0€¨Jjc}İºæÑ9·¦Eeïó¨ì¡0o+c0a0.+0†"http://ocsp.int-x3.letsencrypt.org0/+0†#http://cert.int-x3.letsencrypt.org/0U0‚*.outbrainimg.com0LU E0C0g07+‚ß0(0&+http://cps.letsencrypt.org0‚
-+Öyôñ ï u ” ¼Õlˆs‚‹",ÑÚM^lO”=aÛN/XM¢Â  u À.Ø   F0D PÜ31`w,o’ìÂ¦	XŠÑÊœe^NÍÃç§ Vİ™M‘¶±¿3!K£Äç(×æ$CQöıUöõ¨Z_… v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  u À/@   G0E! ø×ñl(åi’á£Óœ;ÀÕOW‰Ô„¹¢fß¼6E/ º(ñ÷£åù?GÄŠØ#ÏWŞú.¶ZÕhY#0	*†H†÷ ‚ ;Tôş€:o·>Ì´ãRÓ×U]‰q7ı@Ç‚;I£¶ŠãM,o”ğ*]´DïgºœÒn”fÆTÎt‘0eAĞä®²+ù#ä=çiWœõåñ¡…É_JjÖ?àÑuË’ğ4I¯ Ù[Áı5°’³pe‘VêÅ'ÙÿëÍâh[ûL‹$«¿²\%wúPã¢ô$UÑDª&E˜ÊÈD÷s²«¿ˆ@e£4É5Lã•Ù‚I:3µ2X‡Î5' K8/>oŸˆ·ûÊªå/')ÿ	t#Šr®Ä³±<xç¿ÇÍ°²ÁÈ KYÒÖö°šmmMÖo-€dN   –  0‚’0‚z 
-AB  S…sj…ì§0	*†H†÷ 0?1$0"U
-Digital Signature Trust Co.10UDST Root CA X30160317164046Z210317164046Z0J10	UUS10U
-Let's Encrypt1#0!ULet's Encrypt Authority X30‚"0	*†H†÷ ‚ 0‚
-‚ œÓğZå.G·r]7ƒ³hc0ê×5&%á½¾5ñp’/·¸KA«©5Xì±*Äh‡£ãuäæó§bqºy`×‘šŸóĞxgqÈi•‘Ïşæ™é`<HÌ~ÊMw$GZë¹ì7 œ¬{§êÎJë½Aå6˜¹Ëım<–hß#*B†tgÈ¥š¸Ra?eé‚‡ËÛúVö†‰ó…?—†¯°Üïk•}Ä+ e²™6u€k¬JóIx/¢–O* %)ÆtÀĞ1Í18•º¨3¸Cñ±Ã0¢y1=-6øãüò3j¹91Å¯Äd3ªú„)¶ÔÀØ}Ã“ £‚}0‚y0Uÿ0ÿ 0Uÿ†0+s0q02+0†&http://isrg.trustid.ocsp.identrust.com0;+0†/http://apps.identrust.com/roots/dstrootcax3.p7c0U#0€Ä§±¤{,qúÛáKuÿÄ`…‰0TU M0K0g0?+‚ß000.+"http://cps.root-x1.letsencrypt.org0<U50301 / -†+http://crl.identrust.com/DSTROOTCAX3CRL.crl0U¨Jjc}İºæÑ9·¦Eeïó¨ì¡0	*†H†÷ ‚ İ3×ócX8İû	U¾vV¹pH¥iG'{Â$’ñZJ)7$tQbh¸Í•pgå÷¤¼N(QÍ›è®‡êØºZ¡šÜğİjjØ>W#¦bšÿ×Ê·?À
-H¼”°¶ebàÁTå£*­ Äéæ»ÜÈöµÃ2£˜Ìw¨æye+Ë(ş:RÎR._ƒèÕ3ûwlÎ@ê2’\AÁtl[]
-_3ÌMŸ¬8ğ/{,bÙ£‘o%/±F=ö~¦z‡¹£zmú%¥‘‡àò/X°/,h&ÆK˜ÍÚŸùíCJDNosz(ê¤ªn{L}‡İàÉD§‡¯Ã4[´B  N  0‚J0‚2 D¯°€Ö£'º‰09†.ø@k0	*†H†÷ 0?1$0"U
-Digital Signature Trust Co.10UDST Root CA X30000930211219Z210930140115Z0?1$0"U
-Digital Signature Trust Co.10UDST Root CA X30‚"0	*†H†÷ ‚ 0‚
-‚ ß¯é—PƒW´Ìbeö‚ìÇÓ,k0Ê[ìÙÃ}Ç@Á‹àè3vI*ã?!I“¬N¯>HËeîüÓ!eÒ*Ù2Œå÷w°{µ•À‰£©ºís.z2ƒ¢~Š0Í á*8¹y
-1ıP½€eß·QcƒÈâˆaêKaìRk¹¢âK(ŸH£Ú	>.İ ß[Æ*Š«.½p­Å%trÅ{j«4Ö0‰ÿåh{TÈÖ®ìZœ’=d³ŒÆß¿ÉApìrÕ&ì8U9CĞüı\@ñ—ëÕš›ºÚ%¹ÆØßÁ:«Únñ>.õ\œ<Öƒiä›*¶)Wãå=›Ÿğ] £B0@0Uÿ0ÿ0Uÿ0UÄ§±¤{,qúÛáKuÿÄ`…‰0	*†H†÷ ‚ £,› \©î(f7:¿ƒÇ?KÃ	 • ]ãÙYDÒ>>½ŠK tÎ‚œt~˜İËK³ Dä‘éÌü}¥ÛjåşæıàNİ· :µpI¯òåëñÑ‹Ë”:^HÄX_Zğñ±­©ÜY†‹né‘õ†Êú¹f3ªY[Îâ§sGË+Ì™°7HÏãVKõÏr2‡ÆğD»SrmCõ&HšRg·X«şgvqxÛ¢V9$1…¢¨Z0GáİP¼	 ëdc`›¼ˆÉæÒ}‘‹ù=2e´é|±WvêÅ¶(9¿eÈöw–j
-wØ‘Û)¶
-î‚55      `    151.101.2.132   »     h2                                                                                                      ˆ  eGôöìm/ ¹Üöìm/ x  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB19vBvc?w=306&h=169&q=60&m=6&f=jpg&x=1557&y=842&u=t last-modified:Thu, 29 Oct 2020 18:50:32 GMT access-control-allow-origin:* x-source-length:974955 x-cms-cdninvalkey:amp:BB19vBvc x-datacenter:eastus x-activityid:eaf3efe9-543b-4c84-acf9-47a6741d7df8 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:7204 x-akamai-path-stats:[1:6858:4294961438] cache-control:public, max-age=415402 expires:Tue, 03 Nov 2020 18:49:53 GMT date:Thu, 29 Oct 2020 23:26:31 GMT     .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                              |  eGí¼öìm/ ¿÷ìm/ k  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1awhzj?w=306&h=338&q=60&m=6&f=jpg&u=t last-modified:Thu, 29 Oct 2020 22:29:14 GMT access-control-allow-origin:* x-source-length:103766 x-cms-cdninvalkey:amp:BB1awhzj x-datacenter:eastus x-activityid:ae2d2c86-bc47-4a27-a308-3ba9f39bfda9 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:7252 x-akamai-path-stats:[1:6275:4294961021] cache-control:public, max-age=428652 expires:Tue, 03 Nov 2020 22:30:43 GMT date:Thu, 29 Oct 2020 23:26:31 GMT      .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                          T  eG£Äöìm/ v÷ìm/ D  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1awblq?w=306&h=169&q=60&m=6&f=jpg&u=t last-modified:Thu, 29 Oct 2020 22:30:18 GMT access-control-allow-origin:* x-source-length:118844 x-cms-cdninvalkey:amp:BB1awblq x-datacenter:eastus x-activityid:fbde873c-cb3a-4d19-a7db-37a132b60260 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:11791 cache-control:public, max-age=428694 expires:Tue, 03 Nov 2020 22:31:25 GMT date:Thu, 29 Oct 2020 23:26:31 GMT     .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                                  `  eGÌÄöìm/ â÷ìm/ N  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1aw6CC?w=306&h=169&q=60&m=6&f=jpg&x=674&y=239&u=t last-modified:Thu, 29 Oct 2020 19:50:41 GMT access-control-allow-origin:* x-source-length:49087 x-cms-cdninvalkey:amp:BB1aw6CC x-datacenter:eastus x-activityid:d2387d93-1191-4966-9270-b585b2448b52 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:5073 cache-control:public, max-age=419050 expires:Tue, 03 Nov 2020 19:50:41 GMT date:Thu, 29 Oct 2020 23:26:31 GMT       .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                      ,  eGL""/ vS"/   HTTP/1.1 200 last-modified:Fri, 22 Jan 2021 16:42:33 GMT access-control-allow-origin:* x-datacenter:eastus x-activityid:09750546-58bf-447e-a49e-60bb0981c760 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-type:image/png content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AAgaP55?w=16&h=16 x-source-length:525 x-cms-cdninvalkey:amp:AAgaP55 content-length:587 cache-control:public, max-age=423642 expires:Wed, 27 Jan 2021 16:42:17 GMT date:Fri, 22 Jan 2021 19:01:35 GMT     .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.202 »     h2                                                                                                                                                                                                                          `  eGxêöìm/ ³0÷ìm/ O  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1av9x1?w=306&h=338&q=60&m=6&f=jpg&x=382&y=228&u=t last-modified:Thu, 29 Oct 2020 17:13:40 GMT access-control-allow-origin:* x-source-length:99893 x-cms-cdninvalkey:amp:BB1av9x1 x-datacenter:eastus x-activityid:fbc5eb7a-0069-467a-91f7-9b36e9862770 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:13737 cache-control:public, max-age=409551 expires:Tue, 03 Nov 2020 17:12:22 GMT date:Thu, 29 Oct 2020 23:26:31 GMT      .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                      T  eGjïöìm/ [1÷ìm/ C  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1aw2cF?w=306&h=169&q=60&m=6&f=jpg&u=t last-modified:Thu, 29 Oct 2020 17:10:19 GMT access-control-allow-origin:* x-source-length:57114 x-cms-cdninvalkey:amp:BB1aw2cF x-datacenter:eastus x-activityid:6090a5e6-b7c0-43df-ba53-dc3514ee32be x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:12445 cache-control:public, max-age=409391 expires:Tue, 03 Nov 2020 17:09:43 GMT date:Thu, 29 Oct 2020 23:26:32 GMT      .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                                  /" äôÍ¬ÿúmq‚Wy÷6›q«_Î™Îœ†AK¤U±LjÈ¢=Ë?¿¦ú!3ÅB¥éd'Ô”Ûûÿşõ"P`C¾4ûw£KFEÈ¢Úª$’¡'³iÕ€UeëFÊ˜Ùj{D‘8Ò6éÏÂÉ¦›_©sñg—ËÀ_íÁİÛÉ}‹_;”YŸ	¿Üşßİì½‚‹:z¤<J¼”¤l“”}’rHRZ)'),å,e+%±”‰¥d–r²g)[–²c)÷RFR¼‚eQ¡¬ŒØŞİ½6bµ{W]‰z-ïŞ±Ú½«ïŞ­„¼û»YN¦¤ ;¯ àêKh™b¸9zkv§Dæq7P8
-Ğ“Ù¥¦¾;Ûa œ]b÷n(æ?RîRÿ?'@û‘^JqÇÄƒ ûrjcØíiÎ¯ İ~Ÿi¶“ëè‘¥µpLT¶³©Ğ ·"z®­ ;ìZº­»“=è¡¹ »VÕ¢í(¸t°7ßÌ.]Ú-º*'Ùs D3fŒc_¼HZ	×9İ…É«‘LUËRUg)¹eş¾kc<J¹P­>8†‹„·æîÁ•Khò*cr‚Ë™LÕèXŒ%¾­ùf1£xMùD9ß…W1É	¬Ögù¹Üõ:Ji‹íY¥ºè¾Wá}Ïä×æ|R.#IYIÊ6ôÊ³tu®ş…0'¬O>Y>wø8Á°ï©s/çWCÌîeaAlÒ]>Å’İ§8µ‹íå9‡ízaâlB}pûVÍ	w`2ÕŒdªu'ÔS/Ÿ9¬Öí¤TÕI!-m«fS­9'œ‚K&êƒUŠÎ²}"p^ûŒĞò(@Ïü¢ ¹ÜŸè–‰_z¸Q€®2-KÕÓ²T3/KÕÒ²TµŸrMcßíš±ÃR@§”úÇSìÎ¸Ox ®ã¨¸¼Pp:e§Xú©®çX¸A[o|ı9êfş~§f×é‘‰Ñ[E8%À” s$šw}Ã[_|o'»Ü&m}ı³e×m|ıY×0­®WŠb¸˜!™ü}çXñˆÿÀµ&)y]ô7TQÂÈÃ¹NHI•ÙuzîMc¨ûV	à’LÕè}röx%Cğä×$åäÔä¥ÍÓ¯_!]!šjfìuª‡²¤,­I8+ÄQnÈî†Ä=,Ë²b_8&€Bs5~™}­)U¨m«0ß¹‰kOÉ©>Õ÷Ç¯ƒßL “IME^y“0JéT¸âÔ®ÃH?}Úå¤ ñõÁñËXBGáğj øg×²œÈpıOmHá÷'®œgœÓâ'®æ8"_·Cîsìœª@¡Š«É«l^¤dç0\¦Îµ®ní0(ª÷ò>ÇÎel síczcÛÔ`¸°”ıò’‹‡+à™MµFÇF|),°JŠ «"¥1§¥ÔÙNÎî·,ç¢ª5èŞ\NÔmJıïhøuëuÈóè6ë«nS}p|Ï–KVı#ZšŠÉû]fEg×ü}7vŠõW+W&¢³Ãù’æÅı¨È¦j˜(‹„lìZïÙè4.MÙ$åÈÆ˜ª17p`úÌÛ"e¨Ì|³U{6Uƒc7W O¦ÌıŞgQ4vè©Î?ú¤²}ÑS}µ\3÷ó¾Í£«KÄCÀFE¬ 6Ê lö:ÙÃÂábâ•­\'°Z£P.nlÙ	5ø¤ 0£5ÔË’$jTİvX–©¬.sÕ¡€öNÁUµİu.
-.‘—å°,j`‹Ğ‘¥<H©dz™J¬cíƒi
-`M‚é=/K.ì)S‚^ä´ò]‘—¥¸4WêÑÜïøwâ€vNÁVE§ WÆ$’Rñøí;°ıD—–M¢‘ ¶·¼•–ÛX†´—ë‹‚ËÀ
-tGªjlJàÂØa_ºĞŞ:˜®æ3²
-r$ì°-AÉ:»îw-+* —ö½Ÿ<d.)a+èY®¡v¢Ñüi’S.-K¸m–…o›eQ´‹²ØƒólÂ“‰V‡„©r?™iuH›@q
-.¡¶j×ÕûØÍHœ<aò G6U£­p¾XšäeœÊr²ÜD?K¶Ö…L(Ã ËŸ'È4z&£8ÌÎ)°¤ÃÇ¦Í7$ÃJ]}şƒÅpÍq|>‹¼IÛLnCjCgÒ¶”yÅõş©¸‘f’¬MÙò™·)Ì¦l—Ì«P_: ¬F»â{Œ R¬”»õË’o£LE‰NÁE•eQ
-¾`…=ZIùa)ÕYÏ¡á±1NËs+©s0 %:Ô© ºG·ŒTÏ±ÀJg‘NO¼8?±­jÑJÎÒU©°‚Mkõ…¹Kñ¡“]ˆÂRrR 3¢ÃÆÑh9‘rjBÕÈ˜Y~ØùÉeQ®Õ·ªEÆ\Z>H²S¥Ÿ‹&?4À¬º8VÖHOaÔˆá¤A;CA°`«m‚…ŞXÇ{& ‰1£S{VÎ»›××ÉîÙ&~<¢“c+Ğ¬í¢EH©ÌËw½Ñ³"¸PeRıÑ­'¥*Éè Y?¤
-­÷ipKm«öK´ËÈáLôÛ …y™3qÛ+‚Kk³»éº'ÌJ–Ö!S¯˜qf Ÿ¹ºdf›$¿•´Ú–ò êb6™ø}ÿÃ[Æ¸°c*õ¹[M ~­n3
-+Ì”¹h‘¡,1CÑğXSşæ2+èPk*ÈĞ¿ˆ‡ì\X#©õâqFM†¡bİf:N	uØ
-¦ÏªLÚâsQ<;ÆL‘º›ÆÂ»Vk@†Pg¯ÉŠB Šñ‘(ø 0åü³ëbhÑÑ$kzì–L©­¦ÀšGq÷e½õØ; rĞßUQ‡L¨<³îR†úÇ­áz¯„àjæg6Ã]ÊPÏ·†ëÀj}ÔI™:h	%ÔLìãGw0¡Ç¨jLRï^ğ¬‘²<4®v·—‡æ£w0èä[qjwOmÜ-udĞŞ¡“”‰õÅÒCó(¥Š&=4è\ùˆ(zè¤TŞ8xº#h2ÿwÿås}äôEà²!÷á¾{Cõ©¤[Cõx(iÀÁPıZCõ]¾7SÄØ%”—¥ê—¥j—¥¶¡Ãæ‚Å_Èær¢n“ñTÒ°éq,iØ´øWqiŞØÆapí“Ïæìº—lü­¡ïÆ^¯½Ãš>vØëù¤ƒ”ˆ½èŞN­cM(ÒªB´dª}îÉªÓ;ü»ûGÔ#ÃsfµsmAÊPßåûÒ¶.g)CóeÇDF9xhë¯ÉeXÊ3ÀcÚ¡Ú[¦d„@6âFu ûçrÚ»t!€Ø}WÆ5YÊÀÏš°‘Š£ó‚Q_û†U¼†N-CN¡oJê?%—!©PVBn1±§Ø¯-»:Ä³ÀK ßB­¹KĞâŒ#&,Ø¢Ç	{M^9Ó%M)á:¹l²‹|¬Ü7÷#/s.|pá4_È¸ÉJ(±*So%@ÀõÈ&øó¦zu~LËB3Ëtkš’@û˜Ôhæ¹Ã4:İÒıPV+ ¯è!=JIé±~%Ùí“Fkó}¡ß,·ıGË.I©Š)‹äE–YÆ"e¥J8ˆò˜›œúØšF··IİVI ¼)í#F^›Œ¯ïò'×‘}Ñ•±7¾¾û¿ú«¸»{)+Õ¯íŞÈ«jRËRM —Áôz6¾ş©¸4ÛÍµÚ.QKYÓÃ5Ù0:5Øu@’rJ
-^Åø—±sÏ¤g&PHJéå®Ù)Ğ{§@Z–É½­»@=»s^j,ÁÔ÷¼"ÓÉÅÂ›¿»\e\3»x¡tÔxW¢Şk»¢=1ÑVš7èèµ©‘T~˜°,g¬?’9;Õš|+gµ-£r(RèB;÷ËÏw¯âiŒÁV	 tØŸÎ‰:6ÌC=¶™'g@2B€~¶ü%0ĞÉÂÕÙS#Û1sAïĞœöî¼,Õî\ŸÙ5à6lT0‰Áë>9üL$VaY*†mØ>,¾È[ƒÅ0tkšeI·¦!ìUL¸ˆ1–Û¬¤¼)«„ş™!Ø†M¨sÙg‘iã´Ú;gE{NğââEŸœè@~ÖláZÍ#ã¾¨>æ™ªÍälBĞ–p—O¶jâÄ!Ş7á¾¨ pÆy)\ƒcs9×‚½=¦Mu\ÂC Â6Ó<‰B‡‡ ¡fıhDÊfğ§Úü½$£„Dì²¨Í?èÄnÌ×B\AùeQŞ\® X-Œ$á£J”™‰Ê¡N™)RÙâ¤÷O²ÈÇüëÑl‡©yUiYTª=L"KIÆêĞ†Mı$2âøò¦Âu³¿şüµŞ
-K…V(Z£O¡¡DĞ%#î~õşı×w¿Üÿ,0¦¢OóşÛ×o¿	ÌÉˆµÀc1b÷ëÛ¿
-ìŠ÷ï¿üöâõÇo¿¾x(TÚ`Âë“üôé¦!¿'c-ÛæÑM¸ÑÛ±(×#~º_ÒP˜¥ALÚş‘ıì¼<ä¢’+<9š²·vŠ‰Øå_˜Ö½t»¢O}~ıùıµ	ô–“,TWU[&¤O§·vrO8µK5ğ%ßÙïö=¾G}ÀGò~>Æ[ãÇx 3°7Û“í­@›w'ûlÅÊ<îzêœÀDzÊ!×	,iuwm`S©u»GŞb†›Æ)™­f$ñ"Î1¥¾³lÆ„wy8'#ºÃ®““í:+0{#lW~;ØƒÀŞ1ÅáSa÷Ş†np[µ[ƒ7¢â¹çFÁÆwr"…bjÃ§‰W‚û¿¿	ûdD	C´Àc2âªº´èâ9Œ”d/£À>›6l&Ô%#ş&ğŒ´Şˆ§0U—ŸùN½íDîlÒæ}äé”Û`¦Ì£ÀPÈÉÉ%Zå§à_Ÿ~Ï1‚IdÂpfä‚-á@2¤lÄH@Åª1¦"ŸìÁTkœÈ48“ipòæïMƒóŸ	ŒŞ¬İ?ğìÍ?1°ipäAÏoÿŞT03î	ZœğÈÈŒÄ˜{Æ–qÆìãˆ©à„{½÷
-® ~=µG–…¦Â\®                                                                                                                                                                                                                                                                  `  eGıôöìm/ Z2÷ìm/ N  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1av1YT?w=306&h=169&q=60&m=6&f=jpg&x=359&y=129&u=t last-modified:Thu, 29 Oct 2020 17:23:58 GMT access-control-allow-origin:* x-source-length:64112 x-cms-cdninvalkey:amp:BB1av1YT x-datacenter:eastus x-activityid:d3a95c94-c727-46e2-acff-3123582fb388 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:4811 cache-control:public, max-age=410237 expires:Tue, 03 Nov 2020 17:23:49 GMT date:Thu, 29 Oct 2020 23:26:32 GMT       .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™ÀqªZ{ÊÎ0àñƒÜt{É½ß£‚@0‚<0UÛ5D]+ëS¯õq=£™s®û\S0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0Uÿ†0U%0++0Uÿ0ÿ 04+(0&0$+0†http://ocsp.digicert.com0BU;0907 5 3†1http://crl3.digicert.com/DigiCertGlobalRootCA.crl0=U 60402U  0*0(+https://www.digicert.com/CPS0	*†H†÷ ‚ «ıÈ¢RğéN"ÒzéyÆE´>øCÍ‚aqNeå˜YN{çÿ¼fpÉü˜XÇŒŸT Ë‰Xb)Mÿü_í—lTº¡uUk:†I¿âYj½ÑgZàÂ¯€pzJ­xÚtÒÌnIÜîş‹cYƒ	TÎn(ğÔÇ®}Oi¶
-ÈóÍxEFvœB³u@X{øE
-^lAÖLp/$à¢á–/° /oÅáÒJ¼}°0}óR|KØÜ‘7‘Tõ'XŸÌ%‰Ïbß{(˜ÂóĞ!B}88›ÃÌº½^û]˜\Á=yEœrˆôºa7«Uw_àj]¬VD‰û—l©PÿdÑdñ^   ³  0‚¯0‚— ;àVBF±¡ujÉY‘ÇJ0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0061110000000Z311110000000Z0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0‚"0	*†H†÷ ‚ 0‚
-‚ â;árŞ¨¤Ó£WªP¢wÉ¢¥îÎ–[	 Ì“§N0·S÷CÄi Wâ"İ‡@ 	ÎÎƒ¿ßÍ;qFâÖfÇ³v'{•}î·H£ÚÖ¯z9eJ]¼ø«¾î(×tzx™Y…hn\#2K¿NÀèZmãp¿w¿üö…Ù¨DX2©uÕÑ¢¾Gâ'jôš3øI`‹Ô_´:„¿¡ªJL}>ÏO_lv^ K7‘Ü"æmÎjËşÍ³dÇ[)2¿òîúÓBÔ«·A2ÚÔïøÕ»X?µèI(¢pÚ1İ÷²òL
-N¨íJ=^µ£Ã¯' £c0a0Uÿ†0Uÿ0ÿ0UŞP5VÑL»fğ£âÃ—²=ÑU0U#0€ŞP5VÑL»fğ£âÃ—²=ÑU0	*†H†÷ ‚ Ëœ7ªH
-úİDœOR°ôß®õyy£$üK+„À-¹ÕÇşôÁXË¸mœztç˜)«µãp ¡ÍLˆ™“Œ‘pâ«¾“©ÿcÕä`Ó£¿[	ñÕãSôcú?§Û´fßbfÖÑnAò-µêwJŸXâ+YÀ@#í-(‚E>yT’&˜à€H¨7ïğÖy`Ş¬èÍn¬D8/IÚáE>*¹6SÏ:P÷.èÄWIla!Õ­x<,:€k§ë¯éØ‰Á¹8lâ‘lŠÿd¹w%W0À$£áÜéßG|µ´$0ì-½¿E¿P¹©óë˜­ÈˆÆ˜4_
-<ÆéÕ••mŞ     +ÀP    186.189.194.209 »     h2                                                                                                                                                                      d  eGİ÷ìm/ ~N÷ìm/ R  HTTP/1.1 200 status:200 content-type:image/jpeg content-location:https://img-s-msn-com.akamaized.net/tenant/amp/entityid/BB1avOii?w=306&h=338&q=60&m=6&f=jpg&x=1148&y=1604&u=t last-modified:Thu, 29 Oct 2020 19:05:43 GMT access-control-allow-origin:* x-source-length:740351 x-cms-cdninvalkey:amp:BB1avOii x-datacenter:eastus x-activityid:8da79162-1e68-4d34-a605-dac3b000d460 x-deployment:48814558152342d6a910966088fd07b2 timing-allow-origin:* x-frame-options:deny content-length:10140 cache-control:public, max-age=416365 expires:Tue, 03 Nov 2020 19:05:57 GMT date:Thu, 29 Oct 2020 23:26:32 GMT       .  0‚*0‚Ï ££Å,&‹Ë"­Ç´}n(0
-*†HÎ=0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10200715000000Z210913120000Z0y10	UUS10UMassachusetts10U	Cambridge1"0 U
-Akamai Technologies, Inc.10Ua248.e.akamai.net0Y0*†HÎ=*†HÎ=B ÎMğ4ˆ±|¾ÉäoJ¹	__o ‹YÔFá^“Ör–¢4_xø:[eU <»Æy±İº/íëÔgğ147£‚I0‚E0U#0€Û5D]+ëS¯õq=£™s®û\S0UÂSc×®2Å9Ø!ZÙız{Åğ0nUg0e‚a248.e.akamai.net‚*.akamaized.net‚*.akamaihd-staging.net‚*.akamaihd.net‚*.akamaized-staging.net0Uÿ€0U%0++0…U~0|0< : 8†6http://crl3.digicert.com/DigiCertSecureSiteECCCA-1.crl0< : 8†6http://crl4.digicert.com/DigiCertSecureSiteECCCA-1.crl0LU E0C07	`†H†ıl0*0(+https://www.digicert.com/CPS0g0{+o0m0$+0†http://ocsp.digicert.com0E+0†9http://cacerts.digicert.com/DigiCertSecureSiteECCCA-1.crt0	U0 0‚
-+Öyõò ğ v }>òøÿˆUh$ÂÀÊR‰y+Åx	.j—h™~"ğ×  sSÛvœ   G0E! ”qĞHñ+0˜(xO¼eñEì5é?áİû7úI K8™»àKäth[+k­ ^MíéPÒ²«^9KĞƒ v \ÜC’şæ«ED±^šÔVæ7ûÕúGÜ¡s”²^æöÇÊ  sSÛv„   G0E! Çó/À‹îŒ
-(H¿Ü¸†©''"°
-(Áµ9c´5 ;Uzª¿ál Éú€k`Îv@ëŒ@ Vîkôyo“®¸è0
-*†HÎ=I 0F! Ã‰$	­ğ»}Û–|öÇª.=§U&¹JÑÜ-’1rX¸»‘! ¨3ˆ÷²Ë-ŞxÄ‡Ùç½¹Äµíã‚!Â1áCbĞ  Í  0‚É0‚± [ö[k§ûĞ‹)E7Şà0	*†H†÷ 0a10	UUS10U
-DigiCert Inc10Uwww.digicert.com1 0UDigiCert Global Root CA0190215124524Z290215124524Z0g10	UUS10U
-DigiCert Inc10Uwww.digicert.com1&0$UDigiCert Secure Site ECC CA-10Y0*†HÎ=*†HÎ=B æ»uák¯.ñçû6Jø¤RŠÉE„ÆDx<Ä$ˆTåñ.‰3zÏ]9K¹™À
