@@ -7,4 +7,7 @@ urlpatterns = [
 
     path('v1/producto/',Productolist.as_view(), name='producto_list'),
     path('v1/producto/<str:pk>',ProductoDetalle.as_view(), name='producto_detalle'),
+
+    path('impguias/',Implist.as_view(), name='imp_list'),
+    path('impguias/<str:pk>',ImpDetalle.as_view(), name='imp_detalle'),
 ]

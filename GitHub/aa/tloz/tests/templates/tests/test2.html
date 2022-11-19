@@ -1,0 +1,491 @@
+{% extends 'base/base.html' %}
+
+{% block contenido %}
+    <br><br>
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <div class="row ing_gui" >
+
+        <div class="card ing_gui">
+            <div class="cardbody" >
+                <h2>Ingreso de Guías</h2>
+                <hr>
+                
+                  </div>
+               
+                <form method="POST" name="ing_guias">
+                    <!--Esta es la seccion de ingreso de numero de guia fecha y manifiesto -->
+                    {% csrf_token %}
+                 
+                    <div id="moreProducts"></div>
+                    {% endfor %}
+                    <div class="ing_guiGrid col1 alt2">
+                        <div>
+                            <button type="button" onclick="agregar_inputs();" class="btn btn-warning"><i class="fas fa-fa-plus-circle">AGREGAR</button>
+                            <button type="submit" class="btn btn-danger boton-modal guardar"><i class="fas fa-save"></i> Guardar</button>
+                            <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
+                            <button type="button" class="btn btn-success reset"><i class="fa fa-undo"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </form>
+   
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script>
+        $(".tipo_envio").change(function(){
+            buscarProducto(this.id);
+        });
+        $(".cantidad").change(function(){
+            totalEnv(this.id);
+            sumar(); return false;
+        });
+        $("#id_form-0-sub_total").blur(function(){
+            total()
+        });
+        function totalEnv(long_id) {
+            var id = long_id.split("-").slice(1);
+
+            var cant = $("#id_form-" + id[0] + "-cantidad").val();
+            var prec = $("#id_form-" + id[0] + "-precio").val();
+            var totalEnv = $("#id_form-" + id[0] + "-totenv")
+
+            var opTotenv = cant * prec
+
+            totalEnv.val(opTotenv)
+        }
+        function sumar(){
+          var totenv = $('.totenv'); 
+          var stotal = 0;
+
+          totenv.each(function(){
+            stotal += parseFloat($(this).val());
+          });
+          $('#id_form-0-sub_total').val(parseInt(stotal));
+        }
+        function calcular_comi(){
+            var vte = $('#id_form-0-ptpae').val();
+            var comi = $('#id_form-0-comision');
+            var res = vte * 0.05;
+
+            $('#id_form-0-comision').val(res.toFixed(2));
+        }
+        function total() {
+            var vte = $('#id_form-0-ptpae').val();
+            var res = vte * 0.05;
+            var total  = $('#id_form-0-sub_total').val() - $('#id_form-0-descuento').val() + res;
+
+            $("#id_form-0-total").val(total.toFixed(2))
+        }
+        var total_forms = 0;
+        function agregar_inputs() {
+          total_forms ++
+          // Nuevos input
+          var nuevo_input_tipoEnv = document.querySelector('#id_form-0-tipo_envio').cloneNode(true)
+          var nuevo_input_descripcion = document.querySelector('#id_form-0-descripcion').cloneNode(true)
+          var nuevo_input_cantidad = document.querySelector('#id_form-0-cantidad').cloneNode(true)
+          var nuevo_input_peso = document.querySelector('#id_form-0-peso').cloneNode(true)
+          var nuevo_input_precio = document.querySelector('#id_form-0-precio').cloneNode(true)
+          var nuevo_input_totEnv = document.querySelector('#id_form-0-totenv').cloneNode(true)
+
+          nuevo_input_tipoEnv.name = 'form-'+total_forms+'-tipo_envio';
+          nuevo_input_descripcion.name = 'form-'+total_forms+'-descripcion';
+          nuevo_input_cantidad.name = 'form-'+total_forms+'-cantidad';
+          nuevo_input_peso.name = 'form-'+total_forms+'-peso';
+          nuevo_input_precio.name = 'form-'+total_forms+'-precio';
+          nuevo_input_totEnv.name = 'form-'+'0'+'-totenv';
+
+          nuevo_input_tipoEnv.id = 'id_form-'+total_forms+'-tipo_envio';
+          nuevo_input_descripcion.id = 'id_form-'+total_forms+'-descripcion';
+          nuevo_input_cantidad.id = 'id_form-'+total_forms+'-cantidad';
+          nuevo_input_peso.id = 'id_form-'+total_forms+'-peso';
+          nuevo_input_precio.id = 'id_form-'+total_forms+'-precio';
+          nuevo_input_totEnv.id = 'id_form-'+total_forms+'-totenv';
+
+          document.querySelector('#moreProducts').appendChild(nuevo_input_tipoEnv)
+          document.querySelector('#moreProducts').appendChild(nuevo_input_descripcion)
+          document.querySelector('#moreProducts').appendChild(nuevo_input_cantidad)
+          document.querySelector('#moreProducts').appendChild(nuevo_input_peso)
+          document.querySelector('#moreProducts').appendChild(nuevo_input_precio)
+          document.querySelector('#moreProducts').appendChild(nuevo_input_totEnv)
+
+          var a = document.querySelectorAll(".tipo_envio")
+          a.forEach(function(e){
+              e.addEventListener('change', function(){
+                  buscarProducto(e.id)
+              })
+          })
+          
+          var e = document.querySelectorAll(".cantidad")
+          e.forEach(function(x){
+              x.addEventListener('change', function(){
+                  totalEnv(x.id)
+                  sumar(); return false;
+              })
+          })
+        }
+        function buscarProducto(long_id){
+            var id = long_id.split("-").slice(1);
+            var codigo = $("#id_form-" + id[0] + "-tipo_envio").val();
+
+            console.log(long_id)
+            console.log(id[0])
+            if(codigo===""){
+                return false;
+            }
+
+            var path = "{% url 'api:producto_list' %}" + codigo;
+            $.ajax({
+                type:"GET",
+                url: path,
+                success: function(r){
+                    console.log(r);
+                    console.log(r.estado);
+
+                    if(!r.estado){
+                        mensaje("Producto No Tiene Existencia o está inactivo",'orange')
+                        $("#id_form-" + id[0] + "-tipo_envio").val("");
+                        $("#id_form-" + id[0] + "-descripcion").val("");
+                        $("#id_form-" + id[0] + "-cantidad").val("0.00");
+                        $("#id_form-" + id[0] + "-precio").focus();
+                        return false;
+                    }
+
+                    $("#id_form-" + id[0] + "-tipo_envio").val(r.id);
+                    $("#id_form-" + id[0] + "-descripcion").val(r.descripcion);
+                    $("#id_form-" + id[0] + "-precio").val(r.precio);
+                    $("#id_form-" + id[0] + "-tipo_envio").focus();
+                },
+                error: function(a,b,c){
+                    console.log(a);
+                    if(a.status==404){
+                        mensaje("Producto -" + codigo + "- No Encontrado o No Existe",'red');
+                        $("#id_form-" + id[0] + "-tipo_envio").val("");
+                        $("#id_form-" + id[0] + "-descripcion").val("");
+                        $("#id_form-" + id[0] + "-cantidad").val("0.00");
+                        $("#id_form-" + id[0] + "-precio").focus();
+                    }
+                }
+            });
+        }
+        // remove row
+        $(document).on('click', '#removeRow', function () {
+            $(this).closest('.table').remove();
+            // contador--
+        });
+        function calcular_detalle(){
+            var cant = $("#id_form-0-cantidad+1").val();
+            var prec =$('#id_form-0-precio+1').val();
+            var desc = $('#id_form-0-descuento+1').val();
+            var vte = $('#id_-form-0-ptpae+1').val();
+            var comi = $('#id_form-0-comision+1').val();       
+            var res = vte * 0.05;
+
+            var stotal = cant * prec;
+            var total  = stotal - desc;
+
+            $('#id_form-0-sub_total').val(stotal);
+            $('#id_form-0-total').val(total);
+            
+        }
+
+        function buscarCliente()
+        {    
+            var codigo = $("#id_form-0-codigo_cliente").val();
+            if(codigo===""){
+                return false;
+            }
+    
+            var path = "{% url 'api:cliente_list' %}" + codigo;
+            $.ajax({
+                type:"GET",
+                url: path,
+                success: function(r){
+                    console.log(r);
+                    //console.log(r.existencia);
+                    console.log(r.estado);
+    
+                    if(!r.estado){
+                        mensaje("Cliente inexistente o inactivo",'orange');
+                        $("#id_form-0-codigo_cliente").val("");
+                        $("#id_form-0-remitente").val("");
+                        $("#id_form-0-dirrem").val("");
+                        $("#id_form-0-tel").val("");
+                        $("#id_form-0-muni").val("");
+                        $("#id_form-0-origen").val("");
+                        $("#id_form-0-codigo_cliente").focus();
+                        return false;
+                    }else{
+                    $("#id_form-0-codigo_cliente").val(r.codigo_cliente);
+                    $("#id_form-0-remitente").val(r.razonsoc);
+                    $("#id_form-0-dirrem").val(r.direccion);
+                    $("#id_form-0-tel").val(r.telefono);
+                    $("#id_form-0-muni").val(r.municipio);
+                    $("#id_form-0-origen").val(r.depto);
+                    $("#id_form-0-codigo_cliente").focus();
+                    }
+    
+                },
+                error: function(a,b,c){
+                    console.log(a);
+                    // console.log(b);
+                    // console.log(c);
+                    // console.log(a.status)
+                    // console.log(a.responseText.detail);
+                    // a.responseText["detail"]
+                    // mensaje(c,'red');
+                    if(a.status==404){
+                        mensaje("Cliente -" + codigo_cliente + "- no encontrado o inexistente",'red');
+                        $("#id_form-0-codigo_cliente").val("");
+                        $("#id_form-0-remitente").val("");
+                        $("#id_form-0-dirrem").val("");
+                        $("#id_form-0-tel").val("");
+                        $("#id_form-0-muni").val("");
+                        $("#id_form-0-origen").val("");
+                        $("#id_form-0-codigo_cliente").focus();
+                    }
+                }
+            });  
+        }
+        function buscarClientedes()
+        {    
+            var codigo = $("#id_form-0-codigo_desti").val();
+            if(codigo===""){
+                return false;
+            }
+    
+            var path = "{% url 'api:cliente_list' %}" + codigo;
+            $.ajax({
+                type:"GET",
+                url: path,
+                success: function(r){
+                    console.log(r);
+                    //console.log(r.existencia);
+                    console.log(r.estado);
+    
+                    if(!r.estado){
+                        mensaje("Cliente inexistente o inactivo",'orange');
+                        $("#id_form-0-codigo_desti").val("");
+                        $("#id_form-0-destinatario").val("");
+                        $("#id_form-0-dirdes").val("");
+                        $("#id_form-0-teldes").val("");
+                        $("#id_form-0-munides").val("");
+                        $("#id_form-0-destino").val("");
+                        $("#id_form-0-codigo_desti").focus();
+                        return false;
+                    }else{
+                    $("#id_form-0-codigo_desti").val(r.codigo_cliente);
+                    $("#id_form-0-destinatario").val(r.razonsoc);
+                    $("#id_form-0-dirdes").val(r.direccion);
+                    $("#id_form-0-teldes").val(r.telefono);
+                    $("#id_form-0-munides").val(r.municipio);
+                    $("#id_form-0-destino").val(r.depto);
+                    $("#id_form-0-codigo_desti").focus();
+                    }
+    
+                },
+                error: function(a,b,c){
+                    console.log(a);
+                    // console.log(b);
+                    // console.log(c);
+                    // console.log(a.status)
+                    // console.log(a.responseText.detail);
+                    // a.responseText["detail"]
+                    // mensaje(c,'red');
+                    if(a.status==404){
+                        mensaje("Cliente -" + codigo_cliente + "- no encontrado o inexistente",'red');
+                        $("#id_form-0-codigo_desti").val("");
+                        $("#id_form-0-destinatario").val("");
+                        $("#id_form-0-dirdes").val("");
+                        $("#id_form-0-codigo_desti").focus();
+                    }
+    
+                }
+    
+            });
+
+           
+        }
+
+        function buscarfpago()
+        {    
+            var codigo = $("#id_form-0-codigo").val();
+            if(codigo===""){
+                return false;
+            }
+    
+            var path = "{% url 'api:cliente_list' %}" + codigo;
+            $.ajax({
+                type:"GET",
+                url: path,
+                success: function(r){
+                    console.log(r);
+                    //console.log(r.existencia);
+                    console.log(r.estado);
+    
+                    if(!r.estado){
+                        mensaje("Cliente inexistente o inactivo",'orange');
+                        $("#id_form-0-codigo").val("");
+                        $("#id_form-0-cliente").val("");
+                        
+                        $("#id_codigo").focus();
+                        return false;
+                    }else{
+                    $("#id_form-0-codigo").val(r.codigo_cliente);
+                    $("#id_form-0-cliente").val(r.razonsoc);
+                    $("#id_form-0-codigo_desti").focus();
+                    }
+    
+                },
+                error: function(a,b,c){
+                    console.log(a);
+                   
+                    if(a.status==404){
+                        mensaje("Cliente -" + codigo_cliente + "- no encontrado o inexistente",'red');
+                        $("#id_form-0-codigo").val("");
+                        $("#id_form-0-cliente").val("");
+                        $("#id_form-0-codigo").focus();
+                    }
+    
+                }
+    
+            });
+
+           
+        }
+    $("#id_form-0-codigo_cliente").change(function(e){
+            buscarCliente();
+    });
+    $("#id_form-0-codigo_desti").change(function(e){
+            buscarClientedes();
+    });
+    $("#id_form-0-codigo").change(function(e){
+            buscarfpago();
+    });
+    $("#id_form-0-precio_0").change(function(){
+            calcular_detalle();
+    });
+    $("#id_form-0-ptpae").change(function(){
+        calcular_comi();
+    });
+
+    
+    // Funcion que agrega guión(-) al escribir 3 caracteres
+    var idCoCli = $("input#id_form-0-codigo_cliente");
+    var idCoDes = $("input#id_form-0-codigo_desti");
+    var idCo = $("input#id_form-0-codigo");
+    // Código Cliente Funcion
+    idCoCli.keyup(function(event) {
+        if (event.keyCode !== 8) {
+            value = idCoCli.val()
+
+            if (value.length == 3) {
+              idCoCli.val(value + '-');
+            }
+        }
+    })
+    idCoDes.keyup(function(event) {
+        if (event.keyCode !== 8) {
+            value = idCoDes.val()
+
+            if (value.length == 3) {
+              idCoDes.val(value + '-');
+            }
+        }
+    })
+    idCo.keyup(function(event) {
+        if (event.keyCode !== 8) {
+            value = idCo.val()
+
+            if (value.length == 3) {
+              idCo.val(value + '-');
+            }
+        }
+    })
+    // Función para abrir popup de confirmación No.Guia
+    $( ".boton-modal").click(function() {
+        Swal.fire({
+            title: '<strong>Confirmación del <u>No. Guía</u></strong>',
+            icon: 'info',
+            html:
+                '<input type="text" id="conf_noguia" placeholder="Introduce nuevamente el No. Guía"><br><br>',
+            showCloseButton: true,
+            showConfirmButton: false,
+        });
+
+        const conf = $('input#conf_noguia');
+        const codNog = $('input#id_form-0-no_guia');
+
+        conf.change(function(){
+            if (conf.val() == codNog.val()) {
+                Swal.close()
+                document.ing_guias.submit()
+                
+            }else{
+                Swal.fire({
+                    position: 'top-end',
+                    icon: 'error',
+                    title: 'No. Guía no coincide. ¡Intentalo de nuevo!',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                })
+            }
+        })
+    });
+    // Funcion para comprobar el estado del checkbox
+    $('#switch-label').prop("checked", false);
+    $('#switch-label').click(function(){
+        if($('#switch-label').is(":checked")){
+            $('.ing_guiGrid.col3.anim.hide').removeClass('hide');
+        }else{
+            $('.ing_guiGrid.col3.anim').addClass('hide');
+        }
+    });
+    // Funcion para pasar a mayusculas datos de los inputs
+    $(document).ready( function () {
+        $("input").not('input.noU').on("keypress", function () {
+            $input=$(this);
+            setTimeout(function () {
+                $input.val($input.val().toUpperCase());
+            },50);
+        })
+    });
+    // Funcion para poner siempre fecha actual
+    Date.prototype.toDateInputValue = (function() {
+        var local = new Date(this);
+        local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
+        return local.toJSON().slice(0,10);
+    });
+    
+    $(document).ready( function() {
+        $('#id_form-0-fecha').val(new Date().toDateInputValue());
+    });
+    // Funcion Abrir Modal buscar_remi
+    $(document).keydown(function(e){
+        if(e.keyCode===113){
+            abrir_modal("{% url 'link:buscar_cli' %}")
+        }
+    })
+    // Funciion abrir modal buscar_desti
+    $(document).keydown(function(e){
+        if(e.keyCode===115){
+            alert("SAdkjsaop")
+        }
+    })
+    // Funcion guardar variable nomanifiesto en cookie
+    $('#id_form-0-no_manifiesto').change(function(){
+        var idmani = $('#id_form-0-no_manifiesto');
+        sessionStorage.setItem('nomanifiesto', idmani.val());
+    })
+    $('#id_form-0-no_manifiesto').val(sessionStorage.getItem('nomanifiesto'));
+    // Funcion limpiar formulario
+    $(".reset").click(function() {
+        $('input').not("input[name=no_manifiesto], input[name=fecha]").val("")
+    })
+
+    </script>
+{% endblock %}

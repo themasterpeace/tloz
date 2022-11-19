@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from link.models import *
+from impa.models import *
 
 class DepartamentoSerializer(serializers.ModelSerializer):
     
@@ -13,3 +14,5 @@ class MunnicipioSerializer(serializers.ModelSerializer):
     class Meta:
         model= Municipio
         fields ='__all__' 
+
+ 

@@ -21,7 +21,205 @@
                             <div class="dropdown-divider"></div>
                             {% csrf_token %}
                             <div class="row combu_new">
-                                {{ form.as_p }}
+                                <div class="row combu_new">
+                                    <p>
+                                        <label for="id_fecha">Fecha llenado:</label>
+                                        <input type="date" name="fecha" required="" id="id_fecha"> 
+                                    </p>
+                                    <p>
+                                        <label for="id_hora_llenado">Hora llenado:</label>
+                                        <input type="time" name="hora_llenado" required="" id="id_hora_llenado">
+    
+                                    </p>
+                                    <p>
+                                        <label for="id_placa">Placa:</label>
+                                        <select name="placa" required="" id="id_placa">
+                                    <option value="" selected="">---------</option>
+                                    
+                                    <option value="0">C339BPH</option>
+                                    
+                                    <option value="1">C386BLD</option>
+                                    
+                                    <option value="2">C649BKM</option>
+                                    
+                                    <option value="3">C511BNL</option>
+                                    
+                                    <option value="4">C856BLY</option>
+                                    
+                                    <option value="5">C910BNX</option>
+                                    
+                                    <option value="6">C306BPR</option>
+                                    
+                                    </select>
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_piloto">Piloto:</label>
+                                        <select name="piloto" required="" id="id_piloto">
+                                    <option value="" selected="">---------</option>
+                                    
+                                    <option value="0">LESTER ZEPEDA</option>
+                                    
+                                    <option value="1">BYRON BLASS</option>
+                                    
+                                    <option value="2">ALLAN GOMEZ</option>
+                                    
+                                    <option value="3">EDUARDO BONILLA</option>
+                                    
+                                    <option value="4">DARWIN VARGAS</option>
+                                    
+                                    <option value="5">LUIS JIMENEZ</option>
+                                    
+                                    <option value="6">ABRAHAM MARTINEZ</option>
+                                    
+                                    </select>
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_ruta">Ruta:</label>
+                                        <select name="ruta" required="" id="id_ruta">
+                                    <option value="" selected="">---------</option>
+                                    
+                                    <option value="0">BAR1</option>
+                                    
+                                    <option value="1">BAR2</option>
+                                    
+                                    <option value="2">JAL1</option>
+                                    
+                                    <option value="3">JAL2</option>
+                                    
+                                    <option value="4">JUT1</option>
+                                    
+                                    <option value="5">JUT2</option>
+                                    
+                                    <option value="6">JUT3</option>
+                                    
+                                    </select>
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_serie">Serie Factura:</label>
+                                        <input type="text" name="serie" maxlength="50" required="" id="id_serie">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_no_factura">Numero de Factura:</label>
+                                        <input type="number" name="no_factura" required="" id="id_no_factura">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_total">Total Llenado:</label>
+                                        <input type="number" name="total" step="any" required="" id="id_total">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_galones">Galones Llenados:</label>
+                                        <input type="number" name="galones" step="any" required="" id="id_galones">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_tipo_combustible">Tipo de Combustible:</label>
+                                        <select name="tipo_combustible" required="" id="id_tipo_combustible">
+                                    <option value="" selected="">---------</option>
+                                    
+                                    <option value="0">REGULAR</option>
+                                    
+                                    <option value="1">SUPER</option>
+                                    
+                                    <option value="2">DIESEL</option>
+                                    
+                                    </select>
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_bomnba">Bomba Lllenado:</label>
+                                        <input type="number" name="bomnba" required="" id="id_bomnba">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_precioxgalon">Precio Por Galon:</label>
+                                        <input type="number" name="precioxgalon" step="any" required="" id="id_precioxgalon">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_kminicial">Kilometro Inicial:</label>
+                                        <input type="number" name="kminicial" required="" id="id_kminicial">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_kmfinal">Kilometro Final:</label>
+                                        <input type="number" name="kmfinal" required="" id="id_kmfinal">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_recorrido">Recorrido:</label>
+                                        <input type="number" name="recorrido" required="" id="id_recorrido">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_rendxgalon">Rendimiento Por Galon:</label>
+                                        <input type="number" name="rendxgalon" step="any" required="" id="id_rendxgalon">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_manifiesto">Manifiesto:</label>
+                                        <input type="number" name="manifiesto" required="" id="id_manifiesto">
+                                        
+                                        
+                                    </p>
+                                    
+                                    
+                                    <p>
+                                        <label for="id_observaciones">Observaciones:</label>
+                                        <textarea name="observaciones" cols="40" rows="10" required="" id="id_observaciones"></textarea>
+                                        
+                                        
+                                        
+                                        
+                                    </p>
+                                </div>
                             </div>
                             <div class="dropdown-divider"></div>
                                 <div class="row">

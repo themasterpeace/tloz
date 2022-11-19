@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 
 from .serializers import *
 from link.models import *
+from impa.models import *
 
 from django.db.models import Q
 # Create your views here.
@@ -31,5 +32,19 @@ class Productolist(APIView):
 class ProductoDetalle(APIView):
     def get(self,request, pk):
         prod = get_object_or_404(Tarifario,pk=pk)
-        data = ProductoSerializer(prod).data
+        data = ProductoSerializer(prod).data        
+        
+        return Response(data)
+
+class Implist(APIView):
+    def get(self, request):
+        impguias = ImpGuias.objects.all()
+        data = ImpGuiasSerializer(impguias, many=True)
+        return Response(data.data)
+
+class ImpDetalle(APIView):
+    def get(self,request, pk):
+        impguias = get_object_or_404(ImpGuias,pk=pk)
+        data = ImpGuiasSerializer(impguias).data        
+        
         return Response(data)

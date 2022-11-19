@@ -184,8 +184,9 @@ body:before {
 .navigation .list.file ul.despliegue,
 .navigation .list.combu ul.despliegue,
 .navigation .list.home ul.despliegue,
-.navigation .list.camera ul.despliegue{
-  visibility: hidden;
+.navigation .list.camera ul.despliegue,
+.navigation .list.test ul.despliegue{
+visibility: hidden;
   opacity: 0;
   display: none;
 }
@@ -193,7 +194,8 @@ body:before {
 .navigation .list.file ul.despliegue li,
 .navigation .list.combu ul.despliegue li,
 .navigation .list.home ul.despliegue li,
-.navigation .list.camera ul.despliegue li{
+.navigation .list.camera ul.despliegue li,
+.navigation .list.test ul.despliegue li{
   visibility: hidden;
   opacity: 0;
   display: none;
@@ -202,7 +204,8 @@ body:before {
 .navigation .list.file.des1 ul,
 .navigation .list.home.des1 ul,
 .navigation .list.combu.des1 ul,
-.navigation .list.camera.des1 ul{
+.navigation .list.camera.des1 ul,
+.navigation .list.test.des1 ul{
   position: absolute;
   padding: 0;
   display: flex;
@@ -217,7 +220,8 @@ body:before {
 .navigation .list.file.des1 ul.despliegue li,
 .navigation .list.home.des1 ul.despliegue li,
 .navigation .list.combu.des1 ul.despliegue li,
-.navigation .list.camera.des1 ul.despliegue li{
+.navigation .list.camera.des1 ul.despliegue li,
+.navigation .list.test.des1 ul.despliegue li{
   width: 100%;
   display: flex;
   padding: 10px;
@@ -231,7 +235,8 @@ body:before {
 .navigation .list.file.des1 ul.despliegue li a,
 .navigation .list.home.des1 ul.despliegue li a,
 .navigation .list.combu.des1 ul.despliegue li a,
-.navigation .list.camera.des1 ul.despliegue li a{
+.navigation .list.camera.des1 ul.despliegue li a,
+.navigation .list.test.des1 ul.despliegue li{
     flex-direction: row;
     width: auto;
 }
@@ -251,6 +256,9 @@ h2{
     --bs-gutter-x: -1.5rem;
 }
 .row.ing_gui{
+    justify-content: center;
+}
+.row.ing_bod{
     justify-content: center;
 }
 .row.cli_new,
@@ -328,16 +336,35 @@ a.btn.btn-success.btn-sm {
 .card.ing_gui{
     width: 60%;
 }
+.card.ing_bod{
+    width: 60%;
+}
+.form-row.ing_bod.col2{
+    grid-template-columns: 0.4fr 1fr;
+}
 .ing_guiGrid{
     display: grid;
     gap: 20px;
 }
-
+.ing_guiGrid.col7.alt1 p:nth-child(1){
+    margin: 0;
+}
+.ing_guiGrid.col7{
+    grid-template-columns: 0.8fr 3.5fr 1fr 1fr 1fr 1fr .5fr;
+    gap: 0;
+}
+.ing_guiGrid.col7 input,
+.ing_guiGrid.col7 textarea{
+    width: 100%;
+}
+.ing_guiGrid.col7 p:nth-child(1){
+    margin-right: 20px;
+}
 .ing_guiGrid.col6.alt1 p:nth-child(1){
     margin: 0;
 }
 .ing_guiGrid.col6{
-    grid-template-columns: 1fr 0.5fr 2.5fr 1fr 1fr 1fr;
+    grid-template-columns: 0.8fr 4fr 1fr 1fr 1fr 1fr;
     gap: 0;
 }
 .ing_guiGrid.col6 input,
@@ -455,8 +482,7 @@ input:read-only{
     bottom: 5px;
     border-radius: 5px;
     pointer-events: none;
-    background: linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 15%,
-    transparent 50%, transparent 85%, rgba(255,255,255,0.3)100%);
+    background: linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 15%, transparent 50%, transparent 85%, rgba(255,255,255,0.3) 100%);
 }
 .box .form{
     position: relative;
@@ -792,8 +818,8 @@ input[type="button"]{
     margin-left: 0;
     width: 100%;
 }
-.undivanonimoxD{
-    width: 45%;
+.datos_guia{
+    width: 100%;
 }
 .saliendodelpaso{
     display: flex;
@@ -802,21 +828,27 @@ input[type="button"]{
 div#div_id_personalrecibe {
     width: 96.8%;
 }
-.saliendodelpaso2xD{
-    width: 40%;
-    margin-left: 60px;
+.totales{
+    width: 100%;
+    margin-left: 50px;
 }
-.saliendodelpaso2xD input{
+.totales input{
     height: 160px;
 }
 input#id_guias{
     margin-left: 12px;
 }
-.saliendodelpaso2xD input {
+.totales input {
     height: 160px;
     font-size: 50px;
     text-align: center;
     font-weight: bold;
+}
+.form-row.totales.ing_bod.col2{
+    grid-template-columns: 1fr 1fr;
+}
+.form-group.total{
+    max-width: 160px;
 }
 th.sorting_asc,
 th.sorting,
@@ -837,6 +869,7 @@ input[type="email"]:focus,
 input[type="number"]:focus,
 input[type="tel"]:focus,
 input[type="date"]:focus,
+input[type="time"]:focus,
 textarea:focus,
 select:focus-visible,
 .form-control:focus{
@@ -850,6 +883,7 @@ input[type="email"],
 input[type="number"],
 input[type="tel"],
 input[type="date"],
+input[type="time"],
 textarea,
 select,
 .form-control{
@@ -862,6 +896,9 @@ select,
     transition: .4s;
     border-radius: 0.25rem;
     text-transform: uppercase;
+}
+input#id_username{
+    text-transform: none;
 }
 select option{
     color: #000;

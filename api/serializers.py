@@ -4,6 +4,8 @@ from rest_framework import serializers
 from api.general_serializer import *
 
 from link.models import *
+from impa.models import *
+
 
 class ClienteSerializer(serializers.ModelSerializer):
     municipio = serializers.StringRelatedField()
@@ -19,4 +21,9 @@ class ProductoSerializer(serializers.ModelSerializer):
         model= Tarifario
         fields = '__all__'     
 
-    
+class ImpGuiasSerializer(serializers.ModelSerializer):
+    numini = serializers.StringRelatedField()
+    numfin = serializers.StringRelatedField()
+    class Meta:
+        model= ImpGuias
+        fields ='__all__'
