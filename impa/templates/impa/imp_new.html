@@ -1,5 +1,6 @@
-    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
+{% extends 'base/base.html' %} 
+<script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% block contenido %}
 <div class="modal-dialog modal_lg" style="max-width: 1120px;" >
     <div class="modal-content">
         {% if obj %}
@@ -148,6 +149,8 @@
         </form>
     </div>
 </div>
+{% endblock %}    
+
 
 {% block js %}
 <script>
