@@ -1,1339 +1,0 @@
-oltip
-            wrapper.shadows.forEach(function (shadow) {
-                css(shadow, {
-                    marginLeft: translateX + 1,
-                    marginTop: translateY + 1
-                });
-            });
-        }
-        // apply inversion
-        if (wrapper.inverted) { // wrapper is a group
-            [].forEach.call(elem.childNodes, function (child) {
-                renderer.invertChild(child, elem);
-            });
-        }
-        if (elem.tagName === 'SPAN') {
-            var rotation = wrapper.rotation, baseline, textWidth = wrapper.textWidth && pInt(wrapper.textWidth), currentTextTransform = [
-                rotation,
-                align,
-                elem.innerHTML,
-                wrapper.textWidth,
-                wrapper.textAlign
-            ].join(',');
-            // Update textWidth. Use the memoized textPxLength if possible, to
-            // avoid the getTextPxLength function using elem.offsetWidth.
-            // Calling offsetWidth affects rendering time as it forces layout
-            // (#7656).
-            if (textWidth !== wrapper.oldTextWidth &&
-                ((textWidth > wrapper.oldTextWidth) ||
-                    (wrapper.textPxLength || getTextPxLength()) > textWidth) && (
-            // Only set the width if the text is able to word-wrap, or
-            // text-overflow is ellipsis (#9537)
-            /[ \-]/.test(elem.textContent || elem.innerText) ||
-                elem.style.textOverflow === 'ellipsis')) { // #983, #1254
-                css(elem, {
-                    width: textWidth + 'px',
-                    display: 'block',
-                    whiteSpace: whiteSpace || 'normal' // #3331
-                });
-                wrapper.oldTextWidth = textWidth;
-                wrapper.hasBoxWidthChanged = true; // #8159
-            }
-            else {
-                wrapper.hasBoxWidthChanged = false; // #8159
-            }
-            // Do the calculations and DOM access only if properties changed
-            if (currentTextTransform !== wrapper.cTT) {
-                baseline = renderer.fontMetrics(elem.style.fontSize, elem).b;
-                // Renderer specific handling of span rotation, but only if we
-                // have something to update.
-                if (defined(rotation) &&
-                    ((rotation !== (wrapper.oldRotation || 0)) ||
-                        (align !== wrapper.oldAlign))) {
-                    wrapper.setSpanRotation(rotation, alignCorrection, baseline);
-                }
-                wrapper.getSpanCorrection(
-                // Avoid elem.offsetWidth if we can, it affects rendering
-                // time heavily (#7656)
-                ((!defined(rotation) && wrapper.textPxLength) || // #7920
-                    elem.offsetWidth), baseline, alignCorrection, rotation, align);
-            }
-            // apply position with correction
-            css(elem, {
-                left: (x + (wrapper.xCorr || 0)) + 'px',
-                top: (y + (wrapper.yCorr || 0)) + 'px'
-            });
-            // record current text transform
-            wrapper.cTT = currentTextTransform;
-            wrapper.oldRotation = rotation;
-            wrapper.oldAlign = align;
-        }
-    },
-    /**
-     * Set the rotation of an individual HTML span.
-     *
-     * @private
-     * @function Highcharts.SVGElement#setSpanRotation
-     * @param {number} rotation
-     * @param {number} alignCorrection
-     * @param {number} baseline
-     * @return {void}
-     */
-    setSpanRotation: function (rotation, alignCorrection, baseline) {
-        var rotationStyle = {}, cssTransformKey = this.renderer.getTransformKey();
-        rotationStyle[cssTransformKey] = rotationStyle.transform =
-            'rotate(' + rotation + 'deg)';
-        rotationStyle[cssTransformKey + (isFirefox ? 'Origin' : '-origin')] =
-            rotationStyle.transformOrigin =
-                (alignCorrection * 100) + '% ' + baseline + 'px';
-        css(this.element, rotationStyle);
-    },
-    /**
-     * Get the correction in X and Y positioning as the element is rotated.
-     *
-     * @private
-     * @function Highcharts.SVGElement#getSpanCorrection
-     * @param {number} width
-     * @param {number} baseline
-     * @param {number} alignCorrection
-     * @return {void}
-     */
-    getSpanCorrection: function (width, baseline, alignCorrection) {
-        this.xCorr = -width * alignCorrection;
-        this.yCorr = -baseline;
-    }
-});
-// Extend SvgRenderer for useHTML option.
-extend(SVGRenderer.prototype, /** @lends SVGRenderer.prototype */ {
-    /**
-     * @private
-     * @function Highcharts.SVGRenderer#getTransformKey
-     *
-     * @return {string}
-     */
-    getTransformKey: function () {
-        return isMS && !/Edge/.test(win.navigator.userAgent) ?
-            '-ms-transform' :
-            isWebKit ?
-                '-webkit-transform' :
-                isFirefox ?
-                    'MozTransform' :
-                    win.opera ?
-                        '-o-transform' :
-                        '';
-    },
-    /**
-     * Create HTML text node. This is used by the VML renderer as well as the
-     * SVG renderer through the useHTML option.
-     *
-     * @private
-     * @function Highcharts.SVGRenderer#html
-     *
-     * @param {string} str
-     *        The text of (subset) HTML to draw.
-     *
-     * @param {number} x
-     *        The x position of the text's lower left corner.
-     *
-     * @param {number} y
-     *        The y position of the text's lower left corner.
-     *
-     * @return {Highcharts.HTMLDOMElement}
-     */
-    html: function (str, x, y) {
-        var wrapper = this.createElement('span'), element = wrapper.element, renderer = wrapper.renderer, isSVG = renderer.isSVG, addSetters = function (gWrapper, style) {
-            // These properties are set as attributes on the SVG group, and
-            // as identical CSS properties on the div. (#3542)
-            ['opacity', 'visibility'].forEach(function (prop) {
-                gWrapper[prop + 'Setter'] = function (value, key, elem) {
-                    var styleObject = gWrapper.div ?
-                        gWrapper.div.style :
-                        style;
-                    SVGElement.prototype[prop + 'Setter']
-                        .call(this, value, key, elem);
-                    if (styleObject) {
-                        styleObject[key] = value;
-                    }
-                };
-            });
-            gWrapper.addedSetters = true;
-        };
-        // Text setter
-        wrapper.textSetter = function (value) {
-            if (value !== element.innerHTML) {
-                delete this.bBox;
-                delete this.oldTextWidth;
-            }
-            this.textStr = value;
-            element.innerHTML = pick(value, '');
-            wrapper.doTransform = true;
-        };
-        // Add setters for the element itself (#4938)
-        if (isSVG) { // #4938, only for HTML within SVG
-            addSetters(wrapper, wrapper.element.style);
-        }
-        // Various setters which rely on update transform
-        wrapper.xSetter =
-            wrapper.ySetter =
-                wrapper.alignSetter =
-                    wrapper.rotationSetter =
-                        function (value, key) {
-                            if (key === 'align') {
-                                // Do not overwrite the SVGElement.align method. Same as VML.
-                                key = 'textAlign';
-                            }
-                            wrapper[key] = value;
-                            wrapper.doTransform = true;
-                        };
-        // Runs at the end of .attr()
-        wrapper.afterSetters = function () {
-            // Update transform. Do this outside the loop to prevent redundant
-            // updating for batch setting of attributes.
-            if (this.doTransform) {
-                this.htmlUpdateTransform();
-                this.doTransform = false;
-            }
-        };
-        // Set the default attributes
-        wrapper
-            .attr({
-            text: str,
-            x: Math.round(x),
-            y: Math.round(y)
-        })
-            .css({
-            position: 'absolute'
-        });
-        if (!renderer.styledMode) {
-            wrapper.css({
-                fontFamily: this.style.fontFamily,
-                fontSize: this.style.fontSize
-            });
-        }
-        // Keep the whiteSpace style outside the wrapper.styles collection
-        element.style.whiteSpace = 'nowrap';
-        // Use the HTML specific .css method
-        wrapper.css = wrapper.htmlCss;
-        // This is specific for HTML within SVG
-        if (isSVG) {
-            wrapper.add = function (svgGroupWrapper) {
-                var htmlGroup, container = renderer.box.parentNode, parentGroup, parents = [];
-                this.parentGroup = svgGroupWrapper;
-                // Create a mock group to hold the HTML elements
-                if (svgGroupWrapper) {
-                    htmlGroup = svgGroupWrapper.div;
-                    if (!htmlGroup) {
-                        // Read the parent chain into an array and read from top
-                        // down
-                        parentGroup = svgGroupWrapper;
-                        while (parentGroup) {
-                            parents.push(parentGroup);
-                            // Move up to the next parent group
-                            parentGroup = parentGroup.parentGroup;
-                        }
-                        // Ensure dynamically updating position when any parent
-                        // is translated
-                        parents.reverse().forEach(function (parentGroup) {
-                            var htmlGroupStyle, cls = attr(parentGroup.element, 'class');
-                            /**
-                             * Common translate setter for X and Y on the HTML
-                             * group. Reverted the fix for #6957 du to
-                             * positioning problems and offline export (#7254,
-                             * #7280, #7529)
-                             * @private
-                             * @param {*} value
-                             * @param {string} key
-                             * @return {void}
-                             */
-                            function translateSetter(value, key) {
-                                parentGroup[key] = value;
-                                if (key === 'translateX') {
-                                    htmlGroupStyle.left = value + 'px';
-                                }
-                                else {
-                                    htmlGroupStyle.top = value + 'px';
-                                }
-                                parentGroup.doTransform = true;
-                            }
-                            // Create a HTML div and append it to the parent div
-                            // to emulate the SVG group structure
-                            htmlGroup =
-                                parentGroup.div =
-                                    parentGroup.div || createElement('div', cls ? { className: cls } : void 0, {
-                                        position: 'absolute',
-                                        left: (parentGroup.translateX || 0) + 'px',
-                                        top: (parentGroup.translateY || 0) + 'px',
-                                        display: parentGroup.display,
-                                        opacity: parentGroup.opacity,
-                                        pointerEvents: (parentGroup.styles &&
-                                            parentGroup.styles.pointerEvents) // #5595
-                                        // the top group is appended to container
-                                    }, htmlGroup || container);
-                            // Shortcut
-                            htmlGroupStyle = htmlGroup.style;
-                            // Set listeners to update the HTML div's position
-                            // whenever the SVG group position is changed.
-                            extend(parentGroup, {
-                                // (#7287) Pass htmlGroup to use
-                                // the related group
-                                classSetter: (function (htmlGroup) {
-                                    return function (value) {
-                                        this.element.setAttribute('class', value);
-                                        htmlGroup.className = value;
-                                    };
-                                }(htmlGroup)),
-                                on: function () {
-                                    if (parents[0].div) { // #6418
-                                        wrapper.on.apply({ element: parents[0].div }, arguments);
-                                    }
-                                    return parentGroup;
-                                },
-                                translateXSetter: translateSetter,
-                                translateYSetter: translateSetter
-                            });
-                            if (!parentGroup.addedSetters) {
-                                addSetters(parentGroup);
-                            }
-                        });
-                    }
-                }
-                else {
-                    htmlGroup = container;
-                }
-                htmlGroup.appendChild(element);
-                // Shared with VML:
-                wrapper.added = true;
-                if (wrapper.alignOnAdd) {
-                    wrapper.htmlUpdateTransform();
-                }
-                return wrapper;
-            };
-        }
-        return wrapper;
-    }
-});
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           size-base * 1.25 !default;
-$font-size-sm:                $font-size-base * .875 !default;
-
-$font-weight-lighter:         lighter !default;
-$font-weight-light:           300 !default;
-$font-weight-normal:          400 !default;
-$font-weight-bold:            700 !default;
-$font-weight-bolder:          bolder !default;
-
-$font-weight-base:            $font-weight-normal !default;
-$line-height-base:            1.5 !default;
-
-$h1-font-size:                $font-size-base * 2.5 !default;
-$h2-font-size:                $font-size-base * 2 !default;
-$h3-font-size:                $font-size-base * 1.75 !default;
-$h4-font-size:                $font-size-base * 1.5 !default;
-$h5-font-size:                $font-size-base * 1.25 !default;
-$h6-font-size:                $font-size-base !default;
-
-$headings-margin-bottom:      $spacer / 2 !default;
-$headings-font-family:        null !default;
-$headings-font-weight:        500 !default;
-$headings-line-height:        1.2 !default;
-$headings-color:              null !default;
-
-$display1-size:               6rem !default;
-$display2-size:               5.5rem !default;
-$display3-size:               4.5rem !default;
-$display4-size:               3.5rem !default;
-
-$display1-weight:             300 !default;
-$display2-weight:             300 !default;
-$display3-weight:             300 !default;
-$display4-weight:             300 !default;
-$display-line-height:         $headings-line-height !default;
-
-$lead-font-size:              $font-size-base * 1.25 !default;
-$lead-font-weight:            300 !default;
-
-$small-font-size:             80% !default;
-
-$text-muted:                  $gray-600 !default;
-
-$blockquote-small-color:      $gray-600 !default;
-$blockquote-small-font-size:  $small-font-size !default;
-$blockquote-font-size:        $font-size-base * 1.25 !default;
-
-$hr-border-color:             rgba($black, .1) !default;
-$hr-border-width:             $border-width !default;
-
-$mark-padding:                .2em !default;
-
-$dt-font-weight:              $font-weight-bold !default;
-
-$kbd-box-shadow:              inset 0 -.1rem 0 rgba($black, .25) !default;
-$nested-kbd-font-weight:      $font-weight-bold !default;
-
-$list-inline-padding:         .5rem !default;
-
-$mark-bg:                     #fcf8e3 !default;
-
-$hr-margin-y:                 $spacer !default;
-
-
-// Tables
-//
-// Customizes the `.table` component with basic values, each used across all table variations.
-
-$table-cell-padding:          .75rem !default;
-$table-cell-padding-sm:       .3rem !default;
-
-$table-color:                 $body-color !default;
-$table-bg:                    null !default;
-$table-accent-bg:             rgba($black, .05) !default;
-$table-hover-color:           $table-color !default;
-$table-hover-bg:              rgba($black, .075) !default;
-$table-active-bg:             $table-hover-bg !default;
-
-$table-border-width:          $border-width !default;
-$table-border-color:          $border-color !default;
-
-$table-head-bg:               $gray-200 !default;
-$table-head-color:            $gray-700 !default;
-
-$table-dark-color:            $white !default;
-$table-dark-bg:               $gray-800 !default;
-$table-dark-accent-bg:        rgba($white, .05) !default;
-$table-dark-hover-color:      $table-dark-color !default;
-$table-dark-hover-bg:         rgba($white, .075) !default;
-$table-dark-border-color:     lighten($table-dark-bg, 7.5%) !default;
-$table-dark-color:            $white !default;
-
-$table-striped-order:         odd !default;
-
-$table-caption-color:         $text-muted !default;
-
-$table-bg-level:              -9 !default;
-$table-border-level:          -6 !default;
-
-
-// Buttons + Forms
-//
-// Shared variables that are reassigned to `$input-` and `$btn-` specific variables.
-
-$input-btn-padding-y:         .375rem !default;
-$input-btn-padding-x:         .75rem !default;
-$input-btn-font-family:       null !default;
-$input-btn-font-size:         $font-size-base !default;
-$input-btn-line-height:       $line-height-base !default;
-
-$input-btn-focus-width:       .2rem !default;
-$input-btn-focus-color:       rgba($component-active-bg, .25) !default;
-$input-btn-focus-box-shadow:  0 0 0 $input-btn-focus-width $input-btn-focus-color !default;
-
-$input-btn-padding-y-sm:      .25rem !default;
-$input-btn-padding-x-sm:      .5rem !default;
-$input-btn-font-size-sm:      $font-size-sm !default;
-$input-btn-line-height-sm:    $line-height-sm !default;
-
-$input-btn-padding-y-lg:      .5rem !default;
-$input-btn-padding-x-lg:      1rem !default;
-$input-btn-font-size-lg:      $font-size-lg !default;
-$input-btn-line-height-lg:    $line-height-lg !default;
-
-$input-btn-border-width:      $border-width !default;
-
-
-// Buttons
-//
-// For each of Bootstrap's buttons, define text, background, and border color.
-
-$btn-padding-y:               $input-btn-padding-y !default;
-$btn-padding-x:               $input-btn-padding-x !default;
-$btn-font-family:             $input-btn-font-family !default;
-$btn-font-size:               $input-btn-font-size !default;
-$btn-line-height:             $input-btn-line-height !default;
-
-$btn-padding-y-sm:            $input-btn-padding-y-sm !default;
-$btn-padding-x-sm:            $input-btn-padding-x-sm !default;
-$btn-font-size-sm:            $input-btn-font-size-sm !default;
-$btn-line-height-sm:          $input-btn-line-height-sm !default;
-
-$btn-padding-y-lg:            $input-btn-padding-y-lg !default;
-$btn-padding-x-lg:            $input-btn-padding-x-lg !default;
-$btn-font-size-lg:            $input-btn-font-size-lg !default;
-$btn-line-height-lg:          $input-btn-line-height-lg !default;
-
-$btn-border-width:            $input-btn-border-width !default;
-
-$btn-font-weight:             $font-weight-normal !default;
-$btn-box-shadow:              inset 0 1px 0 rgba($white, .15), 0 1px 1px rgba($black, .075) !default;
-$btn-focus-width:             $input-btn-focus-width !default;
-$btn-focus-box-shadow:        $input-btn-focus-box-shadow !default;
-$btn-disabled-opacity:        .65 !default;
-$btn-active-box-shadow:       inset 0 3px 5px rgba($black, .125) !default;
-
-$btn-link-disabled-color:     $gray-600 !default;
-
-$btn-block-spacing-y:         .5rem !default;
-
-// Allows for customizing button radius independently from global border radius
-$btn-border-radius:           $border-radius !default;
-$btn-border-radius-lg:        $border-radius-lg !default;
-$btn-border-radius-sm:        $border-radius-sm !default;
-
-$btn-transition:              color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out !default;
-
-
-// Forms
-
-$label-margin-bottom:                   .5rem !default;
-
-$input-padding-y:                       $input-btn-padding-y !default;
-$input-padding-x:                       $input-btn-padding-x !default;
-$input-font-family:                     $input-btn-font-family !default;
-$input-font-size:                       $input-btn-font-size !default;
-$input-font-weight:                     $font-weight-base !default;
-$input-line-height:                     $input-btn-line-height !default;
-
-$input-padding-y-sm:                    $input-btn-padding-y-sm !default;
-$input-padding-x-sm:                    $input-btn-padding-x-sm !default;
-$input-font-size-sm:                    $input-btn-font-size-sm !default;
-$input-line-height-sm:                  $input-btn-line-height-sm !default;
-
-$input-padding-y-lg:                    $input-btn-padding-y-lg !default;
-$input-padding-x-lg:                    $input-btn-padding-x-lg !default;
-$input-font-size-lg:                    $input-btn-font-size-lg !default;
-$input-line-height-lg:                  $input-btn-line-height-lg !default;
-
-$input-bg:                              $white !default;
-$input-disabled-bg:                     $gray-200 !default;
-
-$input-color:                           $gray-700 !default;
-$input-border-color:                    $gray-400 !default;
-$input-border-width:                    $input-btn-border-width !default;
-$input-box-shadow:                      inset 0 1px 1px rgba($black, .075) !default;
-
-$input-border-radius:                   $border-radius !default;
-$input-border-radius-lg:                $border-radius-lg !default;
-$input-border-radius-sm:                $border-radius-sm !default;
-
-$input-focus-bg:                        $input-bg !default;
-$input-focus-border-color:              lighten($component-active-bg, 25%) !default;
-$input-focus-color:                     $input-color !default;
-$input-focus-width:                     $input-btn-focus-width !default;
-$input-focus-box-shadow:                $input-btn-focus-box-shadow !default;
-
-$input-placeholder-color:               $gray-600 !default;
-$input-plaintext-color:                 $body-color !default;
-
-$input-height-border:                   $input-border-width * 2 !default;
-
-$input-height-inner:                    calc(#{$input-line-height * 1em} + #{$input-padding-y * 2}) !default;
-$input-height-inner-half:               calc(#{$input-line-height * .5em} + #{$input-padding-y}) !default;
-$input-height-inner-quarter:            calc(#{$input-line-height * .25em} + #{$input-padding-y / 2}) !default;
-
-$input-height:                          calc(#{$input-line-height * 1em} + #{$input-padding-y * 2} + #{$input-height-border}) !default;
-$input-height-sm:                       calc(#{$input-line-height-sm * 1em} + #{$input-btn-padding-y-sm * 2} + #{$input-height-border}) !default;
-$input-height-lg:                       calc(#{$input-line-height-lg * 1em} + #{$input-btn-padding-y-lg * 2} + #{$input-height-border}) !default;
-
-$input-transition:                      border-color .15s ease-in-out, box-shadow .15s ease-in-out !default;
-
-$form-text-margin-top:                  .25rem !default;
-
-$form-check-input-gutter:               1.25rem !default;
-$form-check-input-margin-y:             .3rem !default;
-$form-check-input-margin-x:             .25rem !default;
-
-$form-check-inline-margin-x:            .75rem !default;
-$form-check-inline-input-margin-x:      .3125rem !default;
-
-$form-grid-gutter-width:                10px !default;
-$form-group-margin-bottom:              1rem !default;
-
-$input-group-addon-color:               $input-color !default;
-$input-group-addon-bg:                  $gray-200 !default;
-$input-group-addon-border-color:        $input-border-color !default;
-
-$custom-forms-transition:               background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out !default;
-
-$custom-control-gutter:                 .5rem !default;
-$custom-control-spacer-x:               1rem !default;
-
-$custom-control-indicator-size:         1rem !default;
-$custom-control-indicator-bg:           $input-bg !default;
-
-$custom-control-indicator-bg-size:      50% 50% !default;
-$custom-control-indicator-box-shadow:   $input-box-shadow !default;
-$custom-control-indicator-border-color: $gray-500 !default;
-$custom-control-indicator-border-width: $input-border-width !default;
-
-$custom-control-indicator-disabled-bg:          $input-disabled-bg !default;
-$custom-control-label-disabled-color:           $gray-600 !default;
-
-$custom-control-indicator-checked-color:        $component-active-color !default;
-$custom-control-indicator-checked-bg:           $component-active-bg !default;
-$custom-control-indicator-checked-disabled-bg:  rgba(theme-color("primary"), .5) !default;
-$custom-control-indicator-checked-box-shadow:   none !default;
-$custom-control-indicator-checked-border-color: $custom-control-indicator-checked-bg !default;
-
-$custom-control-indicator-focus-box-shadow:     $input-focus-box-shadow !default;
-$custom-control-indicator-focus-border-color:   $input-focus-border-color !default;
-
-$custom-control-indicator-active-color:         $component-active-color !default;
-$custom-control-indicator-active-bg:            lighten($component-active-bg, 35%) !default;
-$custom-control-indicator-active-box-shadow:    none !default;
-$custom-control-indicator-active-border-color:  $custom-control-indicator-active-bg !default;
-
-$custom-checkbox-indicator-border-radius:       $border-radius !default;
-$custom-checkbox-indicator-icon-checked:        str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='#{$custom-control-indicator-checked-color}' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e"), "#", "%23") !default;
-
-$custom-checkbox-indicator-indeterminate-bg:           $component-active-bg !default;
-$custom-checkbox-indicator-indeterminate-color:        $custom-control-indicator-checked-color !default;
-$custom-checkbox-indicator-icon-indeterminate:         str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4'%3e%3cpath stroke='#{$custom-checkbox-indicator-indeterminate-color}' d='M0 2h4'/%3e%3c/svg%3e"), "#", "%23") !default;
-$custom-checkbox-indicator-indeterminate-box-shadow:   none !default;
-$custom-checkbox-indicator-indeterminate-border-color: $custom-checkbox-indicator-indeterminate-bg !default;
-
-$custom-radio-indicator-border-radius:          50% !default;
-$custom-radio-indicator-icon-checked:           str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='#{$custom-control-indicator-checked-color}'/%3e%3c/svg%3e"), "#", "%23") !default;
-
-$custom-switch-width:                           $custom-control-indicator-size * 1.75 !default;
-$custom-switch-indicator-border-radius:         $custom-control-indicator-size / 2 !default;
-$custom-switch-indicator-size:                  calc(#{$custom-control-indicator-size} - #{$custom-control-indicator-border-width * 4}) !default;
-
-$custom-select-padding-y:           $input-padding-y !default;
-$custom-select-padding-x:           $input-padding-x !default;
-$custom-select-font-family:         $input-font-family !default;
-$custom-select-font-size:           $input-font-size !default;
-$custom-select-height:              $input-height !default;
-$custom-select-indicator-padding:   1rem !default; // Extra padding to account for the presence of the background-image based indicator
-$custom-select-font-weight:         $input-font-weight !default;
-$custom-select-line-height:         $input-line-height !default;
-$custom-select-color:               $input-color !default;
-$custom-select-disabled-color:      $gray-600 !default;
-$custom-select-bg:                  $input-bg !default;
-$custom-select-disabled-bg:         $gray-200 !default;
-$custom-select-bg-size:             8px 10px !default; // In pixels because image dimensions
-$custom-select-indicator-color:     $gray-800 !default;
-$custom-select-indicator:           str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3e%3cpath fill='#{$custom-select-indicator-color}' d='M2 0L0 2h4zm0 5L0 3h4z'/%3e%3c/svg%3e"), "#", "%23") !default;
-$custom-select-background:          $custom-select-indicator no-repeat right $custom-select-padding-x center / $custom-select-bg-size !default; // Used so we can have multiple background elements (e.g., arrow and feedback icon)
-
-$custom-select-feedback-icon-padding-right: calc((1em + #{2 * $custom-select-padding-y}) * 3 / 4 + #{$custom-select-padding-x + $custom-select-indicator-padding}) !default;
-$custom-select-feedback-icon-position:      center right ($custom-select-padding-x + $custom-select-indicator-padding) !default;
-$custom-select-feedback-icon-size:          $input-height-inner-half $input-height-inner-half !default;
-
-$custom-select-border-width:        $input-border-width !default;
-$custom-select-border-color:        $input-border-color !default;
-$custom-select-border-radius:       $border-radius !default;
-$custom-select-box-shadow:          inset 0 1px 2px rgba($black, .075) !default;
-
-$custom-select-focus-border-color:  $input-focus-border-color !default;
-$custom-select-focus-width:         $input-focus-width !default;
-$custom-select-focus-box-shadow:    0 0 0 $custom-select-focus-width $input-btn-focus-color !default;
-
-$custom-select-padding-y-sm:        $input-padding-y-sm !default;
-$custom-select-padding-x-sm:        $input-padding-x-sm !default;
-$custom-select-font-size-sm:        $input-font-size-sm !default;
-$custom-select-height-sm:           $input-height-sm !default;
-
-$custom-select-padding-y-lg:        $input-padding-y-lg !default;
-$custom-select-padding-x-lg:        $input-padding-x-lg !default;
-$custom-select-font-size-lg:        $input-font-size-lg !default;
-$custom-select-height-lg:           $input-height-lg !default;
-
-$custom-range-track-width:          100% !default;
-$custom-range-track-height:         .5rem !default;
-$custom-range-track-cursor:         pointer !default;
-$custom-range-track-bg:             $gray-300 !default;
-$custom-range-track-border-radius:  1rem !default;
-$custom-range-track-box-shadow:     inset 0 .25rem .25rem rgba($black, .1) !default;
-
-$custom-range-thumb-width:                   1rem !default;
-$custom-range-thumb-height:                  $custom-range-thumb-width !default;
-$custom-range-thumb-bg:                      $component-active-bg !default;
-$custom-range-thumb-border:                  0 !default;
-$custom-range-thumb-border-radius:           1rem !default;
-$custom-range-thumb-box-shadow:              0 .1rem .25rem rgba($black, .1) !default;
-$custom-range-thumb-focus-box-shadow:        0 0 0 1px $body-bg, $input-focus-box-shadow !default;
-$custom-range-thumb-focus-box-shadow-width:  $input-focus-width !default; // For focus box shadow issue in IE/Edge
-$custom-range-thumb-active-bg:               lighten($component-active-bg, 35%) !default;
-$custom-range-thumb-disabled-bg:             $gray-500 !default;
-
-$custom-file-height:                $input-height !default;
-$custom-file-height-inner:          $input-height-inner !default;
-$custom-file-focus-border-color:    $input-focus-border-color !default;
-$custom-file-focus-box-shadow:      $input-focus-box-shadow !default;
-$custom-file-disabled-bg:           $input-disabled-bg !default;
-
-$custom-file-padding-y:             $input-padding-y !default;
-$custom-file-padding-x:             $input-padding-x !default;
-$custom-file-line-height:           $input-line-height !default;
-$custom-file-font-family:           $input-font-family !default;
-$custom-file-font-weight:           $input-font-weight !default;
-$custom-file-color:                 $input-color !default;
-$custom-file-bg:                    $input-bg !default;
-$custom-file-border-width:          $input-border-width !default;
-$custom-file-border-color:          $input-border-color !default;
-$custom-file-border-radius:         $input-border-radius !default;
-$custom-file-box-shadow:            $input-box-shadow !default;
-$custom-file-button-color:          $custom-file-color !default;
-$custom-file-button-bg:             $input-group-addon-bg !default;
-$custom-file-text: (
-  en: "Browse"
-) !default;
-
-
-// Form validation
-
-$form-feedback-margin-top:          $form-text-margin-top !default;
-$form-feedback-font-size:           $small-font-size !default;
-$form-feedback-valid-color:         theme-color("success") !default;
-$form-feedback-invalid-color:       theme-color("danger") !default;
-
-$form-feedback-icon-valid-color:    $form-feedback-valid-color !default;
-$form-feedback-icon-valid:          str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='#{$form-feedback-icon-valid-color}' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e"), "#", "%23") !default;
-$form-feedback-icon-invalid-color:  $form-feedback-invalid-color !default;
-$form-feedback-icon-invalid:        str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='#{$form-feedback-icon-invalid-color}' viewBox='-2 -2 7 7'%3e%3cpath stroke='#{$form-feedback-icon-invalid-color}' d='M0 0l3 3m0-3L0 3'/%3e%3ccircle r='.5'/%3e%3ccircle cx='3' r='.5'/%3e%3ccircle cy='3' r='.5'/%3e%3ccircle cx='3' cy='3' r='.5'/%3e%3c/svg%3E"), "#", "%23") !default;
-
-$form-validation-states: () !default;
-// stylelint-disable-next-line scss/dollar-variable-default
-$form-validation-states: map-merge(
-  (
-    "valid": (
-      "color": $form-feedback-valid-color,
-      "icon": $form-feedback-icon-valid
-    ),
-    "invalid": (
-      "color": $form-feedback-invalid-color,
-      "icon": $form-feedback-icon-invalid
-    ),
-  ),
-  $form-validation-states
-);
-
-// Z-index master list
-//
-// Warning: Avoid customizing these values. They're used for a bird's eye view
-// of components dependent on the z-axis and are designed to all work together.
-
-$zindex-dropdown:                   1000 !default;
-$zindex-sticky:                     1020 !default;
-$zindex-fixed:                      1030 !default;
-$zindex-modal-backdrop:             1040 !default;
-$zindex-modal:                      1050 !default;
-$zindex-popover:                    1060 !default;
-$zindex-tooltip:                    1070 !default;
-
-
-// Navs
-
-$nav-link-padding-y:                .5rem !default;
-$nav-link-padding-x:                1rem !default;
-$nav-link-disabled-color:           $gray-600 !default;
-
-$nav-tabs-border-color:             $gray-300 !default;
-$nav-tabs-border-width:             $border-width !default;
-$nav-tabs-border-radius:            $border-radius !default;
-$nav-tabs-link-hover-border-color:  $gray-200 $gray-200 $nav-tabs-border-color !default;
-$nav-tabs-link-active-color:        $gray-700 !default;
-$nav-tabs-link-active-bg:           $body-bg !default;
-$nav-tabs-link-active-border-color: $gray-300 $gray-300 $nav-tabs-link-active-bg !default;
-
-$nav-pills-border-radius:           $border-radius !default;
-$nav-pills-link-active-color:       $component-active-color !default;
-$nav-pills-link-active-bg:          $component-active-bg !default;
-
-$nav-divider-color:                 $gray-200 !default;
-$nav-divider-margin-y:              $spacer / 2 !default;
-
-
-// Navbar
-
-$navbar-padding-y:                  $spacer / 2 !default;
-$navbar-padding-x:                  $spacer !default;
-
-$navbar-nav-link-padding-x:         .5rem !default;
-
-$navbar-brand-font-size:            $font-size-lg !default;
-// Compute the navbar-brand padding-y so the navbar-brand will have the same height as navbar-text and nav-link
-$nav-link-height:                   $font-size-base * $line-height-base + $nav-link-padding-y * 2 !default;
-$navbar-brand-height:               $navbar-brand-font-size * $line-height-base !default;
-$navbar-brand-padding-y:            ($nav-link-height - $navbar-brand-height) / 2 !default;
-
-$navbar-toggler-padding-y:          .25rem !default;
-$navbar-toggler-padding-x:          .75rem !default;
-$navbar-toggler-font-size:          $font-size-lg !default;
-$navbar-toggler-border-radius:      $btn-border-radius !default;
-
-$navbar-dark-color:                 rgba($white, .5) !default;
-$navbar-dark-hover-color:           rgba($white, .75) !default;
-$navbar-dark-active-color:          $white !default;
-$navbar-dark-disabled-color:        rgba($white, .25) !default;
-$navbar-dark-toggler-icon-bg:       str-replace(url("data:image/svg+xml,%3csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3e%3cpath stroke='#{$navbar-dark-color}' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"), "#", "%23") !default;
-$navbar-dark-toggler-border-color:  rgba($white, .1) !default;
-
-$navbar-light-color:                rgba($black, .5) !default;
-$navbar-light-hover-color:          rgba($black, .7) !default;
-$navbar-light-active-color:         rgba($black, .9) !default;
-$navbar-light-disabled-color:       rgba($black, .3) !default;
-$navbar-light-toggler-icon-bg:      str-replace(url("data:image/svg+xml,%3csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3e%3cpath stroke='#{$navbar-light-color}' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e"), "#", "%23") !default;
-$navbar-light-toggler-border-color: rgba($black, .1) !default;
-
-$navbar-light-brand-color:                $navbar-light-active-color !default;
-$navbar-light-brand-hover-color:          $navbar-light-active-color !default;
-$navbar-dark-brand-color:                 $navbar-dark-active-color !default;
-$navbar-dark-brand-hover-color:           $navbar-dark-active-color !default;
-
-
-// Dropdowns
-//
-// Dropdown menu container and contents.
-
-$dropdown-min-width:                10rem !default;
-$dropdown-padding-y:                .5rem !default;
-$dropdown-spacer:                   .125rem !default;
-$dropdown-font-size:                $font-size-base !default;
-$dropdown-color:                    $body-color !default;
-$dropdown-bg:                       $white !default;
-$dropdown-border-color:             rgba($black, .15) !default;
-$dropdown-border-radius:            $border-radius !default;
-$dropdown-border-width:             $border-width !default;
-$dropdown-inner-border-radius:      calc(#{$dropdown-border-radius} - #{$dropdown-border-width}) !default;
-$dropdown-divider-bg:               $gray-200 !default;
-$dropdown-divider-margin-y:         $nav-divider-margin-y !default;
-$dropdown-box-shadow:               0 .5rem 1rem rgba($black, .175) !default;
-
-$dropdown-link-color:               $gray-900 !default;
-$dropdown-link-hover-color:         darken($gray-900, 5%) !default;
-$dropdown-link-hover-bg:            $gray-100 !default;
-
-$dropdown-link-active-color:        $component-active-color !default;
-$dropdown-link-active-bg:           $component-active-bg !default;
-
-$dropdown-link-disabled-color:      $gray-600 !default;
-
-$dropdown-item-padding-y:           .25rem !default;
-$dropdown-item-padding-x:           1.5rem !default;
-
-$dropdown-header-color:             $gray-600 !default;
-
-
-// Pagination
-
-$pagination-padding-y:              .5rem !default;
-$pagination-padding-x:              .75rem !default;
-$pagination-padding-y-sm:           .25rem !default;
-$pagination-padding-x-sm:           .5rem !default;
-$pagination-padding-y-lg:           .75rem !default;
-$pagination-padding-x-lg:           1.5rem !default;
-$pagination-line-height:            1.25 !default;
-
-$pagination-color:                  $link-color !default;
-$pagination-bg:                     $white !default;
-$pagination-border-width:           $border-width !default;
-$pagination-border-color:           $gray-300 !default;
-
-$pagination-focus-box-shadow:       $input-btn-focus-box-shadow !default;
-$pagination-focus-outline:          0 !default;
-
-$pagination-hover-color:            $link-hover-color !default;
-$pagination-hover-bg:               $gray-200 !default;
-$pagination-hover-border-color:     $gray-300 !default;
-
-$pagination-active-color:           $component-active-color !default;
-$pagination-active-bg:              $component-active-bg !default;
-$pagination-active-border-color:    $pagination-active-bg !default;
-
-$pagination-disabled-color:         $gray-600 !default;
-$pagination-disabled-bg:            $white !default;
-$pagination-disabled-border-color:  $gray-300 !default;
-
-
-// Jumbotron
-
-$jumbotron-padding:                 2rem !default;
-$jumbotron-color:                   null !default;
-$jumbotron-bg:                      $gray-200 !default;
-
-
-// Cards
-
-$card-spacer-y:                     .75rem !default;
-$card-spacer-x:                     1.25rem !default;
-$card-border-width:                 $border-width !default;
-$card-border-radius:                $border-radius !default;
-$card-border-color:                 rgba($black, .125) !default;
-$card-inner-border-radius:          calc(#{$card-border-radius} - #{$card-border-width}) !default;
-$card-cap-bg:                       rgba($black, .03) !default;
-$card-cap-color:                    null !default;
-$card-color:                        null !default;
-$card-bg:                           $white !default;
-
-$card-img-overlay-padding:          1.25rem !default;
-
-$card-group-margin:                 $grid-gutter-width / 2 !default;
-$card-deck-margin:                  $card-group-margin !default;
-
-$card-columns-count:                3 !default;
-$card-columns-gap:                  1.25rem !default;
-$card-columns-margin:               $card-spacer-y !default;
-
-
-// Tooltips
-
-$tooltip-font-size:                 $font-size-sm !default;
-$tooltip-max-width:                 200px !default;
-$tooltip-color:                     $white !default;
-$tooltip-bg:                        $black !default;
-$tooltip-border-radius:             $border-radius !default;
-$tooltip-opacity:                   .9 !default;
-$tooltip-padding-y:                 .25rem !default;
-$tooltip-padding-x:                 .5rem !default;
-$tooltip-margin:                    0 !default;
-
-$tooltip-arrow-width:               .8rem !default;
-$tooltip-arrow-height:              .4rem !default;
-$tooltip-arrow-color:               $tooltip-bg !default;
-
-// Form tooltips must come after regular tooltips
-$form-feedback-tooltip-padding-y:     $tooltip-padding-y !default;
-$form-feedback-tooltip-padding-x:     $tooltip-padding-x !default;
-$form-feedback-tooltip-font-size:     $tooltip-font-size !default;
-$form-feedback-tooltip-line-height:   $line-height-base !default;
-$form-feedback-tooltip-opacity:       $tooltip-opacity !default;
-$form-feedback-tooltip-border-radius: $tooltip-border-radius !default;
-
-
-// Popovers
-
-$popover-font-size:                 $font-size-sm !default;
-$popover-bg:                        $white !default;
-$popover-max-width:                 276px !default;
-$popover-border-width:              $border-width !default;
-$popover-border-color:              rgba($black, .2) !default;
-$popover-border-radius:             $border-radius-lg !default;
-$popover-box-shadow:                0 .25rem .5rem rgba($black, .2) !default;
-
-$popover-header-bg:                 darken($popover-bg, 3%) !default;
-$popover-header-color:              $headings-color !default;
-$popover-header-padding-y:          .5rem !default;
-$popover-header-padding-x:          .75rem !default;
-
-$popover-body-color:                $body-color !default;
-$popover-body-padding-y:            $popover-header-padding-y !default;
-$popover-body-padding-x:            $popover-header-padding-x !default;
-
-$popover-arrow-width:               1rem !default;
-$popover-arrow-height:              .5rem !default;
-$popover-arrow-color:               $popover-bg !default;
-
-$popover-arrow-outer-color:         fade-in($popover-border-color, .05) !default;
-
-
-// Toasts
-
-$toast-max-width:                   350px !default;
-$toast-padding-x:                   .75rem !default;
-$toast-padding-y:                   .25rem !default;
-$toast-font-size:                   .875rem !default;
-$toast-color:                       null !default;
-$toast-background-color:            rgba($white, .85) !default;
-$toast-border-width:                1px !default;
-$toast-border-color:                rgba(0, 0, 0, .1) !default;
-$toast-border-radius:               .25rem !default;
-$toast-box-shadow:                  0 .25rem .75rem rgba($black, .1) !default;
-
-$toast-header-color:                $gray-600 !default;
-$toast-header-background-color:     rgba($white, .85) !default;
-$toast-header-border-color:         rgba(0, 0, 0, .05) !default;
-
-
-// Badges
-
-$badge-font-size:                   75% !default;
-$badge-font-weight:                 $font-weight-bold !default;
-$badge-padding-y:                   .25em !default;
-$badge-padding-x:                   .4em !default;
-$badge-border-radius:               $border-radius !default;
-
-$badge-transition:                  $btn-transition !default;
-$badge-focus-width:                 $input-btn-focus-width !default;
-
-$badge-pill-padding-x:              .6em !default;
-// Use a higher than normal value to ensure completely rounded edges when
-// customizing padding or font-size on labels.
-$badge-pill-border-radius:          10rem !default;
-
-
-// Modals
-
-// Padding applied to the modal body
-$modal-inner-padding:               1rem !default;
-
-$modal-dialog-margin:               .5rem !default;
-$modal-dialog-margin-y-sm-up:       1.75rem !default;
-
-$modal-title-line-height:           $line-height-base !default;
-
-$modal-content-color:               null !default;
-$modal-content-bg:                  $white !default;
-$modal-content-border-color:        rgba($black, .2) !default;
-$modal-content-border-width:        $border-width !default;
-$modal-content-border-radius:       $border-radius-lg !default;
-$modal-content-box-shadow-xs:       0 .25rem .5rem rgba($black, .5) !default;
-$modal-content-box-shadow-sm-up:    0 .5rem 1rem rgba($black, .5) !default;
-
-$modal-backdrop-bg:                 $black !default;
-$modal-backdrop-opacity:            .5 !default;
-$modal-header-border-color:         $border-color !default;
-$modal-footer-border-color:         $modal-header-border-color !default;
-$modal-header-border-width:         $modal-content-border-width !default;
-$modal-footer-border-width:         $modal-header-border-width !default;
-$modal-header-padding-y:            1rem !default;
-$modal-header-padding-x:            1rem !default;
-$modal-header-padding:              $modal-header-padding-y $modal-header-padding-x !default; // Keep this for backwards compatibility
-
-$modal-xl:                          1140px !default;
-$modal-lg:                          800px !default;
-$modal-md:                          500px !default;
-$modal-sm:                          300px !default;
-
-$modal-fade-transform:              translate(0, -50px) !default;
-$modal-show-transform:              none !default;
-$modal-transition:                  transform .3s ease-out !default;
-
-
-// Alerts
-//
-// Define alert colors, border radius, and padding.
-
-$alert-padding-y:                   .75rem !default;
-$alert-padding-x:                   1.25rem !default;
-$alert-margin-bottom:               1rem !default;
-$alert-border-radius:               $border-radius !default;
-$alert-link-font-weight:            $font-weight-bold !default;
-$alert-border-width:                $border-width !default;
-
-$alert-bg-level:                    -10 !default;
-$alert-border-level:                -9 !default;
-$alert-color-level:                 6 !default;
-
-
-// Progress bars
-
-$progress-height:                   1rem !default;
-$progress-font-size:                $font-size-base * .75 !default;
-$progress-bg:                       $gray-200 !default;
-$progress-border-radius:            $border-radius !default;
-$progress-box-shadow:               inset 0 .1rem .1rem rgba($black, .1) !default;
-$progress-bar-color:                $white !default;
-$progress-bar-bg:                   theme-color("primary") !default;
-$progress-bar-animation-timing:     1s linear infinite !default;
-$progress-bar-transition:           width .6s ease !default;
-
-
-// List group
-
-$list-group-color:                  null !default;
-$list-group-bg:                     $white !default;
-$list-group-border-color:           rgba($black, .125) !default;
-$list-group-border-width:           $border-width !default;
-$list-group-border-radius:          $border-radius !default;
-
-$list-group-item-padding-y:         .75rem !default;
-$list-group-item-padding-x:         1.25rem !default;
-
-$list-group-hover-bg:               $gray-100 !default;
-$list-group-active-color:           $component-active-color !default;
-$list-group-active-bg:              $component-active-bg !default;
-$list-group-active-border-color:    $list-group-active-bg !default;
-
-$list-group-disabled-color:         $gray-600 !default;
-$list-group-disabled-bg:            $list-group-bg !default;
-
-$list-group-action-color:           $gray-700 !default;
-$list-group-action-hover-color:     $list-group-action-color !default;
-
-$list-group-action-active-color:    $body-color !default;
-$list-group-action-active-bg:       $gray-200 !default;
-
-
-// Image thumbnails
-
-$thumbnail-padding:                 .25rem !default;
-$thumbnail-bg:                      $body-bg !default;
-$thumbnail-border-width:            $border-width !default;
-$thumbnail-border-color:            $gray-300 !default;
-$thumbnail-border-radius:           $border-radius !default;
-$thumbnail-box-shadow:              0 1px 2px rgba($black, .075) !default;
-
-
-// Figures
-
-$figure-caption-font-size:          90% !default;
-$figure-caption-color:              $gray-600 !default;
-
-
-// Breadcrumbs
-
-$breadcrumb-padding-y:              .75rem !default;
-$breadcrumb-padding-x:              1rem !default;
-$breadcrumb-item-padding:           .5rem !default;
-
-$breadcrumb-margin-bottom:          1rem !default;
-
-$breadcrumb-bg:                     $gray-200 !default;
-$breadcrumb-divider-color:          $gray-600 !default;
-$breadcrumb-active-color:           $gray-600 !default;
-$breadcrumb-divider:                quote("/") !default;
-
-$breadcrumb-border-radius:          $border-radius !default;
-
-
-// Carousel
-
-$carousel-control-color:             $white !default;
-$carousel-control-width:             15% !default;
-$carousel-control-opacity:           .5 !default;
-$carousel-control-hover-opacity:     .9 !default;
-$carousel-control-transition:        opacity .15s ease !default;
-
-$carousel-indicator-width:           30px !default;
-$carousel-indicator-height:          3px !default;
-$carousel-indicator-hit-area-height: 10px !default;
-$carousel-indicator-spacer:          3px !default;
-$carousel-indicator-active-bg:       $white !default;
-$carousel-indicator-transition:      opacity .6s ease !default;
-
-$carousel-caption-width:             70% !default;
-$carousel-caption-color:             $white !default;
-
-$carousel-control-icon-width:        20px !default;
-
-$carousel-control-prev-icon-bg:      str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='#{$carousel-control-color}' viewBox='0 0 8 8'%3e%3cpath d='M5.25 0l-4 4 4 4 1.5-1.5-2.5-2.5 2.5-2.5-1.5-1.5z'/%3e%3c/svg%3e"), "#", "%23") !default;
-$carousel-control-next-icon-bg:      str-replace(url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='#{$carousel-control-color}' viewBox='0 0 8 8'%3e%3cpath d='M2.75 0l-1.5 1.5 2.5 2.5-2.5 2.5 1.5 1.5 4-4-4-4z'/%3e%3c/svg%3e"), "#", "%23") !default;
-
-$carousel-transition-duration:       .6s !default;
-$carousel-transition:                transform $carousel-transition-duration ease-in-out !default; // Define transform transition first if using multiple transitions (e.g., `transform 2s ease, opacity .5s ease-out`)
-
-
-// Spinners
-
-$spinner-width:         2rem !default;
-$spinner-height:        $spinner-width !default;
-$spinner-border-width:  .25em !default;
-
-$spinner-width-sm:        1rem !default;
-$spinner-height-sm:       $spinner-width-sm !default;
-$spinner-border-width-sm: .2em !default;
-
-
-// Close
-
-$close-font-size:                   $font-size-base * 1.5 !default;
-$close-font-weight:                 $font-weight-bold !default;
-$close-color:                       $black !default;
-$close-text-shadow:                 0 1px 0 $white !default;
-
-
-// Code
-
-$code-font-size:                    87.5% !default;
-$code-color:                        $pink !default;
-
-$kbd-padding-y:                     .2rem !default;
-$kbd-padding-x:                     .4rem !default;
-$kbd-font-size:                     $code-font-size !default;
-$kbd-color:                         $white !default;
-$kbd-bg:                            $gray-900 !default;
-
-$pre-color:                         $gray-900 !default;
-$pre-scrollable-max-height:         340px !default;
-
-
-// Utilities
-
-$displays: none, inline, inline-block, block, table, table-row, table-cell, flex, inline-flex !default;
-$overflows: auto, hidden !default;
-$positions: static, relative, absolute, fixed, sticky !default;
-
-
-// Printing
-
-$print-page-size:                   a3 !default;
-$print-body-min-width:              map-get($grid-breakpoints, "lg") !default;
-                                                                                                                                                                                                                                                        ‘aŞu  ıu  I1“c        è    "‘$S–av  ,v  I—“c        é   $S–a<v  [v  I—“c        ê   ‘$S–±akv  Šv  I—“c        ë   ’$S– bïašv  v  I—“c          ì    bïK`    Do            … ú%‚ 3 ‚3‚3‚3‚	3
-«—˜c
-          ±c         ç   5=EMU$SD¨`B   L`    "‘K`    Dk             ³Å´Äcùø Å-ù Æ- Ä-Ã`úùø÷« (Rb„ã‚        é`şÿÿÿ”aTí  ¢í  ˜c
-       P   ±c       í   $SD’`B   L`    "‘“K`    Dk             ³Å´Äcùø Å-ù Æ-Ä-Ã`úùø÷« (Rb„ã‚        í`şÿÿÿ‘aºí  î  •–c
-       P   —c       î   $S4’`$   L`    bïK`    Dg             -  3 -3«,Rc„á‚         şÿÿÿñ`şÿÿÿ“a(î  fî  •–c       P    —c         ï   $SÍPb      od.Ja]w  w  I•—c          ğ   $S”õaŸw  ·w  •—c        ñ   $S”Pc      pd.startaÓw  x  I–—c          ò   $SÑùax  x   äf       ‹ññ  ˜ñœñ    –±c        ó   €D$S˜¨`è   (L`   IQböõ^ã   top QcnF   locationQbr±¨Í   hashRb
- €        U`¤ÿ –QcŠ6j   match   Qe>4©a   \bdeid=([\d,]+) Rb
- €        ”`¤ÿ –(Kh@      b   !        #   )     D„0            ºo %ºÿø Æÿ÷Â-ö Â-öÂ-öÆŒÂ„öÃ¨÷öö Á-õÁ-õÆöú™-ú
-Ãz Á_÷úõÅ™	0ùŒ %ºŒÃ„÷Ä¨ø÷÷º«  (Rb„ã‚         `şÿÿÿ•alñ  ²ò  –˜d       P P “  ’c         ö   $S<“`2   ]K`    Di0            ^ÆÿÃ½Â¾Áùøaúù « ,Rc„á‚        şÿÿÿ`şÿÿÿ—aÒò   ó  –b          ’c       ÷   $S0“`   ]K`    Df             šVŒ« (Rb„ã‚        `şÿÿÿ‘aâó  ô  Å±c       ø   $S`¨`v   L`   ©K`    Dr             ÆÅ-  où›&ù0Ã^÷Änø›ø«ø›ÆùRÅ‹* ú˜V««   (Rb„ã‚        !`şÿÿÿ–a*ô  ôô  ˜c	       @ >  “c       ù   $SĞ”`Z  L`   0Rb„ã‚        ²ë`¤   %`şÿÿÿaõ  ¤ö  •$S0”`   L`   0Rb„ã‚       Y`$   I`şÿÿÿDaâõ  .ö  U$S8”`&   ]K`    Dh            ÿÄÆÅÿÄdúùø «   (Rb„ã‚         I`şÿÿÿDaö  ,ö  e—b          ±c         ü   K`    Df            … ú%‚ «”—a       •c       û   K`    D¼0            … ù%ùg Äù¼ ÂÁ÷aø÷ Æ-ú˜ùÅ ÄÂdøö«ùb ÄÂÁ÷aø÷Änø›ùÂ ÄùÄ Ã0ú	ÂÁd÷öõÃcø÷«ù Ä‚ ÂdøúöÆnøšnøšŒùÃ ÃÁd÷úõ«ùÃ ÃÁd÷úõ«« “—e      @ @€    •c       ú   Yi$S5¨`"  (L`   Rb
- €        Í`¤ÿ IÙaN  *  Kd       ¡        D!X            eÃ¾Á0õ Ád÷õÆ¿núú÷šÀn÷šÁn÷š*Œ;bÂÀ¿õaöõÅŒ*bÂÀ¿õaöõÅŒbÂÀ¿õaöõ	ÅŒÅù—ú0™ù0—ÿ÷- ÂÀ¿a¾¼dòğ¾cóò¿`öôóÄŒÂ„öÃ¨÷ö«bÃÁÀöa÷öÃn÷›øVW«øWÅÃn÷›ù«Ãn÷›bÃÁÀöa÷öŒ<Ànúú÷šÁn÷šŒ&cÂÀdöôŒbÂÀ¿õaöõ!ŒšĞÃn÷#›nø$«	Ãn÷%›øW›Ã:Â!&Ácõø(Ádöõ*n÷,«ù™•n-÷š n÷-šn÷-š
-n÷-š:n÷-šQŒmoø.«pø/« ›ø ›!0Áõkõ2Á-õ4Â_öõø6«øW›ÿÂ:Á!&Àcôø8Àdõô:nö<«øW›Â:Á!&Àcôø=Àdõô?nöA«« (Rb„ã‚        )`şÿÿÿ—a¼ö  ğû  “8˜lB        	€  €  BH   @ @!P @   ±c       ı   $S8¨`*   ]K`    Dh            VšVšÄÆdú VV« (Rb„ã‚        -`şÿÿÿ“aü  Hü  b          ‘c       ş   $S<’`0   ]K`    Di0            ^ÆÿÃÈÂÁùøaúù «  ,Rc„á‚        şÿÿÿ1`şÿÿÿ•ahü  šü  ”b          ‘c       ÿ   $S<’`.   ]K`    Di0            ^ÆÿÃÂÁùøaúù «   ,Rc„á‚        şÿÿÿ9`şÿÿÿ–aàü  ı  ”b          ‘c          $S<’`2   ]K`    Di0            ^ÆÿÃËÂÌÁùøaúù « ,Rc„á‚        şÿÿÿ=`şÿÿÿ—aDı  rı  ”b          ‘c         $SD’`D   L`    "‘K`    Dk             Æ¿Ã6ú÷ ÀÃ6ú÷ÁÃ6ú÷ú3 «,Rc„á‚         şÿÿÿI`şÿÿÿaÖı  6ş  ”˜c       0    ±c           $SŒ¨`Î   ]K`    D}(            n úšnú š#nú š-nú š7ŒFbÅÃÂøaùø«bÅÃÂøaùø«bÅÃÂøaùø«bÅÃÂøaùø««   (Rb„ã‚        Q`şÿÿÿ”aˆşINDX( 	                (   Ø   è       7   3                 ™            ˜     bPPØ Â¿ÕŞ!Ø˜2bPPØÊm>£RØè       ä               & f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5                 ˜     bPPØ Â¿ÕŞ!Ø˜2bPPØÊm>£RØè       ä               & f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5                 ˜     bPPØ Â¿ÕŞ!Ø˜2bPPØÊm>£RØè       ä               & f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9  4 a 1 7 d f 2 0 d 9 e 2 f 3 5                 ˜     bPPØ Â¿ÕŞ!Ø˜2bPPØÊm>£RØè       ä               & f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5                 ˜     bPPØ Â¿ÕŞ!Ø˜2bPPØÊm>£RØè       ä               & f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5                 ˜     bPPØ Â¿ÕŞ!Ø˜2bPPØÊm>£RØè       ä               & f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5                )                     ˜     Ë9£µRØ Â¿ÕŞ!ØF9£µRØÂ9£µRØè       ä               0 f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5   ( c o p i a   1 )                     ˜     Ë9£µRØ Â¿ÕŞ!ØF9£µRØÂ9£µRØè       ä               0 f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5   ( c o p i a   1 )                     ˜     Ë9£µRØ Â¿ÕŞ!ØF9£µRØÂ9£µRØè       ä               0 f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4  d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5   ( c o p i a   1 )                     ˜     Ë9£µRØ Â¿ÕŞ!ØF9£µRØÂ9£µRØè       ä               0 f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5   ( c o p i a   1 )                     ˜     Ë9£µRØ Â¿ÕŞ!ØF9£µRØÂ9£µRØè       ä               0 f 6 4 4 f 8 f 6 0 3 1 d b 3 5 8 5 4 3 d 8 9 7 4 a 1 7 d f 2 0 d 9 e 2 f 3 5   ( c o p i a   1 )                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                xÅV]Oë8İçşŠYõ!€Ú4háv…V
-—D‹®ĞÕ}p’Iâ­G¶Ké®øï;vRj(H«}Ù„“ùğœ3ÇãÆBÆ°ßïïÿÒÛƒ½–ûØIva?úu÷£ı¦Riƒ¼„o²Ô|ísÍ,5a¹\†Ï‹¤`Êè0‘ó¨mk×	+Óî„ç%Ÿ10Î2©àÛkü1YûşZ?0¹}¸?Ãåx:éıéÍäîêz|£G˜>Ş'g÷WwÓÆçWS 2ÂíÍõcM‚&ß^¯,4‚6Š'&ø­E0sÂÌ¤2YÌ±4@>|^IeüŠ2%ç„a¯²¨z—.F‡jÊÑx?À;§Ã7·'¦@£¹­'âàÂÍ¿TI®%K-!DGitkCH˜(dÇ‚¸*ÍN x9:ğwè)fC
-c*=ìõ\l˜K™d¯;hı{Ææ\¬Nâ‡‡QÔ9Š¢ ã’(”C›•@] šæ³YUÔÒÀà³éQ õÒr!Dç•®0GÓÔ¥G«)ËoØw‚Yìşˆ~î:d§i,fÉ,WrQ¦Àç,G0ÒN0ã%*4KÓñ“ÅëqfUÕ€eÕ%š³u Ñ‘-ÊÄr;»5Ä)j"ËtS®Y,°[’.}A(e——OLğ´k
-®vAŠmj	¡Wó‰ó²¤%vÖ” yÍæQÙË«
-è&Ñ‡U™ï’`^ˆS}Nšš)è€áGĞÎûq?&dAû8:îã×z™ú‡nytôõxtá–Œ!=MÛ\…í,‹¢ÁÀY­İ-ûıÑÅÁÈ-Ï/úı·ÜÎô³†;ÆÃ¦6›wCÇ™­tXëá•Ç™ïoc¬&/œüHL ;tÏ‚×È·z©·5ÜR^­p›âÃ¼+JÒ•‡}½ç„ÿeåûeP=`ı4qŒ—"ı¤½ˆÿK)Ÿ€’R^ù°b©RTßyjŠ!D>‚Å(Hÿ’‚ö x}C`eê'ÛjcĞGô{Dqƒó‰	~àšÛ·ìÕ]³6ûØ~¯¹? î?¦ãùô™¿¸Ù&û°óÖ°îştk¬Õ´Y5ºZı{VB®§¾O¤•?¾Áo«ÕKårF-pCÛ†Ş„æÃ“™ŸÌ†Ú±ÖœÉ }Ñ{ì1¿I1go$èïš1¡½m}=Ò,µ3K™Ì@W˜ğŒ'Î¡dO<gÆÎ‚X·šk·ÉO¯ı*Ï#zı*ı+sœ Àä]îxaŒ,§ö—ƒ¿¥İ!ãÂ^dË‚´ë)ÙšèÎ—3;Úg½¾Ğ­™.?kï.íY†ğeCXMğV·œÅUø¾k±OSPû=ÒÚêëÔ~ùDµ:QRˆ˜½aØ(z#7?^»Ş «Yl½ÔwoU‰•»eİEÓÚüèğ/Vg£{é®ö£æ                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              xQ®àblob 8007 ‰PNG
-
-   IHDR   ×   ×   ¾£4‡   PLTE´®¤fffÇe<è¯’QQQÿÿÿ999BBBğÁ¨ê³—333ì8>"""===ä¥‡@@@:::<<<???ë¶›Ñ|Wî¾£í»¡Û“råª***666,,,íºŸ222777=(000AAA[[[;;;ì¸ß™y...RRR&&&×ŠgVVVè¯“''&Øj444FEBÉiAYYYïÀ¦IIIÏxRÖ‡c((($$$ÉjBï¿¥á €ÂwVUIC___bbba`_Ô]ËnGßœ|¸yLLLç®‘ã¤…TF>OOOÍsMå©‹ñÆ¯khcàFFFõõõ###ZZY‹ƒòØÎ«¦œ†k\êµšdddê³˜spküõò½‰pÄoJÕ…a¿€c£•ã¤†ÚoÅiBòË·¼™†OMJG>9ÎvPÜ•tûûûî¼¢õ×Ç.+)Ş©˜“‹CBBåäãòññóĞ½ÔÔÔTTT;::‰qe¶¤—½vşûùé±•¡œ“úíæ{xrSQOÌpI· ¸›Š¶ªpW:eCdL2ñÈ²=<:^^^XVRœ–K4%t[=khd}ys`^Y»’}zaAlU9üòíSSSöİÏ“““øâ×óÔÄcccç¬‡‚{432“‡Ñ ˆÙ×ÕmXMÁ{\¹—ƒyaUx^>qqqğin¨¨¨½½½ßßŞÖ¬–ä·ŸƒyKJH {jÏÊÇùèßÈÈÇíÁªõ›ı÷ô¢…up^Tæª;40êÄ·Å˜‚£tÏÏÏ’sc•{mÉ¢ä¦‰«…r¿„i{iZC0%YC-íDJëêêaRJ‹‡€Ş †`I1_7$óƒúÍÎzzzüææ²²²¸³©ğÂ©ôâÚÊnHã²T5Å¿·íÎÂhR6îPVö§ª‡‡‡ûÙÚì]bç¼ª‡[B¶_;C,ª˜R;-rG0‚X9î’ÔÑË×‰fİÛÙ½¸¯áª’™ƒj?-‘†´{aÍ™€kZß…ˆ‚‚‚ÊmE‘†²£’b9%Ø½±…xqØ•x˜“Œ¯¨wPò  IDATxÚÍœ	|ÕÇñ`3Œ¬Ã²¬‘,!’…e9v|ÆàØNìÄGœØ9œ8”œ$v‚!!B 4'P
-$HHB”#„£@rÊİ‹Rhi·İŞçvwÛî½ûùì;fôf4id=Iù}>€e{ŞÌwşçûÏ˜ó¦¬ı!SZ²ZÒ—å•FI~Ş†~X'şR€çç—W}‰·˜¦,»ÄU‡¹Lv¿ô?¾0¯`ÇC¦LÀˆ½<v“([?íú¼Ì˜sUò’¡ê¬&Iş°0–G°ı‚)Ym,ì3‰
-˜ˆ|üş+ssÇ´˜÷_)ø2+G¾(„b òÕìáçi-­Ç[¸83OÄr ®@˜X°NnN/pq.¹¡€ĞÊc…ÃÖ°PÂ÷óÂ/â×å’+dø¢ì¡–ÌÀL›0i‚Ì!—`r„<X¥·5WÄÎ–Œ·Ø´iw\™®VXl˜Íö˜2“MñÉg—1·ğ>oíğş\Ôéu(,N"³˜èªÎ.CæĞ’„…/eŸkXHíœÏ#ú¢•.˜_v§œÄß’ƒœŒ÷ÅÜÄáñdÃd6¿I’‡GïÍ~gµ˜ùÌê ¢l1{ÌÊ·¡¸aa,ËÕl?(²,[,—´´Šı±w8ËIŒ÷d‹4Á/¥§CYvÄëy¯)ûòÅqæå Ó[5ÂÂNß…a‘‹_w}vÍµpŒ÷iİd+EO¹j"Ø0¿Ú<êÛ²…Çæ­›vœomñr-ên—´w´$q«76	ñz½>ÚŞxl?B!u¼á€V Æe±#×»ırõËBŸÑê³Û=6#.“6­Ê¢fEVÈÆb›–qFl<u L{ßåñà‹HA—ÊÈ^ÔC[Éâ÷ë†½r—QÄ;³XÒ"³ÛºøC×gÅb¢•¬[`8$CQÜT‚•ÛŒvkZ›4ÏÁìÌl¼d7È‡¬1{y—€­°Ñ×cùØnIu/ÂWf¥ç=NLckm±“æ@.; CóAÍ+uX,G¹Æ¤Ôf· i zÖe§(vâìï³$2X¹1’_'¹Æ¸ù|e%  »k¥‘È¡e0aÔCL’_à½‹ºÑpë¼À¸&`…y´¶,y2pEš+çÍ›·Pl½ŠËó	>œ¨â®Ú²ÀÜ!ŠĞYõ‚YĞà4AæhºßÁã<…ì!o"×÷ûMDˆˆ3ªÁ$ïƒ²¥æ²Û9â1ªãP+ê¨MB‹%EË‹³¡Çc%`iË‚qĞvDµî³ZùiÇ@’ğ¶&ºÊ–×‚ƒê`Ÿ•	<c?íâe²øÂp‹†>uı±Ô%Hvkå”¹ì‰Ó¢•_L¹x”*—ÑSÛ¢2Y¥M	†lVË¹F$u;Ö²f~e¿Ÿ˜ôQU'¤pEÉ-S«±Ô)ÑKqvç!Ì[08
-)mf´v$K;ÈBÃï…5ÇÉ¾ƒ4wË»”˜LğÄ¥Š:£²«À²U¦g¬ş5ó¤_Ì?î´FîrXş@-ò[%´•®³(HbUê%ãŞZş’×Íæ÷FIqõÒÖB•Ë§Ê	­…|>Ÿßf³!
-%™…ü¢ŠŒ,`j[[[ZùŸ7½&5Àì<Õlˆå-Ed;~	/*\ÔŸgµIWßâõ$³àãùíO˜¡ök5Áü!š›eŸÄÓ7›/¿|öö÷.‰i=dùmVù«5\kØğkaÓO¾Ãz!¤Õİó4÷`c¾Äkàs=~ùkÈˆ-BÀWÇIZ.˜Ó%²W¨…ç×?l…õz«üX³Å5¯Î”È`ÂkfA#nÇFÄ$®­ÑpC U ¨·^W¾İkTÑçšfK”„çÍúu9ĞkÛ·o!tò…ç7«µŞ££ÏµŸp•“\ ÆJ‡K2“Ú™C~u.2	µÆúa»9«z>l”«<+\v2Oå}Áœem¥œ>×B^ìŒˆëŸ0g[/(À*q>n¥:ëÏñÉ×ÍY×—xUÃ›@u8ŸãÃ gä l}H‘;hsÍãã:Cï%æœèñIÒ ã™¿ÇO“KPeÏğãæÜèe> ÜaúÖÑnÊ=Uí’²qŸ®CÙÎV©sM•Ôjp“›6æˆ«Œ=Ê™İ—ûn§Íå@›‹-É×¦Y®·
-c4¹¼È‰¹rÆµ‘egóY¦ÎĞäòÉ·õµ§XÖœ#•°,;·ÕO
-˜p%]. ±3¬ã_Î-×	>„‡‘èÍ‡C´¹¤ŞĞ»Í%2Îh¯ó(Š÷Éö]­¯ækä:Ë{¤"fĞå"XşË›s%Èµ‰ÅF<I—‹ôPÂz6×\ì\c®ér‘}òğ«¹çZR+¥ºy”¹¤æã_Î=×««‚ùvÑäÚOüĞË³¹çšİ*½úí[H÷¯RbSÚ¹ùàªµt¹|V‰‹?®—=Ò¶RXL—KÚzyøWóa//z\Ê2].)¾8~v¾¸Œ6h£¨sYÄ´ñrâO÷©^Èê¸ØüqUš(sÍÀ&%\'0W9}.‡’kYn¹X{!}®rÂ…”.+u®ca“-ï\6æ¢;Ç¶ä•ëEd¬p‰Æñ›rÊ5sÍ\ÂEó9æªÃu™n–q•b¹İ³RC«Ìqru¹â¾V(µ
-.G~^Çuœ2—Mêçù7Y¨ñŠ‚»µÚœÍ€Ğ…~¡”é2Ç“2ÎQ|K sœI æQ%×{^Ìµn]®ı)ÀZ–.Wi“LãN'øÉ^Dà›Nô#m!tÂµDä².ÊoèTŒË=Î¤1Ñ*F‡ÚJÑ\4»\CÒû^O°@à¹C)£GQ—Y­¡6F‡œ.8ÇFz³¿2Ÿ2×<!ö´2<q¹œTÓEA÷ù@îY³fE/jê–Š9¡"20xD<,Ñ~>TûEÎzd²ˆÄ5[ä:¸ö‹ó±b-âê‡WLjaN,·YLüùùZšuDs‹\'†±nƒcÊ˜Ëe\İL}WÑù:dÖCKû¦Åâ1—pQg’1®ŞşîR`ªL¸vê9¸½«~æZïÇy6—`“¬œ¥+8ªJ›k™®£G¿ŞÕ+fÈEsuÓ
-èÖ:éEQx!8Q•>¬Z\ºÌ€'ƒ:…¹&®åâ›(`İ¼†úŸ`Rã»S×2ÍÆOÏÑefVÔ’âzr1knÎœëbPYAÛöKAzcùE©¤$—À.R¨Tº2-AOvÇSU"qõ".\J°XÆX×2L½}–Ş·™+r™KˆÅŠš•º/k‡¤İ©ß_êLpÔEÄ…7š	×lÄu2Ìµ™r]Ç´¡†á	^|Û/r¹À•U‰&»¬éóEÿİïÿÑGıúÂ[oÛ{áfƒá%¦?XÚ^¢m.wp‚éZn0üï­wí½ğÂ[?úèw¿üıÿÏ¢Mİí‰E–vÅ¸j!—íôÍ6æºL¹dœf¤I0î4‹T†oúFWÕœşÿ[n¸úíŸÜòö…HŞòá¿†Ï˜¨6¾¼O<ğ×øÀ½·Á?ÿô¢²äu Iµ°ß°".³“y0óğ*5#]âÇÆ-a‘ªbMlÿ/ ÅSßw	ì®@0î¤\ÎOü-9ğ¡[NƒïÜ%û³*%—¿òXšy€}AâÚîÃ†¹È¤-Ø®qí1’.ï-s&Ãr*xç‚«oUøÙ¸´ı*qñ+ôšÈõ…L¹Ö@.W”a~$à óÎfå“¶¡MËP›×S˜ëÃ‡nùgRÔÌ\‹PWë­“OÍÅ~øĞ-Çğ‹.r‰Õ;Æ5r	?j+E\k2öC¸j‰êW0!–c.2áøÜ ê­»nq‚îúC?yÊ€´|•6ÖèK¬íwDõ­/¢ñ‘›0«äâÅÀûÜ•¹^óÓÆ8£“èí?ÂcÛuÄ ió]·İùÅ½{÷ŞòÅ;¡¹°vhs‘xç‡{÷>üOƒ¤çEiIÉe™„•˜:s®pq'ÓÅÎµÁ Cí¡lÂ±å†å¬“K Ğ·í1ˆº÷ˆ6×Ú{ï–À¤ï\)Yë¹{¥) á²šüsŒs<bf˜™×/&2:ºŠ©g— wS—ÔI>{ôÒóo|ã7{®–ŒµÖœ\OKüà@ ÿ<ºo¤yH‡§Á´dÔa2¯_73ÌNZf{—UÅqıeb#ZşôƒæTZû4F#ZôRd'8—p–iÎ?Ä0™7ˆx+eÚ7…ñÿ€U¬ìŠ>ØôÙç‹°^z"1ë’k ò‹Ï^ÂGıâ/¬Šk“‹•\­ßd¢f”Æhô½»a±a‚ìz+05š¨7Br™ÓS–(iÊ¸l&ûd•úİ md¬KŞ{&Ê†‡s¥?ÊşdJÃy¢õ•¦ºSQŞ†¹”Â¶’A‡s{½œB¸ô¿ZYÓË”†óD|¥É{6êDU™¡±±\ƒ1ú{B0®úü³oª/éaõò•VşD4
-İt´9bĞÖ ®$!êÕe ÷¥¤N‡ã-şõì¬ rÃ4¸¾‚Ñ3äšM¢NUM‘«Špı•·„N³½nä†_¡Áµ9¢äÜ7ë WËY’uj'àÜ’:Íÿ2li}“-q#7Üs%Gt›]à$›`€	KÒNˆ÷O•‹%ú]mŞwÓqCÜr4£›‡*XèTÚ	±¨h™yğhFépÎokCsÑ›I³‘ùŞ’ÁO6–x@6—•¤³şºŠŠXóàSzw^Òê[½aà(`1†ì))ô¾Cˆ¶ˆI6Í„X†¹2J‡ÎÚüvûéyiÌÚÆñhìÁlü¦4"‹¹3Iİüğ‹h>NaÆ&J1T$Oyä‰~™n®ˆyí¸È`€áùSğF2dE¥„×Ù“)ü*Iz¹î‡\¤	Àõ&à¢U¼H/å4OG/²[LŞÓi&ûE®ÒFàÚg{ãÊŠÊ4 uÕyB¬ÒËÅš· ®©§zæ·sÑÃ_X¼(êË 4£ÍĞ«a“’M/q|½¨¨j*\Å¤z1õs¡—l\EËÉfeuk'x»gcÒY–‹\æ-G?“ÁÎ’´ÓÆjÆ9ù&EfÏy4{ßÑùÙé$âû—<}½,ÍMŠ“Y«×¨Ù	Š2m.ì§Ã¦ÖÙú+³P)Ì´SO›B¸f †—K68¤ÖJ5ã;øMŞ",Ñ`‘Ò¢„\ÁñHáeí¨r‘±¯Ù5‹aŞ®.•y÷æúdíÚ}ƒƒƒk”³4ğêb€‚ÅÓ³Æ5Ú4·ø —¾ s3í˜ËµïèW\±e0Æu™3ªÜ¹ÚFÑcß¤Ëõ èá¼¿-ø:/çr¥à8Å>»à½—ué¯9`lcàªI…iJµıêÛÀuVæˆd¯7JdÕŒÆhÒ?ˆÂØ^ÕæÌWœJş]ø+«7Àœ(*RûŒX³8 ¿lJ#¼úx†èÚ‹lÁ€£ÇY«ífõØh×*óªİŒ3¶¬¨hx”+¢¿zÀ]-œÊ£À—érİÌ‡Å¿bÚYİ,é‚ ÎÚfDŠŠÀ›À£i5‡QòffÎ ¨j'şXÍL›f‹¸*ZLkt$æ¸!~à@»0ï&Y®%2ëRğO8ìLoOIÜ¿7•Ô,(®šÏ	Fıqg42#ı	öj¦­TR/2Å`‘(ä”gzr•ÍHsïEŠrsa®—ºn`¢ÀÜ­—%Sßlh”eæºØ™×ç(4÷–Xß‚Mæˆ3²€5ô† ¤ö\Ê@a/¤¯kW\|ñŠënBUº[ŞJÑ×FÙà+ğÔ×ÁskØ(çèÏô™<H	‚Ê¡”—°éúÒF°´tÈ•n–oÒÓ8Q(ö¦=¦w»ÓvÃTÓ]úe:J1{nØ²F.¥ÌÓis-#YãæÜr]»†™ ’]ÉÜp"wYƒL€»“–æQW,¬J»œ@±¹,u:›‡dG¹´{ŞnuÅÊAªo×.Í£]ÑR$Ù¯5 °ÃÚİtƒÏw0:®9ÙhÏ¥¹È$§)Ièr5;EaÂq¦-êdº‚£ğm£U€)ºÊ­İ6åÔ\d§ÙÖƒ°Ñ`WWDgÖ æÊ—Áè÷R.b.ĞBåÅ`i,ÍrÌ@ó—K(A‘eo=y»+ç)q5é9hï¼œ`´›']*kë7ÒŠ.ÒÈïÉ9éûc¦¯™r»İÁ¡dÊeyõBÒMEuİQ'¨ÇıÎh{™¹F¼ìW&t¥é£’]‹Kt$ôÿ şø­]× gzÙ(¤ªš¡'iDó\$Ù×K¹£ŠÖ¾kB1xÊ?˜‹Ê´†`åŒJusa»j–w°eS#©eN}Ş±H«Š¹cz¦}ákÑëìAºÏ¬JÔÈ
-Wş¹êë™®ÌÀÊbo4\zq5Íéfú{3 s¡æ©Ÿé§ÀE³ÿeÀ5Í!`SÁB÷æ\ãb{­&`écM _>‡¸~pà
-Ö3M½S«3Æ‹¸şéáúó›\zú™úv\ÇÒÅjïgºç°ˆëñçØ†å]±w˜æŞôÀ¦ããºpÚa>0Ş='¼p€=‹¹`ìw£íJ£Ëè‡…ıµöÏ®“¨[¤qK3ƒc•® +YÆ4£¸Äº­¶áù7×Ã&sâÄ8:]Wh­®gêW³édŞ¹şHşô˜¼r0YêĞh’QUİ ­µ!ï\1İK^ÕjÂùÃ•ÜG{¡Ä°î&k=“ÿd(#ï»zÙâ$¾XìŠ=ëÙå¢Çò‹µø¤A®»!Éİ«µ}qÆèD?2ª¤µ;ä+mÙõ@˜V¹ıIn³AŒp² †ÉÊfu3Œs€iÂ"*à8îÆ±÷ç–éĞ®‘«À‰¹p!#jï‡6[¶QƒÀûƒ,Ñ¢ø…>®è3yÀ)ì<³27LïİÈA¦†‚‚¯âµc-+S$úæ7”Î‰ª&9UÕÓªu^) ªè3r@ÛFÆeÙNgF8 {Ç@}lPë+×4åè%“ßqø>j#Õƒèd’ƒëë3![çû+³u;ô=SOÍÌ‚‘ëCİ½QA6ĞÜş±H]s€•ëh¢Eí¼s5€wT7Ú¡OîZ™(GOÂ‰q}ÏH;Ä #FkîgD5­†M––İS8B¸ fV7i£P¦ê™`yÂ…„ó¡ÚË–Å¡õ¶#±q*Ş÷\â*
-k$.¢>;È’”Ğï"P*®ïë†}%U£lr-«*›~dGâãŸ)”s©ĞÎd^¥Æ@šè¡ˆì\úïÈ°[@ÿ·±ªX‹©¸¬dºyíİ}¯°°®ïá¤SU4z¸mggDÕ	‚ªFµ2¹5$Ó«L6ˆ›Û’2#cihk!ñ•zŒÜ¶±)“= 
-•]¿6WÅ»š`;’ÿ‰ù>`,ms-%\jõ¢İ¹rJqÕ	¨ª5–5qø'……(ÕkF™6ŞjiET'æÒĞÌ@¶+}¬]Û•Z=\ÈU¸ÕD÷&¦:úœA[
-$®…5K’5rÜU¤™ÙA_Ñ¨Á´´³¢Æ„¹fÂ0Xì¹#	¨¶Ü`H¦¯"U .üõá†µ:@n¼}q:Æ™-¤^ªáxFÎ?uÂ¯qêĞ&‹³µ„J;i`®jÎTSÍµÙªAÑm²ä‰ÕÑPÖÇ\vøèÃVC*²A=¶"^ˆ5İ½‘pA4õÍa6¢/Œq¾D–ª)$êÃ]oìC
-íxZÌ WÜmH¥ïÆ 
-
-¹ù…q™] mĞc²•Û8»ªŞ7‚,EÄ¡‚Ù€?üÌZwÙr”˜*E.Ä\¨/Tép…Òk@Û¨ƒî®ìJÿ«¸Fµ¸0hBb)µükï<òCJ-¨—D‡s©É
-ˆ8 ±ÔÛFn~…‘›/3UÅáBµ,ôÕï3†ú‡w. zäû†z¸–/äjUWÜ'e{7¿ƒÛ–*ÄoóÌ,¨ğíÆÂ&TbQÛ¡­Ÿ?rÖ;_K\DK+8OM¡–°7Î‡6èánLÁu;h$Pİ@uj.;ıùüpR¼€è‘Ÿ´õ¨â5œ{„¶Í:p20rï'Oñ"Ğ|®Qi
-M:Éç$¹ã;?½@!m“=V¨ä"i^C#K¹dÛ’Öç'¹œ<¹ù÷iP‘„¹ˆ¾«YqúÃ¬
-å)*æs=…ÉUí±ˆ†¸=iéê‰5ì)Vôƒ¥¼G	ô}YJıã+W'+È„ËÁi»¡ÔTÇÒÇ¡$IÃkPR¹€ëÃ\DTºúß	±Ç^Ùœ ëa•—qÜH
-.“G*µ5IRG'¦ÇxUŠA"¹R£ïØüÊKG`¶Ü EbØS‘‚Ëf…Hô0Í®c%çA°Ó·¦ò {ÁHPµ,)*Á6üùäÃOÕ\ß?Ú¼5î&üY¨Ïfj¼æ@gçLì3T\şê‚¥‡Gğx@Ó`·s5¢MÁ”¦Ñ–|Å>ÔIu4Ôô4:×ÓÙy Z	¶aëf˜ÕæÂºUd÷à4ĞYÍA9L=} mÔ¤àâ*`0÷ºh˜KŒ®Ø›U[R&»‘å7`)vÏÄÿC|Ö°Q,¬Ğìõ€5“ÊS°ü
-0Êõ#É°‡<à@ƒ#Å’VÊfó€ÛÛQ°ßYFìñmÖO—ÇìI‚ìc²ì5&›?ßd·ÕS¨Çs×5b„%ì¦®B¹Ş  Ã3S-ÚxUc#pG€×*ôáBeüî+1—\şÂ\Ë‰£>¶uƒºÍ¨î .ŞX]½1WcãRlÑ
-	Ûß3°Ñ"=z‡½P‡züœ±ïÃ`_}]1±Ñ·åù•`_´€×‘’«ï€ø2‰g[ÂıIöB¬†ù:Ö½
-¸ÌÌ‚û®‰¯Ï÷HşH°ˆä»•w~ŒtOÄ˜8Oó7H§F¯‘;£•5–JUİ§c]+´qg|pü08Ï©R—eÅ.²âÑ¹¼tòzÎo"ÇĞHõ»ğü‰ü"1‚¶úê¸j=#öQ¨%ëèÿ]u¾ù0 Ğc/r‘‡€ŒêÌqìxå×˜Ô¿ÉvÅ¤ˆ."ñÒ#‰ú_‰Wíìãl…zDlŠSG£Ôış?Np[—ê,    IEND®B`‚	3nú                                                                                                                                                                    K`    Dj             ÿïÅÿàÄÃdùø÷ ÆÅcúù«  (Rb„ã‚         I`şÿÿÿPc      Ve.c.i  a.6 J6 !˜b         –c         k   bïK`    Dw             … ù%%ŸŒ%ù³ Äù´ Ãcø÷ Æ‚ 3ú‚3ú‚3ú‚3ú‚	3ú
-
-« ‘’c          –c       b  %1IUmD}D$SD¨`@   L`   qK`    Dk            ŸÆ-ú  ŒÆ Ådúù«  (Rb„ã‚        a`şÿÿÿDaØ< 0= ˜b         ±c       l  $SL’`N   L`   Qd¢Ü5–   performance QbÂ ±v   now K`    Dm            ŸŒ-  ™-™-Æ^úŒ«   (Rb„ã‚        e`şÿÿÿaP= Ò= •–b       @ —c       m  $SÍIa;Ÿ  €Ÿ  I•—c          n  $Sd’`‚   (L`    "‘Qc:Û+   jserror  bïXa{®Gáz„?±K`    Ds             úŸŒ3ú  úŸŒ3ú3úŸŒ3ú-3
-« ,Rc„á‚        şÿÿÿu`şÿÿÿ–a"? @ ˜c           ±c       o  $S,¨`   L`   K`    De             3  «  (Rb„ã‚        y`şÿÿÿ”a@ 4@ —b          ‘c       p  $SÍPb      bf.la2   U¢  I—‘c        q  $S%’`   DL`    "‘QcFÿáa   start   Qb    420 QbŠ§™.   end Rb
- €        Y`¤ÿ —Qdš2ıµ
-   clearMarks  Qcn²İ`   goog_   Qc†äO°   label   yQc‚—&ñ   uniqueIdQcî¡©O   _start  Qbê±\
-   _end bïKd       <   ñ     DP            ÿù-  ™-  Ã-÷ÄÂÁ`ø÷öõÆb-  ™ú™-  Ã-÷Ä_ø÷ú
-ŒÂÄ„øÅ¨ùø-  ™‰ú™…ú™~ øÿ  ™t øÿ  Ãb÷™f øÿ  Â-öÃÁ-:õÁ:õÁ-	:õÁ
-:õÁ_÷öõ øÿ  Â-öÃÁ-:õÁ:õÁ-	:õÁ:õÁ_÷öõ- Ã ¤ÁÀ-"¿¾-$½ö]÷ö&˜©ø«  (Rb„ã‚        }`şÿÿÿ’aÊD ¸F (˜h(       @ @ P ïğ¼÷P   ±c       r  $SD¨`@   L`   qK`    Dk            ŸÆ-ú  ŒÆ Ådúù«  (Rb„ã‚        …`şÿÿÿDatM ÌM “”b         •c       s  $Sp–`š    L`   $¤a      U CÁ`   AC’”(Q$…ø3   google_js_reporting_queue   ©ıK`    Dv             Åcù Æ™A~ )Å5ùú5ùù-ù˜}	Ä3ù
-ø  Å-pù›-Å_ù« (Rb„ã‚        ‘`şÿÿÿ—a†N ˜O ˜e       L €) À    ±c       t  $SÑ•aØ§  !©  äd       üÏ Ò   *€”’c        u  D$S“™a-©  a©  •d       ÉÒßÒ
-     –’c        w  D$SÍIal©  §©  ’c  
-      y  $S—Ia²©  Õ©  ¡‘±c        z  $S—Iaà©  »ª  ¥‘“c          {  $S—IaÆª  C«  1‘“c        |  $SÑIaN«  ¬  $äg       ¶×Ë×  û×Ø    ¨   ©‘“c        }  €D$S–Ia&¬  	­  —d       ÜØ…Ù    ­“c        €  D$S–Ia­  G­  —d       ¬ÚÅÚ     ±’±c        ‚  D$S–IaR­  †­  —d       êÚ„Û     µ’”c        „  D$S–Ia‘­   ®  —d       ·ÛùÛ
-    ¹’”c        †  D$Sè¨`Œ  ˆL`@   å "‘ QfZG>:   NEGATIVE_INFINITY   IÑ¥1±ñáé9™qu$Q 2î$   [data-google-query-id]   QV5Qı   data-google-query-id	Í$SÍ!aX¯  \¯  I±c          ‰  “K`    DÔP            ·Ä-ø  Å_ùøÀ3ô3ô3ô3
-ô3!Ã-÷Ã3÷3	½3
-ñ3ñ3ñ3ñ3ñ3 ñ3"ñ3$3&Â3(ö3*ö3,!.Ä-ø0ÅÃ_ùø÷2Æùú™-ú4ÄÂ_øúö6Œ3ù83:3<‚ 3>«,Rc„á‚         şÿÿÿ½`şÿÿÿ–a\ º^ ”8˜l@          P         ` P     •c         ˆ  5!$S¼¨`2  0L`   Qe°õ   google_plmetrics Qf&oŠP   PerformanceObserver Y`   M`   Qd¾Àâ   layout-shift$QgŞÁ¥   largest-contentful-paintQdŠ?   first-input QcZ{åc   longtaskùÁAQc_V   observe ¤a
-      ÁCQc¢ûR   bufferedC—}!K`    D¨@             +Ãk÷ú  ÆµÃ“Âc÷ö™‚Ã-÷ ˜yÃ-÷™pÃ3÷ Ã{
-%Âc÷öÅ-ùÃ^÷ùÄ-ø˜B-øÄ -ÂcöúÂ-öÃ~)Áø5õµÀ—¿côóV5õ	_÷öõ -ùÃ^÷ù"Ä‹C  .Ãc÷ú$« (Rb„ã‚         Á`şÿÿÿ‘aì^ a (˜h&       P 0	  
-  
-`2@ @    ±c         Š  $SÑÅa–°  İ³  äd       ËáÎç     –’”c        ‹  D$S•Éaé³  İµ  ,—i       ‚èŸé  ²éÇé  ×êÜë   *0  ’”c          D$SÍPb      vf.Jaõµ  ¶  I’”c          ‘  $S‘Ía+¶  Óº  ’”c        ’  $S‘Ñaßº  ©»  ”“±c        “  $SÑÕaµ»  ã¼  ,äi        øÆø  ×øëø  ¼ùáù       —“•c          ”  D$S4¨`$   L`    Qf
-R   PeriodicSyncManager K`    Dg             ŸŒ-  V«(Rb„ã‚        å`şÿÿÿ’az ˆz “˜b          •c       ˜  $SÍ9a      é•a      é Qf†h–¦   shouldRedeemToken   a»½  ò½  ù!±c          ™  $S”•a      –•a      — QfşzJV   shouldRequestToken  a¾  ¾  "‘’c          š  $SŒ¨`Ò   L`
-   Qdú˜LN	   navigator   QdÎ8Çw	   userAgent   Qcæ¼H   Chrome  ÙK`    D}             úŸŒúÆ 5Äcøú ˜µÄ˜Ãcø÷˜ 5Äcøú™<µÄ™Ãcø÷™0-ú Ä-ø
-Æz Ã-÷Ä_ø÷úÅz Ã-÷Ä_ø÷ú™ù«« (Rb„ã‚         í`şÿÿÿ—aN| n} ‘˜e       @ P ³ &  ’c         ›  $S,”`   ]K`    De             7Æbú « (Rb„ã‚         ù!`şÿÿÿ9a      ñ’a      é‘af~ „~ b          ±c         œ  $S,¨`   ]K`    De             7Æbú « (Rb„ã‚         "`şÿÿÿ’a      “’a      ”a¼~ Ú~ •˜b          –c           $SU—`b  TL`&   4Rb„á‚       Ya¤ÿ şÿÿÿù`şÿÿÿ“a‰ ê‹ •$SÍPb      Lf.aa«Ä  ¯Ä  Iy"–c          Ÿ  Y`    La       —`    Lb           ±qQebÌÀ   hasTrustToken   QÆ79   goog_tt_state   %µ¤a
-      •HEC$S0¨`   L`   Qcb3w   slice   K`    Df            Å-ù  Æ^úù« (Rb„ã‚         ’`şÿÿÿ9a      ù”a      é”a      %”a      –”a      µPb      .geta‹ ¸‹ y"˜b         ±c            E "‘K`    DA0             … úŸ‚ ŒŸŒŸŒú· Ä-ø Å_ùø úÿ;  Åbùù˜úµ Äú› Ãcø÷™{%ÃÄ úÿ8  7÷ø	÷Œ&{%ÃÄ úÿ6  7÷øÄ úÿ8  7÷ø÷3ù33!Å-ù	™úµ Åúš Äcùø˜qúµ Åú Äcùø™P!
-Ä-øÅú Ã-÷ Ã_ùø÷"˜4 úÿ<  Åcù$%!&Ä-ø(Åú ÃÂ~*)Á‚5õ+]ùø-Œ úÿ<  Äcø/31« ‘0’j3      @ L&  P ` @ P “@   “c         }"¥"$SD¨`>   L`   qK`    Dk            úŸÅ-ù  ŒúÆÅ 9Ädùøú«   (Rb„ã‚         ı`şÿÿÿ‘aŒ zŒ ˜b         ±c         ¡  $Sd—`‚   L`
-   0Rb„ã‚        Bé`$   `şÿÿÿ•a’Œ v ’­$SX¨`f   L`   ¤a
-      Qdšæ   issuerOriginCQc2MØŒ   state   C##K`    Dp            ~  )Æ-5úÿµÅÿœÄcùø™Å-ù˜Œ5ú	ú«   (Rb„ã‚        I`şÿÿÿDaÆŒ D #˜c       ³    ±c       £  ±K`    Ds(            … ù%Ã-÷ Ã-÷Ä‚ Â_ø÷öÆùµ Äù Ãcø÷˜Ã-÷Ä_ø÷ú
-ú« •–c      @ @ —c       ¢  	#$S¼¨`2  ,L`   0Rb„ã‚        ²ë`¤   `şÿÿÿ“aŒ V "Qb Õ   find$S0’`   L`   #K`    Df            -  Ænú«   (Rb„ã‚        I`şÿÿÿDa< x A#˜b       @  ±c       ¥  # "‘$SÍIarÇ  Ç  I’c        ¦  ±K`    D¨0             … ù%ùµ Äù Ãcø÷ ™@ù	 Ãù Â-öÂÁd÷öõÃ-÷Äù Â-öÂ‚ Á`ø÷öõ™3
-ŒBù	 Ã-ÂÁd÷öõÃ-÷Ä-Â‚Á`ø÷öõÆ™3ú
--Ä-Â_øö« ‘e      @   P @ ’c       ¤  I#a#$SL¨`P   L`
-   "¡$S0`   L`   #K`    Df            Æ-  múW«  (Rb„ã‚        I`şÿÿÿDaú & ˜b       @  ±c       ¨  K`    Dm             Å-ù  Æ!Ä-øÅ_ùøú™-úÅ‚ Ã_ùú÷
-«  (Rb„ã‚         	`şÿÿÿ‘an * –—c      P @ c         §  }#$SÑa!È  ÎÉ  $äg       ‰’ã’  ó’Ì“   (    ”–c        ©  €D$S“aÚÉ  \Ë  $•g       ä”Ó•  ã•Ú–   *    –c        ¬  €D$SÌ¨`T  ,L`   8Rb„ã‚        Bé ²ëa$   ¤ÿ `şÿÿÿ‘aĞ– š —q™"å$S¨`
-  ,L`   @Rb„ã‚       UY]b$   ¤ÿ ¤ÿ I`şÿÿÿDa’— x™ Å#ù!"q™"#ù$SÍIaEÌ  •Ì  IÕ#±c        ±  ıK`    D”0            … ù%Ã-÷ Ä^ø÷%Ã-÷Ä^ø÷%˜™:!Â-ö
-ÃÁ-õÁ_÷öõÃ-÷Ä‚ Â_ø÷öÆù Ã-÷Ä_ø÷úŒ  ÿÿ= Äù ÃÂ-öÂÁaø÷« ’ ˜f      P P P @    “c       °  U 2ÌK`    D¸             … ú%! Å-ù™—úµ Åúš Äcùø˜‡úµ Åúœ Äcùø™Å-ù™núµ Åú Äcùø
-™ úÿ>  Åbù˜P}%Ä-øÄ-øÅ‚ Ã_ùø÷ú Å-ù™*ú Å-ùÅ-ù™ú Ä-øÄ-øÅÃ_ùø÷««Å# •f      @ @ Ì
-€€
-   “c       ¯  É#Ù#$St¨`    L`
-   "Qe2V»   userAgentData    QfŠs$   getHighEntropyValuesù$S¤’`   L`   QÒQWN   platformQ®I“   platformVersion Q”M@   architectureQ†dİ—   model   QšÜM‡   uaFullVersion   QÒ!ñE   bitness K`    D(             Åkùú  ÆdÅÃ- ÂúøaùøÆdÅÃ-ÂúøaùøÆdÅÃ-
-ÂúøaùøÆdÅÃ-ÂúøaùøÆdÅÃ-ÂúøaùøÆdÅ	Ã-Âúøaùø« (Rb„ã‚        I`şÿÿÿDa4œ h  ˜f       @ P @ P    ±c       ³  K`    Dw             -  ™J-  Æ-ú™?-  Æ-úÆ-ú ›--  Ä-øÄ-ø
-Å BÃ_ùø÷Å-ùÆ‚ Ä_úùøŒ«  (Rb„ã‚        `şÿÿÿaÈš v •–d      P P @ —c       ²  $$S8’`*   L`   Qd(ğ:	   googletag   K`    Dh            Æ-ú  ˜ÆÅ3ú ù« (Rb„ã‚         !`şÿÿÿ’a– æ •–b         —c         ´  $SD¨`>   L`   K`    Dk             DÅbù Æ-ú Å_ùú˜
-6ú«   (Rb„ã‚        %`şÿÿÿ•aş \ ˜c       @    ±c       µ  $SÍ)a:Ï  œÏ  ’–c        ¶  $S€“`¸   $L`   éQc†ºî   protocolQcúâ21   https:  QcÊ"ùÅ   file:   Qc*şó5   http:   QâÁ¤„   parent  Rb
- €        Y`¤ÿ –Kd       K   i     Dz            ŸŒÿùÆmú š6- Ä-øÄnøšnøšnøš	Œ	«««ú-ú‹8 ŒÄ„øÅ¨ùøø«  (Rb„ã‚        I`şÿÿÿDaÌ¡ 0£ –—c       °€    c       ·  $S4¨`   ]K`    Dg            Æ GÄdúø «   ,Rc„á‚         şÿÿÿ1`şÿÿÿ–a€¤ œ¤ ˜b          ±c         ¸  $S8•`*   ]K`    Dh            ³Æ HÅcúù Æ6ú« (Rb„ã‚        5`şÿÿÿ’a´¤ Ô¤ —b         ‘c       ¹  $SÍ=a¹Ò  Ó  ”—‘c        º  $S\•`p   L`   HRb„ã‚        ²ë BéUYcä   $   ¤ÿ ¤ÿ I`şÿÿÿQaD¦ 8© $SP¨`V   L`   ùK`    Dn            ÿÆcú - Æ^úÿÆcúÆÅdúù«   (Rb„ã‚        –`şÿÿÿ–a ¦ ô¦ é$˜c
-       @   ±c       ¼  $S%‘`   <L`   4Rb„á‚       ]ad   şÿÿÿI`şÿÿÿDa§ 6© “©EµY`    La       -%]ùAK`    DH            … õ%ˆÂ} ÆÅ-öoù›ù0ö6úùùRÅ‹ ˜ÿÅ ÿÿJ ¿-ó	À_ôóùÄ˜Ä ÿÿJ ¿-óÀ`ôóùøøù{%¾¿7òó-òÀÿòó¾còú¾_ôóòÄõ ™õ ÀcôøŒøÆ!¿-ó¿-ó ¿-ó	"À`ôóùú$™
-ú0ù&ÅŒAÿÀcôø(Ã-÷
-*À^ô÷,À-ô.ÄÿÀcô÷0Ãõ ¿-ó2À`ôóø÷4Äø6ùú6øùùù«  %4˜k8       ³ ˆ ¼  &@ ` P  @ P @    ±c       ½  K`    Dq            … ú%%Ÿ úÿK  Œ%ú ÅÄcùø %‚ %‚«  é$”b         •c       »  í$%$ST¨`b   L`   QbBíó—   src œQ˜ºhÕ   ^(?:https?:)?\/\/(?:www\.googletagservices\.com|securepubads\.g\.doubleclick\.net|pagead2\.googlesyndication\.com)\/tag\/js\/gpt(?:_[a-z]+)*\.jsK`    Do            œŸŒ-  ™z Å-ùÆ-  Ä_úùø™ŒŒ« (Rb„ã‚        I`şÿÿÿDaJ© æª ”c       Ì    •c       ¾  $S@‘`8   L`   Qbà      9%K`    Dj             : Å0ÆœúŸŒ-ú:ù«  (Rb„ã‚        I`şÿÿÿDaøª †« “˜b       ±c       ¿  $SH‘`H   ]K`    Dl             Æ LÅ³Ä HÃcø÷ Ä ¬ 0øÄcùønú«  (Rb„ã‚         E`şÿÿÿDa « Ø« “•c        @    –c         À  $S0‘`   L`   9K`    Df            |Æ Åcúù ˜«(Rb„ã‚         I`şÿÿÿDağ« ¬ “•b          –c         Á  $SÍIaÖ  Ö  M–c          Â  $S¨¨`  L`
-   $S’9a      Q–a      é–a      ‘–a      Pd      a.<computed>aÚÖ  D×  I”±c        Ä  $SÍ–a      —–a      –a      ‘–a      Pd      a.<computed>aS×  g×  I”’c          Å  $S“–a      —–a      –a      ‘–a      Pd      a.<computed>av×  ´×  I”’c          Æ  $S“–a      —–a      –a      ‘–a      Pd      a.<computed>aÃ×  ××  I”’c          Ç  $S8•`*   ]K`    Dh            ³Æ HÅcúù Æ Ì 0ú« (Rb„ã‚         I`şÿÿÿ–a      —–a      –a      ‘–a      Pd      a.<computed>aì¯ ° ”˜b          ’c         È  K`    D”8            Æ¿ÄÂ M6úö Â³Á HÀcõôÁ$0õ6úöÂ‚  6úöÂ‚6úö
-2Â‚6úö6Â‚6úöú6øÆÀÄÂ‚6úöÂ N6úöú6øÁÄ6ø«,Rc„á‚         şÿÿÿ—`şÿÿÿ—a@­ B°  ”f      € 0 0 0    ’c         Ã  ©%Å%á%ı%&$S¨`Ğ  L`   ©K`    Dø0            üÄ³Ã HÂc÷ö Ã ö 0÷Ãøkø÷ÆüÄ˜ QÃøkø÷gÄÊÂÁú÷aø÷Ä-ø 
-˜=gÄÊÂÁ÷aø÷Ä-ø ™%gÄÊÂÁ÷aø÷ÅhÄÂú÷ùõaø÷gÄıÂÁú÷aø÷Ä-ø V›>gÄıÂÁ÷aø÷Ä-ø ™&gÄıÂÁ÷aø÷hÄÂú÷õaø÷ Äcøú «  (Rb„ã‚        Y`şÿÿÿ•an° Ä± $˜g"        @ P @ P @   ±c       É  $SÍ]aòØ  dÙ  ’–c        Ê  $Sp“`–   L`   9%Iõ,Qiæ†Â   pagead2.googlesyndication.com   K`    Dv             %T›Œ TÅ-ù   %Uš UŒÅ-ùÆqÄ_úùøÆ0ú˜ÆrÅcùnú
-«   (Rb„ã‚        i`şÿÿÿ•aì² Ö³ –—c       @  c       Ë  $SL¨`R   L`
-   QeŞàÖ   currentScript   QÎÍ   completeQª‘¾°
-   readyState  Qc²À^   loaded  5K`    Dm            -  ÆÅ-nùšÅ-nùšúš-úVV« (Rb„ã‚        m`şÿÿÿaî³ À´ ˜c        !   ±c       Ì  $S¨–`  L`
-   4Qk&z&   https://pagead2.googlesyndication.com/  Y`    Ld                   Qd¤hÜé
-   2021071401  Qbò§   .js ÙK`    D”0             VÅcù ™$Å ÄcùøŒ .Å{%ÃÄ7÷øÄ 7÷øÄ$ÂÁcöõ7÷øÄ$ÂÁcöõ	7÷øcù÷¶Å’ÄcùøÆ™(Å!Ãc÷úÃdù÷Œ«   (Rb„ã‚        q`şÿÿÿ–aØ´ êµ ‘’e       0€ € €   “c       Í  $S8¨`(   L`    "‘K`    Dh            } 3 Ä3ø3«  ,Rc„á‚         şÿÿÿu`şÿÿÿ’a¶ F¶ ˜c       S     ±c         Î  $Sp—`˜   $L`    "‘‘ùÁA©K`    Dv              3  3Ä-Ãcø÷Æ-úÄ^øú
-Å-ù˜-ùÅdù-úÄ^øúÅ‹ -Ä3ø«  (Rb„ã‚        y`şÿÿÿ’a^¶  · “”e       P @ @   •c       Ï  $S‰¨`È  hL`0   éQbR‹TÃ   host9%Qc
-,kş   domain  QdVJ°   network-codeı(Qhê¶Óp   no provided or inferred data4Q0úÓ#q%   https://pagead2.googlesyndication.com   4QkÆZt&   https://securepubads.g.doubleclick.net  Y`    Lb            Qf¾¸š»   /pagead/ppub_config $¤a      Qbº7­   ippdCQbºï¿   pppdCQcâÂ¿¶   pppnc   CA'E'I'`QvÆæz€Q   https://pagead2.googlesyndication.com/pagead/managed/js/config_%{sz}__%{ttl}.json   `Qvò®²ÇR   https://securepubads.g.doubleclick.net/pagead/managed/js/config_%{sz}__%{ttl}.json  a
-      Qb†Y#Ó   sz  CQb’åbÏ   ttl C "‘Y']'a      'CK`    DuH             -  Ã-÷ÆµÃ‘Âc÷ö™Â™tÃ-ÂÁd÷öõÅ™tÃ-ÂÁd÷öõ
-Äú˜+ù˜'ø˜# ZÃÁ-À¿ôkôóÀöa÷ö« VÃc÷™$ÃÂc÷öŒ$ÃÂc÷ö(Ã.Â{	%ÀÁ7ôõÁ$¿
-¾cóò7ôõcöôÂ~)Áú5õ ù5õ"ø5õ$d÷öõ&« VÃc÷(™$ÃÂc÷ö*Œ$ÃÂc÷ö,Æ~.)Ã³Á´Àcõô/Á-õ1ÂÀ-ô3À¿-ó5¿`öõôó75÷9¶ÂÁcöõ;5÷=÷ù~?)Ã-  Â-ö@5÷B÷(Ã*ÂdöúùDÂÀõa÷öF«  (Rb„ã‚        }`şÿÿÿ‘a8· $¼ <˜mH       @ @ @ @ Ó`2À @ 0	 €
-€ €Y @ ±c       Ğ  $SÈ¨`J  8L`   @Rb„ã‚        BéUYb$   ¤ÿ ¤ÿ `şÿÿÿa<¼ X¿ ’QeÖßŒ   XMLHttpRequest  $S`•`z   L`    "‘ıK`    Dr            Æ-ú  ŸÆ-ú™Å-ù  ÅÄ-øÄdùøŒÅ-ùÅ-ùÆ_úù
-« (Rb„ã‚        I`şÿÿÿDaÆ¼  ½ }'˜c       @ @ ±c       Ò  Qb2M˜¯   openQb–d¶^   GET Qej{şÈ   withCredentials $S¬¨`   L`    ĞQb4     13  IQdî;ëŒ   responseTextıQcN):   resp:   K`    D˜0             ,ÆÅ-ù  pú›F ÿÿ ÆÅÄdúùø ÿÿZ ÆÅ Ì ÄÃ-÷  mø›Œ	Ä-øÄdúùøŒ3 ÿÿZ ÆÅÄÃ-÷
-ÃÂÁ-õ  :öÂ÷k÷öÃaúù«  (Rb„ã‚         I`şÿÿÿPc      c.onloada´½ ¾ ”•d       @ P   –c         Ó  QcÚMF¯   onload  $SÍPd   	   c.onerror   a[ß  ¡ß  I”–c          Ô  Qc–—`î   onerror QbÊ—lù   sendK`    D´0            … ú%Å-ù Åkùú % úÿY  Åkùú % úÿ[  ÅÄÂ÷aùø úÿI  Å Ä‚ Ãdùø÷™HÄ-ø
-ÅÃ-Â^öÂÁ]ùøÅ3ùÅ‚3ùÅ‚	3ù
-Ä-øÅ^ùø« ” •f      @ P @     –c       Ñ  …'©'Õ'$S`¶  4L`    "‘$S’ Béa!à  /à  I±c        Ö  ù$Sx¨`¨   L`
-   éMa      Kd       )   H     Dx@            %\ÿ÷!  Á-õÂ-À^ôÀl¿`öõôóÆÄÅŒÄÅ¨Ã%\÷¨ù¢ ŒøªŒÆ IÅ û Ädùøú
-«  (Rb„ã‚        I`şÿÿÿDaÒÀ œÁ –˜c       P @ —c       ×  qIQZ^>—   hasAttributeQdr¸³í   data-load-fc9%!'= K`    Dm    (          IÆ ¬ Ådúù  IÆ Å WÄcøÄdúùø RÆúkú³ÅóÄcùøÅ-ù 
-ÆÄ_úùø³ÅóÄcùøÅ-ù ÆÄ_úùøµÆœÅcúù˜bµÆÅcúù™ :Ækúú Œ :Æ‚ ÅúkúùÆ¶ÅÄcùøoú› IÆ Å AÄcøÄdúùø!Œ AÆcú# CÆcú%™-'Æ‚Ä_úø) Æ-+Åcúù- Æ-+Åcúù/µÆŒÅcúù1˜G™?-3ÆÄ_úø5™0tÆ-7Å	Ädúùø9™¸Åùø÷kùø;Å-ù
-=Æ^úù?«   (Rb„ã‚        …`şÿÿÿ’ap¿ ¦Â 8•lA      @ P P @ @  €€  €€     ±c       Õ  ı'($S©¨`  €L`<   8Rb„ã‚        "‘a¤ÿ ¤ÿ ‰`şÿÿÿ‘a¾Â ^È “Qc6v£   fifWin  qQcºŠı>   _loaded_Qdæáÿ 
-   getVersion  QbªÚÓ   cmd •&Rb
- €        ±`¤ÿ =(9QdúÌæ8	   gpt-impl-   é)¤a
-      ÕC}C’“Rb
- €        ”`¤ÿ •Qeæ¿t   getElementById  Qez8Ä   _loadStarted_   µ¡9%5}Qba2   bodyQev-+^   documentElement ™&&$SÍIa~ã  ã  I=(±c          Ù  å(Kh@   ­   ¹   Ù       H  Q
-     D•`             … ö öÿD  Ábõ Æ˜-ú˜ö ˜--ú™ö ŒÅ öÿE  ÁÀ¿dõôó öÿE  ÁÀ öÿO  ¿dõôó öÿE  ÁÀ}
-¿dõôó-˜ öÿS  ÁcõÄ öÿ]  Áôóòøñaõôÿõ öÿ,  ÀbôŒÀ„ôÁ¨õôô öÿ  ÁÀdõô öÿX  Ácõøö³ Á öÿH  ÀcõôÁ 0õ˜i	Á!
-¿-ó À^ôó":õÿõöM ÀöH ¾~$)¼5ğ%öN »bï'5ğ)dòğ+¾dôò-ŒÀ„ôÁ¨õôô-/Á_õ1™
-À3ú3ô-ú5˜˜-ú™-ù7Œ-9Á¿_õó;%Áö) Àcô=3õ?öm ÁÀcõôAÁ3õC-E˜-G˜-I%Á-ù7À-ôKnõMš-ú™ öÿF  Á‚ ¿dõùóNŒÀ-ôPÁ¿_õôóR3ú3öµ Áö ÀcõôT™o-ùVnùX›fö³ Á öÿH  ÀcõôYÁ 0õ[˜!-V› öÿS  Ácõ]Ã›Œ-÷_™)öµ Áö Àcõôa™ö¯ Ácõùc öÿ\  Ádõùøe«”T˜sg      P 0	  € € @ “€ 
-€ 
- €€ @€
- € @  	 
-€     •c       Ø  q($St¨`¤   L`
-   @Rb„ã‚       U ²ë Béb$  ¤   $   I`şÿÿÿDaôÈ ÜÉ QeÚTà´   gpt_exception   Xa{®Gáz„?$SÍIa¶ä  Éä  I(±c        Û  $S<’`0   ]K`    Di              ÿÿ^ ÆÅÄÃaúù «  (Rb„ã‚         I`şÿÿÿDa°É ØÉ –b          —c         Ü  K`    Dw0             … ù%%% ùÿ  ÄÃÂÁøkø÷ Æ ùÿ  Ä‚ Âdøúö ùÿ  Ä‚Âdøúö«–b      @ —c       Ú  ™(¡(`$   DI]c       `   ½ÕñMe}í]­q Á É Ñ Ù á í ù !!i%}%•%M$Qdæå:’   evalScripts E(½%IµÉÑé¤E! ²OÅÑñQc~˜‘“   create  %½¤a       BéGY BéRb
- €         Bé`¤ÿ 1=YIaÁ		 Ò¤	 bú5	 ¢øU	u	 r÷	QbÎæÅ6   es8  QfŠ–¾»   Array.prototype.keys¡	$Qg~Î¶`   Array.prototype.values  Å	©é	QdòóÑæ	   Object.is   
-$QgJ×Ù3   Array.prototype.includes­
-Qb>Zb   es7  ²óÍ
-åí
-Qd†0^û   closure_uid_é)!5=m…¡Œ¤aB      QbR7Šw   areaGQbŠ¬U”   baseGQb"   br  GQbº´   col GQcºR
-;   command GQcöÜõ   embed   GQb^)Ún   hr  GQb†8ì×   img G…GQcæüæ   keygen  GQb"'¥   linkGÕGQcÔÂD   param   GÅGQcò‡ûÙ   track   GQbÚ]%õ   wbr G	] b‘% "‘1May…‘±ÍéQc†ß÷   %{(\w+)}`QvZmªÎQ   ^((https:)?\/\/[0-9a-z.:[\]-]+\/|\/[^/\\]|[^:/\\%]+\/|[^:/\\%]*[?#]|about:blank#)   ,QiJì~ø   ^([^?#]*)(\?[^#]*)?(#[\s\S]*)?  õ=Y) 2ç 2è òçQb:S•>   '   Qb2€áY   \x00Qd¾oAà   [\x00&<>"'] aiq‰•¡øQôÍ;ìì   ^(?:audio\/(?:3gpp2|3gpp|aac|L16|midi|mp3|mp4|mpeg|oga|ogg|opus|x-m4a|x-matroska|x-wav|wav|webm)|font\/\w+|image\/(?:bmp|gif|jpeg|jpg|png|tiff|webp|x-icon)|video\/(?:mpeg|mp4|ogg|webm|quicktime|x-matroska))(?:;\w+=(?:\w+|"[\w;,= ]+"))*$0Qj®ÁE!   ^data:(.*);base64,[a-z0-9+\/]+=*$   <QmJœ®/   ^(?:(?:https?|mailto|ftp):|[^:/?#]*(?:[/?#]|$)) $QgGÑ·   about:invalid#zClosurez "!"I­ÅÑİéñQeRä1{   ^[a-zA-Z0-9-]+$ L¤a"      QcF_n   action  GQb.Ù8   citeGQb2Ì£'   dataGQdÒ'n„
-   formaction  G 2ğGQcZ+Ç2   manifestGQcêA&Ä   poster  G9%GùQdÜõš   trustedTypesQd"4		   emptyHTML    Qfng€ÿ   ^[\w+/_-]+[=]{0,2}$ %-9E)¤a      (‘a
-      AG•G¹ÕQc¢‚æÅ   freeze  !)AUi™±Éáù)E•¥µ¹ÉˆQ„Z‘±z   ^(?:([^:/?#.]+):)?(?:\/\/(?:([^\\/?#]*)@)?([^\\/?#]*?)(?::([0-9]+))?(?=[\\/?#]|$))?([^?#]+)?(?:\?([^#]*))?(?:#([\s\S]*))?$  ñQbî¤êŒ   #|$ =Y}•Íé Qf†ïuÄ   ^(-?[0-9.]{1,30})$  !Aem±½d¤a.      Qb6]   oa  `    QbnüäÓ   na  `   9`   4`   QböÑ#:   la  `   Qb¢çiŸ   ga  `
-   M`   D`   L`   ,`   <`   $•a      X`    \`   P`   ÅÍÙåíõ	)E]Y`    Ma      qy‰©µµEÙ!-5=MYq•¹Åõ%e}•­±¹Á= ÍÙY`    Mb         ’`   L`   ’`    Mc         
-   ’`    Mb         ,¤a      d`     `   $`   ù`
-   •–—!1I©½Y`    Ma      Ñå–`    Ma   
-   –`   L`   –`    Me
-                  ù%=ey¥½Ñé-Y…‘ÁÙù5I¡ÁéIeÕñ!Y`    Ma      )=“`    Ma      I]q“`    Md               “`    Ma      “`    Mc         (   ‰™Áé5am­ÅõM}•¹ÑıY`   M`   Qv™V*  AwfG8hAcHnPa/kJ1Co0EvG/K0F9l1s2JZGiDLt2mhC3QI5Fh4qmsmSwrWObZFbRC9ieDaSLU6lHRxhGUF/i9sgoAAACBeyJvcmlnaW4iOiJodHRwczovL2RvdWJsZWNsaWNrLm5ldDo0NDMiLCJmZWF0dXJlIjoiSW50ZXJlc3RDb2hvcnRBUEkiLCJleHBpcnkiOjE2MjYyMjA3OTksImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9Q>Ú(  AwQ7dCmHkvR6FuOFxAuNnktYSQrGbL4dF+eBkrwNLALc69Wr//PnO1yzns3pjUoCaYbKHtVcnng2hU+8OUm0PAYAAACHeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXN5bmRpY2F0aW9uLmNvbTo0NDMiLCJmZWF0dXJlIjoiSW50ZXJlc3RDb2hvcnRBUEkiLCJleHBpcnkiOjE2MjYyMjA3OTksImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9Q®Ø+U  AysVDPGQTLD/Scn78x4mLwB1tMfje5jwUpAAzGRpWsr1NzoN7MTFhT3ClmImi2svDZA7V6nWGIV8YTPsSRTe0wYAAACHeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXRhZ3NlcnZpY2VzLmNvbTo0NDMiLCJmZWF0dXJlIjoiSW50ZXJlc3RDb2hvcnRBUEkiLCJleHBpcnkiOjE2MjYyMjA3OTksImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9ÅÑQbıó   markQcî   measure M åí % ±1 Y`   M`   QÒè¢ÿ  A3HucHUo1oW9s+9kIKz8mLkbcmdaj5lxt3eiIMp1Nh49dkkBlg1Fhg4Fd/r0vL69mRRA36YutI9P/lJUfL8csQoAAACFeyJvcmlnaW4iOiJodHRwczovL2RvdWJsZWNsaWNrLm5ldDo0NDMiLCJmZWF0dXJlIjoiQ29udmVyc2lvbk1lYXN1cmVtZW50IiwiZXhwaXJ5IjoxNjI2MjIwNzk5LCJpc1N1YmRvbWFpbiI6dHJ1ZSwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ==%Q!Ú ‚›  A0OysezhLoCRYomumeYlubLurZTCmsjTb087OvtCy95jNM65cfEsbajrJnhaGwiTxhz38ZZbm+UhUwQuXfVPTg0AAACLeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXN5bmRpY2F0aW9uLmNvbTo0NDMiLCJmZWF0dXJlIjoiQ29udmVyc2lvbk1lYXN1cmVtZW50IiwiZXhwaXJ5IjoxNjI2MjIwNzk5LCJpc1N1YmRvbWFpbiI6dHJ1ZSwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ==%Q!zĞÖü  AxoOxdZQmIoA1WeAPDixRAeWDdgs7ZtVFfH2y19ziTgD1iaHE5ZGz2UdSjubkWvob9C5PrjUfkWi4ZSLgWk3Xg8AAACLeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXRhZ3NlcnZpY2VzLmNvbTo0NDMiLCJmZWF0dXJlIjoiQ29udmVyc2lvbk1lYXN1cmVtZW50IiwiZXhwaXJ5IjoxNjI2MjIwNzk5LCJpc1N1YmRvbWFpbiI6dHJ1ZSwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ==Qe^]ÿ   gpt/pubads_impl_4Qk¾Jº'   https://securepubads.g.doubleclick.net/ ‰ © µ !I!!™!¥!±!¹!Á!Í!4¤a      #(QhÌ   https://adservice.google.comQd¦ÁDó   issuancePathQcB´˜»   /tt/i   QeVj,Ì   redemptionPath  QcbŸ%1   /tt/r   ù!C"Cé!“ı!”"4‘a      ’,QiŞY|C   https://attestation.android.com Y*Qc5O#   /att/i  a*Qc¾[¬¶   /att/r  “C”C5"Q"Y`   M`
-   üQøÉ­ğ   A88otRz1Fd3Nt567e2IYshC18LL3KGVXpVJW9oTCId4RYaygt23pbb4JqrbdIO/bwZPWEmRjBIRBu/bZbDR7Pg4AAABueyJvcmlnaW4iOiJodHRwczovL2ltYXNkay5nb29nbGVhcGlzLmNvbTo0NDMiLCJmZWF0dXJlIjoiVHJ1c3RUb2tlbnMiLCJleHBpcnkiOjE2MzQwODMxOTksImlzVGhpcmRQYXJ0eSI6dHJ1ZX0=Q	Î1%j   A0gCLbXCcL0R1Oc8tFPDs0G4Elz17w3zHp+Zst66+D17veE2o7fUcPsA114QtSTRqfVJLMeTSdeWOom0CcyCsgYAAAB7eyJvcmlnaW4iOiJodHRwczovL2RvdWJsZWNsaWNrLm5ldDo0NDMiLCJmZWF0dXJlIjoiVHJ1c3RUb2tlbnMiLCJleHBpcnkiOjE2MzQwODMxOTksImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9QB²İ  A9RQ+LxFazAousxUwSCzaihJjHLO1UyjQp0teZKHl7WdbVjPDfHSKMd6D/ZI5MTjqClFycbl70EFd7cBJWXqKQEAAACBeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXRhZ3NlcnZpY2VzLmNvbTo0NDMiLCJmZWF0dXJlIjoiVHJ1c3RUb2tlbnMiLCJleHBpcnkiOjE2MzQwODMxOTksImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9QÂ&È  A6WKeWsdn1Ct+ZPqS9NCxxaiBoQ7wdTkK2/gE69Yu0gfBKJfo1gOvgkGmf5/xaIajT/RUb9AbnF1FsSZ47cCcQcAAACBeyJvcmlnaW4iOiJodHRwczovL2dvb2dsZXN5bmRpY2F0aW9uLmNvbTo0NDMiLCJmZWF0dXJlIjoiVHJ1c3RUb2tlbnMiLCJleHBpcnkiOjE2MzQwODMxOTksImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9	QÒEÄü   A04ZCu7yjrHgwQJK5ISHhH1DSg0qqowEay3n70KO6wV3D2Mj+OX3Kw20aSMitzgdG1xfrN7sOJV/dZIk+RvCzA4AAAB2eyJvcmlnaW4iOiJodHRwczovL2dvb2dsZS5jb206NDQzIiwiZmVhdHVyZSI6IlRydXN0VG9rZW5zIiwiZXhwaXJ5IjoxNjM0MDgzMTk5LCJpc1N1YmRvbWFpbiI6dHJ1ZSwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ==m"á"ù"5#q#¡#­#¹#PQr¾áÃ3A   platform platformVersion architecture model uaFullVersion bitness   ™ rçñ#A$]$u$È¤b`       î  -'`   Xa{®Gáz”?b   ¸  .   Xaü©ñÒMbP?`L   Xaü©ñÒMbP?bt      ,  QeCNŞ   .google.com.gt  `¦  H`ú  H`X  F`ê  ’a      `h  F`ì  Y`    ]`Æ  ’a      `Ä  ”`    ]bğ      È  4QkÆH'   //www.googletagservices.com/pubconsole/ `
-  8Ql¢Ğõö+   //console.googletagservices.com/pubconsole/ `ô  F`ø  F`  F`ö  F`  F`    }$©QcŠGm¹   getTime Qcæ	¹Ù   {{MOD}} ­$Á$Qc~æÆ   _vars_  Õ$İ$-%M%%M&e&m&‰&±&İ&õ&'q'ñ'1(Rb
- €         Bé`¤ÿ ((Kh@   Ç  Ô  ¡     3  \  £     D¥Ø             …  ]å‚ %‚%‚% ‚¾‚%W‚%X‚%Y‚%^‚	%m‚
-	 %‚
- %‚ %"‚ %#‚ %$‚ %%‚ %&‚ %'‚ %(‚ %)‚ %*‚ %M‚ %N‚ %O%ä-ä ™!ä-ä™!ã-ãä^äãä-ä ™!ä-ä™«‚%!
-ä-ä ›!
-ä-äŒ‚%‚ Æcú%"! ›!!ä"ãcäã %%%‚#%	‚$Å!ã‚%â&áaùã'ã‚(â&áaùã‚)%
-‚*%‚+ %‚,!%!
-ä-ä- ›!
-ä-ä-Œ‚."%™!
-ä-ä/ ›!
-ä-ä/ÄŒ6~0 )ÂÁÿäö3õ1!-õ2#ÃŒã„ã3ä¨äããÃ÷™‚4#ŒÄø%‚5$À‚6%%7ã‚8&â&áaùã%9ã‚:'â&áaùã'‚;(%<ã‚=)â&áaùã)>ã‚?*â&áaùã+@ã‚A+â&áaùã-‚B,%Cã‚D-âEáaùã/Fã‚G.â&áaùã1Hã‚I/âEáaùã3Jã‚K0â&áaùã5Lã‚M1â&áaùã7Nã‚O2âPáaùã9Qã‚R3â&áaùã;˜!S=%‚T4%‚U5%Vä!WBâ-âXDã^ãâFH Êš;A   Q @:ä?%%‚Y6%‚Z7%‚[8¿‚\9%‚]:%‚^;%~_H)%!‚`<%""ä-äaIä3äbK"ä-äaIä‚c=3ädM‚e>%#‚f?%$%%%&‚g@%''ä-äaOä3äbQ'ä-äaOä‚hA3ädS'ä-äaOä3äiU'ä-äaOä‚jB3äkW‚lC%('ä-äaOä‚mD3änY‚oE%)‚pF%*zq[%+zr\%,zs] %-‚tG%.%/‚uH%0‚vI%1‚wJ%2zx^%3zy_%4zz`%5z{a%6z|b%7z}c%8z~d %9‚K%:‚€L%;‚M%<<ä-äaeä3äbg<ä-äaeä‚‚N3ädi<ä-äaeä3äik<ä-äaeä‚ƒO3äkm<ä-äaeä‚„P3änoz…q%=z†r%>z‡s%?%@<äˆã@âäkäãt%Aä-ä‰v½™-ñŠx¼™ğ%BŒ‹%B‚ŒQ%CCä-äazä3äi|Cä-äazä‚R3äk~Cä-äazä3äb€Cä-äazä‚S3äd‚Cä-äazä‚T3än„‚U%D‚‘V%Ez’† %F~“‡)%G‚”W%H‚•X%I‚–Y%J%KCäã-ã—ˆ™ã-ã—ˆã-ã˜Š˜‹ãâKáäkäãŒ%L‚™Z%M‚š[%Nz› %O%P%Q‚œ\%R‚]%S‚^%T‚Ÿ_%U"  %V~¡‘%Z‚¢`%[‚£a»!
-ã-ã¤’ä[â}”ácâá•â_äãâ—%_‚¥b%`‚¦c%a‚§d%b‚¨e%c‚©f%d‚ªg%e‚«h%f‚¬i%g‚­j%h‚®k%i‚¯l%j‚°m%k-ïa™ä‚±n3ä²›‚³o%l‚´p%n‚µq%ooä-äaä‚¶r3ä·Ÿoä-äaä‚¸s3ä¹¡‚ºt%pz»£ %q‚¼u%rz½¤ %s‚¾v%t‚¿w%u‚Àx%v‚Áy%w‚Âzãcóã¥%x‚Ã{ãcóã§%y‚Ä|%zzÅ© %{‚Æ}%|‚Ç~º‚Èãcóãª%}‚É€%~‚Ê%‚Ë‚%€‚Ìƒ%2ã-ãÍ¬ä^äã®%‚~Î°)ãcòã±%ƒ~Ï³)ãcòã´%„‚Ğ„%…‚Ñ…%†‚Ò†%‡‚Ó‡%ˆ‚Ôˆ%‰‚Õ‰%Š‚ÖŠ%‹‚×‹¹‚ØŒ¸´ÛMãâíkíã¶%Œ ãâíkíã¸%Ê~•ãâíkíãº%‚Ùä ãäkäã¼% ãìkìã¾%t‘"ãâíkíãÀ%‘ãìkìãÂ%’ Ë ãíkíãÄ%“ ñ ãíkíãÆ%” ‰ã2âìkìãÈ%• qãìkìãÊ%– ğ ãíkíãÌ%— ˆãíkíãÎ%˜ •ãíkíãĞ%™-1ãíkíãÒ%š<ÅOãâíkíãÔ%›}í£ãíkíãÖ%œj+zãíkíãØ% ãìkìãÚ% –ãíkíãÜ%Ÿ‚Ú%  ãdôãïŞ{Ûà%%¡‚Ü%¢¢ãdôãïá‚İ%££ãdôãïã‚Ş‘%¤¤ãdôãïå‚ß’%¥¥ä-äaçä‚à“3äáé¥ä-äaçä‚â”3äãë‚ä•%¦‚å–%§‚æ—%¨‚ç˜%©‚è™%ª‚éš%«‚ê›%¬‚ëœ%­‚ì%®‚í%¯‚îŸ%°®ä-äaíä‚ï 3äğï‚ñ¡%±®ä-äaíä‚ò¢3äóñ‚ô£%²‚õ¤%³‚ö¥%´‚÷¦%µ‚ø§%¶‚ù¨%··ä-äaóä3äiõ·ä-äaóä‚ú©3äû÷‚üª%¸¸ä-äaùä‚ı«3äşû‚ÿ¬%¹%º ‚ ­ %» ‚® %¼¼ãdôãïı {ÿ %%½ { %¾ ~)· -ëÿ%¿ -ëÿ%À -ëÿ%Á ‚¯ %Â ‚	° %Ã ‚
-± %Ä ‚² %Å ‚³ %Æ ‚´ %ÇÇã dôÿãÿïÿ {
-%%È ‚µ %ÉÉã dôÿãÿïÿ ‚¶ %ÊÊã dôÿãÿïÿ {%%Ë {%Ì ‚· %Í ã cîÿãÿê%Î ‚¸ %Ï ‚¹ %Ğ ‚º ã cóÿãÿ%Ñ ‚» %Ò ‚¼ %Ó ‚½ %Ô ‚¾ %Õ ‚¿ %Ö ‚À %× ‚Á %Ø ‚Â %Ù ‚ Ã %Ú ‚!Ä %Û ‚"Å %Ü ‚#Æ %İ ‚$Ç %Ş ‚%È éãé kéÿãÿ %ßãé kéÿãÿ %àãé kéÿãÿ %áãé kéÿãÿ %âãé kéÿãÿ %ããé kéÿãÿ %äãé kéÿãÿ !%åãé kéÿãÿ #%æãé kéÿãÿ %%ç	ãé kéÿãÿ '%è
-ãé kéÿãÿ )%éãé kéÿãÿ +%êãé kéÿãÿ -%ëãé kéÿãÿ /%ìãé kéÿãÿ 1%í ‚&É %î ‚'Ê %ï ‚(Ë %ğ ‚)Ì %ñ ‚*Í %ò ‚+Î %ó ‚,Ï %ô ‚-Ğ %õ ‚.Ñ %ö ‚/Ò %÷ ‚0Ó %øøã dôÿãÿïÿ3øä -äÿa 5ä ‚1Ô  3äÿ27øä -äÿa 5ä ‚3Õ  3äÿ49 {5;%%ù ‚6Ö %úúã dôÿãÿïÿ<úä -äÿa >ä ‚7×  3äÿ4@ {8B%%û ‚9Ø %üüã dôÿãÿïÿC ‚:Ù %ııã dôÿãÿïÿEıä -äÿa Gä ‚;Ú  3äÿ4I {<K%%ş {=L%%ÿ {>M% %  ‚?Û  % ‚@Ü  % ‚Aİ  % ‚BŞ  % ‚Cß  % ‚Dà  % ‚Eá  % ‚Fâ  % ‚Gã  %	 ‚Hä  %
- ‚Iå  % ‚Jæ  % ‚Kç  % ‚Lè  % ‚Mé  % ‚Nê  % ‚Oë  % {PN% % ‚Qì  %ä -äÿRO %  ™5  ä -äÿSQ ™#  ä -äÿTS ™  ä -äÿUUVW % ‚Ví ã cóÿãÿW % ‚Wî  % ‚Xï  % ä -äÿa Yä ‚Yğ  3äÿZ[ ‚[ñ  % {\]% %$ä ]ã cäÿãÿ^ %$ä ^ã cäÿãÿ` % ‚_ò  % ‚`ó  %  ‚aô  %! ‚bõ  %+ +ã·â dôÿãÿâÿb ‚cö  %, ‚d÷  %- ‚eø  %. +ä -äÿa dä ‚fù  3äÿû f ‚gú  %/ ‚hû  %0 ‚iü  %1 %2 %3 }h %4 ‚jı  %5 ~ki)ä ‚lş  5äÿmj ‚nÿ  5äÿolä %6 ‚p  %7 ~qn)ä ‚r 5äÿmo ‚s 5äÿoqä %8 {ts% %9 ‚u %: :ã·â dôÿãÿâÿt ‚v %; ‚w %< ‚x %= ‚y %> ‚z %? ‚{	 %@ ‚|
- %A }ã -ãÿ~vä â _äÿãÿâÿx %B ‚€ %C ‚ %D ‚‚ %E ‚ƒ %F ~„z %G Gäã ‚…âá câÿáÿ{ 6äÿãÿ} Gä1ã !†á káÿúÿ  á -áÿ‡ƒâ ^âÿáÿ… 6äÿãÿ‡ Gä$ã á cîÿáÿ‰ 6äÿãÿ‹ Gä ” ãê 6äÿãÿ Gä İ ã‹á cîÿáÿ 6äÿãÿ‘ Gä ş ã á cîÿáÿ“ 6äÿãÿ• Gä Ì ã|â ˆáÿà dâÿáÿàÿ— 6äÿãÿ™ Gä ã á cîÿáÿ› 6äÿãÿ Gä ã 6äÿãÿŸ ‚‰ %H ‚Š %I Dä bäÿ¡è³ä Hã cäÿãÿ£çä -èÿ‹¥â däÿçÿâÿ§ç 3èÿ‹©ä -äÿ7 «ä käÿúÿ  ­ %J ‚Œ %K ‚ä ‚ã ‚â däÿãÿâÿ¯ %L ‚ %P }± %Q ‚‘ %R ‚’ %S ‚“ %V ‚” %W ‚• %X ‚– %Y ‚— %Z ‚˜ %[ ‚™ %\ ‚š  %] ‚›! %^ÿä !œ²â -âÿ´ã _ãÿâÿ ¶ ™ ææ Œ  Œ ã „ãÿä¨äãã }¸æ ‚Ÿ"äãâæá aäÿãÿ ¹«“5˜1»  #  P ` @ @ P L
-€ € € € À€÷@ ³   @ `Î9'sÎ9@ @ &sP     ÌY 0`0	€€  `N`P L&@ @ @ @ @ @ @ L€€@€@€@€€€9'P L`N€ € € € € €€@€I 0	€€`Î9 €
-€€`@   s2À “&@ “€€€` ` €€` `     `P L ±c          M$A(™$Y`   L`
-   ”`   äL`n   ”`   L`   F`   F”`   M`   FXaš™™™™™¹?”`   La   ªmØ,€F”`    Ma      ”`   La   Â+-€F”`    Ma      ”`   La     €F”`    Ma      ”`   La   
-œ-€F”`    Ma      ”`   La   Ê*+€F”`    Ma      ”`   L`   F`<†-F”`   M`   FXa{®Gáz„?”`   L`   F`³ò-F”`   M`   F`È   ”`   La   ğ  €F”`    Ma      ”`   L`   F`"  F”`   M`   F`(   ”`   L`   F`Ü  F”`   M`   F`'  ”`   La   \R¬-€F”`    Ma      ”`   La   ú¿Ñ,€F”`    Ma      ”`   La   ‚YŒ-€F”`    Ma      ”`   La   8$-€F”`    Ma      ”`   La   bŞ¶,€F”`    Ma      ”`   La
-   (   F”`   L`   ”`   L`   ”`   La      ”`   L`   ”`    Ma      €F`   F`    ”`    Ma      ”`   L`   F`Ø  F”`   M`   FXa{®Gáz„?”`   La   Fá©,€F”`    Ma      ”`   La   ¢Êj(€F”`    Ma      ”`   L`   F`¬  F”`   M`   F`   ”`   L`   F`   F”`   M`   F`şÿÿÿ”`   L`   F`j·›,F”`   M`   F`ÀÔ ”`   La   h·›,€F”`    Ma      ”`   La   $  €F”`    Ma      ”`   La   ”ı*-€F”`    Ma      ”`   L`   F`ê"E,F”`   M`   F`ÀÔ ”`   L`   F`6ƒ„,F”`   M`   FXa-Cëâ6?”`   L`   F`ú-×,F”`   M`   FXa{®Gázd?”`   La   è"E,€F”`    Ma      ”`   La   j  €F”`    Ma      ”`   L`   F`^   F”`   M`   F`   ”`   L`   €F`   ”`   M`   €FQc:·ÒÕ   1-0-38  ”`   La   òÆx,€F”`    Ma      ”`   La   ^—1,€F”`    Ma      ”`   L`   F`¶Òñ*F”`   M`   F`  ”`   L`   F`z   F”`   M`   FXaü©ñÒMbP?”`   La      €F”`    Ma      ”`   La   †#,€F”`    Ma      ”`    L`   F”`   L`   F”`   (M`   Qc*¥   criteo  uQdknô	   indextest   QcŠñY6   openx   Qd¾³ˆv	   openxtest   Qdâ÷Ú·
-   pubcid.org  QcJÛ	«   pubmaticQe>EÅ´   thetradedesktestF`ü  ”`   L`   F`  F”`   M`   F`   ”`   L`   F`   F”`   M`   F`0   ”`   L`   F`  F”`   M`   F`
-   ”`   L`   F`ú  F”`   M`   F`X  ”`   L`   F`ø  F”`   M`   FXaü©ñÒMbP?”`   La   â  €F”`    Ma      ”`   La   0á-€F”`    Ma      ”`   La     €F”`    Ma      ”`   La   ZOş,€F”`    Ma      ”`   La   ¤-€F”`    Ma      ”`   La   2  €F”`    Ma      ”`   La   $  €F”`    Ma      ”`   L`   F`  F”`   M`   F`d   ”`   La   xŠŸ,€F”`    Ma      ”`   La   ÔVô,€F”`    Ma      ”`   (L`   ”`   La      ”`   $L`   ”`   La   Ğ  ”`   L`   ”`   La   4Ñh”`   L`   ”`   La   P  €F”`    Ma      ”`   L`   F`@  F”`   M`   F`p  ”`   L`   F`B  F”`   M`   F`  ”`   La      ”`   L`   ”`    Ma   ˆî³”`   La   Šî³”`   L`   ”`   L`
-   F`  F”`   M`   F`  ”`   L`   ”`   L`   ”`   (La      F`   FÙ”`   M`    QfvM“…   navigator.userAgent ”`   M`   F`è  ”`   L`
-   F`¶Òñ*F”`   M`   F`  ”`   L`   ”`   L`   ”`   (La      F`   F–”`   M`   ‰/”`   M`   F`è  ”`   La   ºÒñ*€F”`    Ma      ”`   L`   F`
-  F”`   M`   F`   ”`   La   (   ”`   L`   ”`    Ma   øß‚”`   La   úß‚”`   L`   ”`   La   –  €F”`    Ma      ”`   (La      F`   ‚F”`   M`   Qd®É¶l   LayoutShift ”`   L`   F”`   L`   ”`    Ma   Şë³”`   La   àë³”`   L`   ”`   La   úÚG-€F”`    Ma      ”`   L`   F`  F”`   M`   F`  ”`   La      ”`   L`   ”`    Ma   tí³”`   La   ví³”`   L`   ”`   La   ¦   €F”`    Ma      ”`   La   ¨   €F”`    Ma      ”`   La   d   ”`   L`   ”`    Ma   D^U”`   La      ”`   L`   ”`   La   FtU”`   L`   ”`   La   (  €F”`    Ma      ”`   La   HtU”`   L`   ”`   La   (  €F”`    ]”`    Ma   Ô{U”`   La   (   ”`   L`   ”`   0La      ”`   L`   ”`    Ma   |í³”`   La   ~í³”`   L`   ”`   La   ªxM-€F”`    Ma      ƒF`’  F`Ì   ”`   La      ”`   L`   ”`   L`   F”`   L`   ”`   La   ¢“T”`   L`   ”`   L`   F`   F”`   M`   F`   ”`   La   bá³P”`   L`   ”`   L`   F`   F”`   M`   FXaš™™™™™Ù?”`   La   ¨  €F”`    Ma      ”`   La   ¨á³P”`   L`   ”`   L`   F`   F”`   M`   F`   ”`   La      ”`   pL`4   ”`   L`   F”`   L`   ”`    Ma   t"U”`    Ma   v"U”`   L`   F”`   L`   ”`    Ma   `á³P”`    Ma   ¤á³P”`    Ma   ¬á³P”`   L`   F”`   L`   ”`    Ma   ~á³P”`    Ma   ˆá³P”`   L`   F”`   L`   ”`   La   r
-  ”`   $L`   ”`   La   š   €F”`    Ma      ”`   La   œ   €F”`    Ma      ”`   La   ª   €F”`    Ma      ”`   La       €F”`    Ma      ”`   La   ˜   €F”`    Ma      ”`   La   ¨   €F”`    Ma      ”`   La   x  €F”`    Ma      ”`   La      ”`   (L`   ”`    Ma   ZÕ‚”`   La   \Õ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   QbÖ÷µ   u_tzF`Ò  ”`   La   ^Õ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   QcÂ¼öÃ   u_his   F`Ò  ”`   La   `Õ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   QbbÓ   u_ahQbªé   u_awF`Ò  ”`   La   bÕ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   QbúÚN   u_cdF`Ò  ”`   La   dÕ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   QcÂùû=   u_nplug F`Ò  ”`   La   fÕ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   QcÊL"Â   u_nmime F`Ò  ”`   La   hÕ‚”`   L`   ”`    L`   F”`   L`   F”`   M`   Qc4å   flash   F`Ò  F`   ”`   La   d   ”`   L`   ”`    Ma   üñ‚”`   La   şñ‚”`   L`   ”`   La   j  €F”`    ]”`   La      ”`   L`   ”`    Ma   œò‚”`   La   ò‚”`   L`   ”`   La   Š  €F”`    Ma      ”`   La   Œ  €F”`    Ma      ”`   La      ”`   L`   ”`    Ma   ¼÷‚”`   La   ¾÷‚”`   L`   ”`   L`   F`Ğ  F”`   M`   FXaš™™™™™¹?”`   La      ”`   L`   ”`    Ma   ~ø‚”`   La   €ø‚”`   L`   ”`   La   Ä   €F”`    Ma      ”`   La   Ğ  ”`   L`   ”`   La   *©F”`   La      ”`   L`   ”`   La      ”`   L`   ”`    Ma      €F`   F`şÿÿÿ”`    Ma      €F`   F`
-   ”`   Ma      F`   ”`   La   ,©F”`   La      ”`   L`   ”`   La      ”`   L`   ”`    Ma      €F`   F`   ”`    Ma      €F`   F`   ”`   Ma      F`   ”`   Ma      F`   ”`   L`   F”`   L`
-   ”`    Ma   Xã³”`   La   Zã³F”`   (La      F`   ‚F”`   M`   4Qk®±o&   window.top.frames.google_ads_top_frame  ”`   La   \ã³F”`   La      ”`   L`   ”`   (La      F`   ‚F”`   M`   !6”`   La   ^ã³F”`   (La      F`   ‚F”`   M`   8QlÖıMÖ+   window.top.frames.google_ads_top_frame_ctrl ”`   La   `ã³F”`   La      ”`   L`   ”`   (La      F`   ‚F”`   M`   e6”`   L`   F”`   L`   ”`    Ma   vã³”`   La   xã³”`   L`   ”`   L`   F`fÖ*F”`   M`   F`   ”`   La   zã³”`   L`   ”`   L`   F`fÖ*F”`   M`   F`   ”`   La   Ğ  ”`   L`   ”`   La   öã³F”`   La      ”`   L`   ”`   La      ”`   L`   ”`   (La      F`   ‚F”`   M`   (QhjuR   window.PeriodicSyncManager  ”`   (La      F`   F–”`   M`   —”`   La      ”`   L`   ”`    Ma   €ä³”`   La   ‚ä³”`   L`   ”`   L`   €F`Kb+”`   M`   €FQ´&¯  AxSG4we7YFgn53zNH6LCBXBKv3Utfzlzc8GYS8daqjDqlkvQnrnTixUci+Se+p4i+jfdB10gdleeb7P4hepBXwUAAACBeyJvcmlnaW4iOiJodHRwczovL3NlY3VyZXB1YmFkcy5nLmRvdWJsZWNsaWNrLm5ldDo0NDMiLCJmZWF0dXJlIjoiU3VicmVzb3VyY2VXZWJCdW5kbGVzIiwiZXhwaXJ5IjoxNjI5ODQ5NTk5LCJpc1RoaXJkUGFydHkiOnRydWV9”`   (La      F`   F Qf
-]lÈ   Chrome/(9\d|\d{3,}) ”`   M`   —”`   La   È   ”`   L`   ”`    Ma   æ³”`   La   æ³”`   L`   ”`   La   ¼Òñ*€F”`    Ma      ”`   (La      F`   ‚F”`   M`   $Qg†mõy   document.interestCohort ”`   La      ”`   L`   ”`    Ma   Fé³”`   La   Hé³”`   L`   ”`   La   Ú  €F”`    Ma      ”`   La   d   ”`   L`   ”`    Ma   xé³”`   La   zé³”`   L`   ”`   La   0Ô9,€F”`    Ma      ”`   L`   F”`   L`   ”`   La   €é³F”`   (La      F`   ‚F”`   M`   ,Qi^®Sà   top.frames.google_ads_top_frame ”`   La   ‚é³”`   L`   ”`   La   ¸Òñ*€F”`    Ma      ”`   (La      F`   ‚F”`   M`   y8”`   La   „é³”`   L`   ”`   La   ,×>,€F”`    Ma      ”`   La   ¸Òñ*€F”`    Ma      ”`   (La      F`   ‚F”`   M`   ’”`   La   Ğ  ”`   L`   ”`   La   é³F”`   (La      F`   ‚F”`   M`   Qc Òg'   31061160”`   La    é³F”`   (La      F`   ‚F”`   M`   Qc¤Òg'   31061161”`   Ma      F`   ”`   La      ”`   L`   ”`    Ma   ¢ê³”`    Ma   ¤ê³”`   La   Ğ  ”`   L`   ”`   La   `ë³F”`   (La      F`   ‚F”`   M`   Qc¸Ög'   31061422”`   La   bë³F”`   (La      F`   ‚F”`   M`   Qc¼Ög'   31061423”`   Ma      F`   ”`   La   d   ”`   L`   ”`    Ma   î³”`   La   î³”`   L`   ”`   La   Ü-€F”`    Ma      F`N   ”`   La      ”`   L`   ”`    Ma   œî³”`   La   î³”`   L`   ”`   L`   F`(µ¶-F”`   M`   F`   ”`   L`   F”`   L`   ”`    Ma    î³”`   La   ¢î³”`   L`   ”`   La   :†-€F”`    Ma      ”`   La   è  ”`   L`   ”`    Ma   ¤î³”`   La   ¦î³”`   L`   ”`   La   p  €F”`    Ma      ”`   La   d   ”`   L`   ”`    Ma   jU”`   La   jU”`   L`   ”`   La   ´  €F”`    Ma      ”`   La   
-   ”`   XL`(   ”`   La   d   ”`   L`   ”`   La   É‚”`   L`   ”`   La   .   €F”`    ]”`   (La      F`   ‚F”`   M`   QcÄÑá   _gmptnl ”`   La   É‚”`   L`   ”`   La   .   €F”`    Ma      ”`   (La      F`   ‚F”`   M`   ;”`   $Ma      F`   F0QjVS˜¾!   today\.line\.me/.+/(main|article)   ”`   La     ”`   L`   ”`   La   8É‚”`   L`   ”`   La   .   €F”`    Ma      ”`   (La      F`   ‚F”`   M`   “”`   $Ma      F`   FM;Y`   La   d   •`   L`   •`   La   ØÑ‚•`   L`   •`   La   .   €F•`    ]•`   (La      F`   ‚F•`   M`   ,QiÖóG]   webkit.messageHandlers._gmptnl  •`   La   ÚÑ‚•`   L`   •`   La   .   €F•`    Ma      •`   (La      F`   ‚F•`   M`   Õ;•`   $Ma      F`   F”•`   La     •`   L`   •`   La   bÓ‚•`   L`   •`   La   .   €F•`    Ma      •`   (La      F`   ‚F•`   M`   –•`   $Ma      F`   F”•`   La   d   •`   L`   •`   La   Là³F•`   La      •`   L`   •`   (La      F`   FÙ•`   M`   ‰/•`   (La      F`   F$Qg6é 4   Chrome/(89|9\d|\d{3,})  •`   M`   •`   (La      F`   ‚F•`   M`   17•`   La   Nà³•`   L`   •`   La     €F•`    Ma      •`   La      •`   L`   •`   (La      F`   F—•`   M`   •`   (La      F`   F™<•`   M`   •`   (La      F`   ‚F•`   M`   ‘•`   La      •`   L`   •`    Ma   €à³•`   La   ‚à³•`   L`   •`   La     €F•`    Ma      •`   La      •`   L`   •`    Ma   ªã³•`   La   ¬ã³•`   L`   •`   La     €F•`    Ma      •`   La   ®ã³•`   L`   •`   La   ¸  €F•`    Ma      F`0   •`   La      •`   L`   •`    Ma   Êæ³•`   La   Ìæ³•`   L`   •`   La    ç+€F•`    Ma      •`   La   Š"º+€F•`    Ma      •`   La      •`   L`   •`    Ma   äç³•`   La   æç³•`   L`   •`   La   ,F €F•`    Ma      •`   La   d   •`   L`   •`    Ma   Pé³•`   La   Ré³•`   L`   •`   La   ğ  €F•`    Ma      •`   L`   F`"  F•`   M`   F`(   •`   La   d   •`   L`   •`    Ma   \ë³•`   La   ^ë³•`   L`   •`   La   üR–+€F•`    Ma      •`   La   ,  •`   L`   •`    Ma   Ôë³•`   La   Öë³•`   L`   •`   L`
-   F`¶Òñ*F•`   M`   F`  •`   L`   •`   L`   •`   (La      F`   F—•`   M`   •`   M`   F`è  •`   La   ºÒñ*€F•`    Ma      •`   L`   F`
-  F•`   M`   F`   •`   La      •`   L`   •`   (La      F`   ‚F•`   M`    Qf’Úd   gmaSdk.getQueryInfo •`   (La      F`   ‚F•`   M`   @QnJ¯ŸQ2   webkit.messageHandlers.getGmaQueryInfo.postMessage  •`   (La      F`   ‚F•`   M`   8Qlúå\&,   webkit.messageHandlers.getGmaSig.postMessage•`   La   È   •`   L`   •`    Ma   "í³•`   La   $í³•`   L`   •`   La    €F•`    Ma      •`   La      •`   L`   •`    Ma   ¤í³•`   La   ¦í³•`   L`   •`   La    €F•`    Ma      •`   La   È   •`   L`   •`    Ma   Ğí³•`   La   Òí³•`   L`   •`   L`   F`vòù,F•`   M`   F` N  •`   La   È   •`   L`   •`    Ma   Zî³•`   La   \î³•`   L`   •`   La   †¬­-€F•`    Ma      •`   La   Ğ  •`   L`   •`   La   èï³•`   L`   •`   L`   F`0   F•`   M`   F`èï³•`   L`   F`2   F•`   M`   F`èï³•`    Ma      €F`   F`   •`   La   êï³•`   L`   •`   L`   F`0   F•`   M`   F`êï³•`   L`   F`2   F•`   M`   F`êï³•`    Ma      €F`   F`   •`   Ma      F`   `   •`   La   Ğ  •`   L`   •`   La   ìï³•`   L`   •`   L`   F`0   F•`   M`   F`ìï³•`   L`   F`2   F•`   M`   F`ìï³•`    Ma      €F`   F`   •`   La   îï³•`   L`   •`   L`   F`0   F•`   M`   F`îï³•`   L`   F`2   F•`   M`   F`îï³•`    Ma      €F`   F`
-   •`   Ma      F`   `   •`   La   Ğ  •`   L`   •`   La   ğï³•`   L`   •`   L`   F`0   F•`   M`   F`ğï³•`   L`   F`2   F•`   M`   F`ğï³•`    Ma      €F`   F`   •`   La   òï³•`   L`   •`   L`   F`0   F•`   M`   F`òï³•`   L`   F`2   F•`   M`   F`òï³•`    Ma      €F`   F`   •`   Ma      F`   `   •`   La   Ğ  •`   L`   •`   La   ôï³•`   L`   •`   L`   F`0   F•`   M`   F`ôï³•`   L`   F`2   F•`   M`   F`ôï³•`    Ma      €F`   F`   •`   La   öï³•`   L`   •`   L`   F`0   F•`   M`   F`öï³•`   L`   F`2   F•`   M`   F`öï³•`    Ma      €F`   F`   •`   Ma      F`   `   •`   La      •`   L`
-   •`   La      •`   L`   •`    Ma   0ç³•`   0La      •`   L`   •`    Ma   2ç³•`    Ma   4ç³…F`Ğ   •`   La   Ğ  •`   L`   •`   La   Jè³F•`   (La      F`   ‚F•`   M`   QcÈÏg'   31060978•`   La   Lè³F•`   (La      F`   ‚F•`   M`   QcÌÏg'   31060979•`   Ma      F`   •`   0La      •`   L`   •`    Ma   Zé³•`   La   \é³•`   L`   •`   L`   F`–¹Y+F•`   M`   F`   •`   La   ^é³•`   L`   •`   L`   F`–¹Y+F•`   M`   F`   ƒF`   F`Ì   •`   La      •`   L`   •`    Ma   ŞpU•`    Ma   àpU•`   La      •`   L`   •`   La   d   •`   L`   •`    Ma   >î³•`   La   @î³•`   L`   •`   La   ê  €F•`    Ma      •`   La      •`   L`   •`   Ma      F`j   •`   (La      F`   FQdbÊk   Chrome/9[01]•`   M`   •`   La   d   •`   L`   •`    Ma   Bî³•`   La   Dî³•`   L`   •`   La   ê  €F•`    Ma      •`   La      •`   L`   •`   Ma      F`j   •`   (La      F`   F(Qh®(b4   Chrome/(9[23456789]|\d{3,}) •`   M`   •`   La      •`    L`   •`   La      •`   L`   •`   La   üß‚F•`   (La      F`   ‚F•`   M`   Qcô¿%   21065725•`   La   şß‚•`   L`   •`   La   à  €F•`    Ma      •`   (La      F`   ‚F•`   M`   ‘D•`   La    à‚•`   L`   •`   La   â  €F•`    Ma      •`   (La      F`   ‚F•`   M`   “•`   (La      F`   ‚F•`   M`   50•`   La   È   •`   L`   •`    Ma   ê‚•`   La    ê‚•`   L`   •`   La   œ   €F•`    Ma      •`   La      •`   L`   •`   (La      F`   ‚F•`   M`   QcìÚg'   31061691•`   La   Ğ  •`   L`   •`    Ma   Ğí‚•`   (La      F`   ‚F•`   M`   $QgªL¢¤   document.hasTrustToken  •`   La      •`   L`   •`   La    ï‚F•`   (La      F`   ‚F•`   M`   “•`   La   "ï‚•`   L`   •`   L`   F`â  F•`   M`   F`<   •`   (La      F`   ‚F•`   M`   “•`   La   $ï‚•`   L`   •`   L`   F`â  F•`   M`   F`x   •`   (La      F`   ‚F•`   M`   “•`   La   &ï‚•`   L`   •`   L`   F`â  F•`   M`   F`ğ   •`   (La      F`   ‚F•`   M`   “•`   (La      F`   ‚F•`   M`   ”•`   La      •`   L`
-   •`   La   € ƒ•`   L`   •`   L`   F`  F•`   M`   F`d   •`   (La      F`   ‚F•`   M`   “•`   La   ‚ ƒ•`   L`   •`   L`   F`  F•`   M`   F`2   •`   (La      F`   ‚F•`   M`   “•`   La   „ ƒ•`   L`   •`   L`   F`  F•`   M`   F`   •`   (La      F`   ‚F•`   M`   “•`   La   † ƒ•`   L`   •`   L`   F`  F•`   M`   F`–   •`   (La      F`   ‚F•`   M`   “•`   La   ˆ ƒ•`   L`   •`   L`   F`  F•`   M`   F`È   •`   (La      F`   ‚F•`   M`   “•`   (La      F`   ‚F•`   M`   ”•`   La   è  •`   L`   •`    Ma   xí³•`   La   zí³•`   L`
-   •`   La   š   €F•`    Ma      •`   La   œ   €F•`    Ma      •`   La   ª   €F•`    Ma      •`   La       €F•`    Ma      •`   La   ˜   €F•`    Ma      •`   (La      F`   ‚F•`   M`   ]E€FY`   ´d   ü©ñÒMbP?     @@K`    Dr(            ‚   Ä-ø Å!Ã-÷™!Ã-÷™!Ã-÷Ã-÷
-Œ!Ã{Â`ùø÷öÆ« Rbˆ`          Ibşÿÿÿ    è# ˜d      P P “   ±c             
-
-
-
-
-
-
-
-
-ØA—Eoúô   ºyø­     ‰<Ÿ£…8•ï¼¨˜=ø!¡{÷°è@mC¸ìAîz³ØA—Eoúô                                                                       

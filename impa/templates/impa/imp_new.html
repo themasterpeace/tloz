@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-=======
 {% extends 'base/base.html' %} 
 <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% block contenido %}
->>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
 <div class="modal-dialog modal_lg" style="max-width: 1120px;" >
     <div class="modal-content">
         {% if obj %}
@@ -154,57 +149,11 @@
         </form>
     </div>
 </div>
-<<<<<<< HEAD
-
-{% block js %}
-<script>
-    function rango()
-    {
-        var numInicia = $("#id_numini")
-        var numFinal = $("#id_numfin")
-        if(numFinal==="" && numFinal===""){
-            return false;
-        }
-
-        var path = "{% url 'api:imp_list' %}" + numInicia;
-        $.ajax({
-            type:"GET",
-            url: path,
-            success: function(r){
-                console.log(r);
-                //console.log(r.existencia);
-                console.log(r.estado);
-
-                if(!r.estado){
-                    mensaje("Rango no existe",'orange');
-                    $("#id_numini").val("");
-                    $("#id_numfin").val("");
-                    $("#id_numfin").focus();
-                    return false;
-                }else{
-                    $("#id_numini").val(r.numini);
-                    $("#id_numfin").val(r.nunfin);
-                    $("#id_numini").focus();
-                }
-            },
-            error: function(a,b,c){
-                console.log(a);
-                if(a.status==404){
-                    mensaje("Rango -" + numini + "- rango ya asignado",'red');
-                    $("#id_numini").val("");
-                    $("#id_numfin").val("");
-                    $("#id_numini").focus();
-                }
-            }
-        }); 
-    }
-=======
 {% endblock %}    
 
 
 {% block js %}
 <script>
->>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     $(".tipo_envio").change(function(){
         buscarProducto(this.id);
     });
@@ -377,12 +326,6 @@
 
         });
     }
-<<<<<<< HEAD
-    $("#id_numfin").change(function(e){
-        rango();
-    });
-=======
->>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     $("#id_codigo_cliente").change(function(e){
         buscarCliente();
     });

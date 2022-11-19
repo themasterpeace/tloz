@@ -6,10 +6,6 @@ from django.shortcuts import get_object_or_404
 
 from .serializers import *
 from link.models import *
-<<<<<<< HEAD
-from impa.models import *
-=======
->>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
 
 from django.db.models import Q
 # Create your views here.
@@ -37,20 +33,4 @@ class ProductoDetalle(APIView):
         prod = get_object_or_404(Tarifario,pk=pk)
         data = ProductoSerializer(prod).data        
         
-<<<<<<< HEAD
-        return Response(data)
-
-class Implist(APIView):
-    def get(self, request):
-        impguias = ImpGuias.objects.all()
-        data = ImpGuiasSerializer(impguias, many=True)
-        return Response(data.data)
-
-class ImpDetalle(APIView):
-    def get(self,request, pk):
-        impguias = get_object_or_404(ImpGuias,pk=pk)
-        data = ImpGuiasSerializer(impguias).data        
-        
-=======
->>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
         return Response(data)

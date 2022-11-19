@@ -1,1967 +1,0 @@
-xItemWidth = 0;
-        this.maxLegendWidth = 0;
-        this.offsetWidth = 0;
-        this.options = {};
-        this.padding = 0;
-        this.pages = [];
-        this.proximate = false;
-        this.scrollGroup = void 0;
-        this.symbolHeight = 0;
-        this.symbolWidth = 0;
-        this.titleHeight = 0;
-        this.totalItemWidth = 0;
-        this.widthOption = 0;
-        this.chart = chart;
-        this.init(chart, options);
-    }
-    /* *
-     *
-     *  Functions
-     *
-     * */
-    /**
-     * Initialize the legend.
-     *
-     * @private
-     * @function Highcharts.Legend#init
-     *
-     * @param {Highcharts.Chart} chart
-     * The chart instance.
-     *
-     * @param {Highcharts.LegendOptions} options
-     * Legend options.
-     */
-    Legend.prototype.init = function (chart, options) {
-        /**
-         * Chart of this legend.
-         *
-         * @readonly
-         * @name Highcharts.Legend#chart
-         * @type {Highcharts.Chart}
-         */
-        this.chart = chart;
-        this.setOptions(options);
-        if (options.enabled) {
-            // Render it
-            this.render();
-            // move checkboxes
-            addEvent(this.chart, 'endResize', function () {
-                this.legend.positionCheckboxes();
-            });
-            if (this.proximate) {
-                this.unchartrender = addEvent(this.chart, 'render', function () {
-                    this.legend.proximatePositions();
-                    this.legend.positionItems();
-                });
-            }
-            else if (this.unchartrender) {
-                this.unchartrender();
-            }
-        }
-    };
-    /**
-     * @private
-     * @function Highcharts.Legend#setOptions
-     * @param {Highcharts.LegendOptions} options
-     */
-    Legend.prototype.setOptions = function (options) {
-        var padding = pick(options.padding, 8);
-        /**
-         * Legend options.
-         *
-         * @readonly
-         * @name Highcharts.Legend#options
-         * @type {Highcharts.LegendOptions}
-         */
-        this.options = options;
-        if (!this.chart.styledMode) {
-            this.itemStyle = options.itemStyle;
-            this.itemHiddenStyle = merge(this.itemStyle, options.itemHiddenStyle);
-        }
-        this.itemMarginTop = options.itemMarginTop || 0;
-        this.itemMarginBottom = options.itemMarginBottom || 0;
-        this.padding = padding;
-        this.initialItemY = padding - 5; // 5 is pixels above the text
-        this.symbolWidth = pick(options.symbolWidth, 16);
-        this.pages = [];
-        this.proximate = options.layout === 'proximate' && !this.chart.inverted;
-        this.baseline = void 0; // #12705: baseline has to be reset on every update
-    };
-    /**
-     * Update the legend with new options. Equivalent to running `chart.update`
-     * with a legend configuration option.
-     *
-     * @sample highcharts/legend/legend-update/
-     *         Legend update
-     *
-     * @function Highcharts.Legend#update
-     *
-     * @param {Highcharts.LegendOptions} options
-     * Legend options.
-     *
-     * @param {boolean} [redraw=true]
-     * Whether to redraw the chart after the axis is altered. If doing more
-     * operations on the chart, it is a good idea to set redraw to false and
-     * call {@link Chart#redraw} after. Whether to redraw the chart.
-     *
-     * @fires Highcharts.Legends#event:afterUpdate
-     */
-    Legend.prototype.update = function (options, redraw) {
-        var chart = this.chart;
-        this.setOptions(merge(true, this.options, options));
-        this.destroy();
-        chart.isDirtyLegend = chart.isDirtyBox = true;
-        if (pick(redraw, true)) {
-            chart.redraw();
-        }
-        fireEvent(this, 'afterUpdate');
-    };
-    /**
-     * Set the colors for the legend item.
-     *
-     * @private
-     * @function Highcharts.Legend#colorizeItem
-     * @param {Highcharts.BubbleLegend|Highcharts.Point|Highcharts.Series} item
-     *        A Series or Point instance
-     * @param {boolean} [visible=false]
-     *        Dimmed or colored
-     *
-     * @todo
-     * Make events official: Fires the event `afterColorizeItem`.
-     */
-    Legend.prototype.colorizeItem = function (item, visible) {
-        item.legendGroup[visible ? 'removeClass' : 'addClass']('highcharts-legend-item-hidden');
-        if (!this.chart.styledMode) {
-            var legend = this, options = legend.options, legendItem = item.legendItem, legendLine = item.legendLine, legendSymbol = item.legendSymbol, hiddenColor = legend.itemHiddenStyle.color, textColor = visible ?
-                options.itemStyle.color :
-                hiddenColor, symbolColor = visible ?
-                (item.color || hiddenColor) :
-                hiddenColor, markerOptions = item.options && item.options.marker, symbolAttr = { fill: symbolColor };
-            if (legendItem) {
-                legendItem.css({
-                    fill: textColor,
-                    color: textColor // #1553, oldIE
-                });
-            }
-            if (legendLine) {
-                legendLine.attr({ stroke: symbolColor });
-            }
-            if (legendSymbol) {
-                // Apply marker options
-                if (markerOptions && legendSymbol.isMarker) { // #585
-                    symbolAttr = item.pointAttribs();
-                    if (!visible) {
-                        // #6769
-                        symbolAttr.stroke = symbolAttr.fill = hiddenColor;
-                    }
-                }
-                legendSymbol.attr(symbolAttr);
-            }
-        }
-        fireEvent(this, 'afterColorizeItem', { item: item, visible: visible });
-    };
-    /**
-     * @private
-     * @function Highcharts.Legend#positionItems
-     */
-    Legend.prototype.positionItems = function () {
-        // Now that the legend width and height are established, put the items
-        // in the final position
-        this.allItems.forEach(this.positionItem, this);
-        if (!this.chart.isResizing) {
-            this.positionCheckboxes();
-        }
-    };
-    /**
-     * Position the legend item.
-     *
-     * @private
-     * @function Highcharts.Legend#positionItem
-     * @param {Highcharts.BubbleLegend|Highcharts.Point|Highcharts.Series} item
-     * The item to position
-     */
-    Legend.prototype.positionItem = function (item) {
-        var _this = this;
-        var legend = this, options = legend.options, symbolPadding = options.symbolPadding, ltr = !options.rtl, legendItemPos = item._legendItemPos, itemX = legendItemPos[0], itemY = legendItemPos[1], checkbox = item.checkbox, legendGroup = item.legendGroup;
-        if (legendGroup && legendGroup.element) {
-            var attribs = {
-                translateX: ltr ?
-                    itemX :
-                    legend.legendWidth - itemX - 2 * symbolPadding - 4,
-                translateY: itemY
-            };
-            var complete = function () {
-                fireEvent(_this, 'afterPositionItem', { item: item });
-            };
-            if (defined(legendGroup.translateY)) {
-                legendGroup.animate(attribs, { complete: complete });
-            }
-            else {
-                legendGroup.attr(attribs);
-                complete();
-            }
-        }
-        if (checkbox) {
-            checkbox.x = itemX;
-            checkbox.y = itemY;
-        }
-    };
-    /**
-     * Destroy a single legend item, used internally on removing series items.
-     *
-     * @private
-     * @function Highcharts.Legend#destroyItem
-     * @param {Highcharts.BubbleLegend|Highcharts.Point|Highcharts.Series} item
-     * The item to remove
-     */
-    Legend.prototype.destroyItem = function (item) {
-        var checkbox = item.checkbox;
-        // destroy SVG elements
-        ['legendItem', 'legendLine', 'legendSymbol', 'legendGroup'].forEach(function (key) {
-            if (item[key]) {
-                item[key] = item[key].destroy();
-            }
-        });
-        if (checkbox) {
-            discardElement(item.checkbox);
-        }
-    };
-    /**
-     * Destroy the legend. Used internally. To reflow objects, `chart.redraw`
-     * must be called after destruction.
-     *
-     * @private
-     * @function Highcharts.Legend#destroy
-     */
-    Legend.prototype.destroy = function () {
-        /**
-         * @private
-         * @param {string} key
-         * @return {void}
-         */
-        function destroyItems(key) {
-            if (this[key]) {
-                this[key] = this[key].destroy();
-            }
-        }
-        // Destroy items
-        this.getAllItems().forEach(function (item) {
-            ['legendItem', 'legendGroup'].forEach(destroyItems, item);
-        });
-        // Destroy legend elements
-        [
-            'clipRect',
-            'up',
-            'down',
-            'pager',
-            'nav',
-            'box',
-            'title',
-            'group'
-        ].forEach(destroyItems, this);
-        this.display = null; // Reset in .render on update.
-    };
-    /**
-     * Position the checkboxes after the width is determined.
-     *
-     * @private
-     * @function Highcharts.Legend#positionCheckboxes
-     */
-    Legend.prototype.positionCheckboxes = function () {
-        var alignAttr = this.group && this.group.alignAttr, translateY, clipHeight = this.clipHeight || this.legendHeight, titleHeight = this.titleHeight;
-        if (alignAttr) {
-            translateY = alignAttr.translateY;
-            this.allItems.forEach(function (item) {
-                var checkbox = item.checkbox, top;
-                if (checkbox) {
-                    top = translateY + titleHeight + checkbox.y +
-                        (this.scrollOffset || 0) + 3;
-                    css(checkbox, {
-                        left: (alignAttr.translateX + item.checkboxOffset +
-                            checkbox.x - 20) + 'px',
-                        top: top + 'px',
-                        display: this.proximate || (top > translateY - 6 &&
-                            top < translateY + clipHeight - 6) ?
-                            '' :
-                            'none'
-                    });
-                }
-            }, this);
-        }
-    };
-    /**
-     * Render the legend title on top of the legend.
-     *
-     * @private
-     * @function Highcharts.Legend#renderTitle
-     */
-    Legend.prototype.renderTitle = function () {
-        var options = this.options, padding = this.padding, titleOptions = options.title, titleHeight = 0, bBox;
-        if (titleOptions.text) {
-            if (!this.title) {
-                /**
-                 * SVG element of the legend title.
-                 *
-                 * @readonly
-                 * @name Highcharts.Legend#title
-                 * @type {Highcharts.SVGElement}
-                 */
-                this.title = this.chart.renderer.label(titleOptions.text, padding - 3, padding - 4, null, null, null, options.useHTML, null, 'legend-title')
-                    .attr({ zIndex: 1 });
-                if (!this.chart.styledMode) {
-                    this.title.css(titleOptions.style);
-                }
-                this.title.add(this.group);
-            }
-            // Set the max title width (#7253)
-            if (!titleOptions.width) {
-                this.title.css({
-                    width: this.maxLegendWidth + 'px'
-                });
-            }
-            bBox = this.title.getBBox();
-            titleHeight = bBox.height;
-            this.offsetWidth = bBox.width; // #1717
-            this.contentGroup.attr({ translateY: titleHeight });
-        }
-        this.titleHeight = titleHeight;
-    };
-    /**
-     * Set the legend item text.
-     *
-     * @function Highcharts.Legend#setText
-     * @param {Highcharts.Point|Highcharts.Series} item
-     *        The item for which to update the text in the legend.
-     */
-    Legend.prototype.setText = function (item) {
-        var options = this.options;
-        item.legendItem.attr({
-            text: options.labelFormat ?
-                format(options.labelFormat, item, this.chart) :
-                options.labelFormatter.call(item)
-        });
-    };
-    /**
-     * Render a single specific legend item. Called internally from the `render`
-     * function.
-     *
-     * @private
-     * @function Highcharts.Legend#renderItem
-     * @param {Highcharts.BubbleLegend|Highcharts.Point|Highcharts.Series} item
-     * The item to render.
-     */
-    Legend.prototype.renderItem = function (item) {
-        var legend = this, chart = legend.chart, renderer = chart.renderer, options = legend.options, horizontal = options.layout === 'horizontal', symbolWidth = legend.symbolWidth, symbolPadding = options.symbolPadding, itemStyle = legend.itemStyle, itemHiddenStyle = legend.itemHiddenStyle, itemDistance = horizontal ? pick(options.itemDistance, 20) : 0, ltr = !options.rtl, bBox, li = item.legendItem, isSeries = !item.series, series = !isSeries && item.series.drawLegendSymbol ?
-            item.series :
-            item, seriesOptions = series.options, showCheckbox = legend.createCheckboxForItem &&
-            seriesOptions &&
-            seriesOptions.showCheckbox, 
-        // full width minus text width
-        itemExtraWidth = symbolWidth + symbolPadding +
-            itemDistance + (showCheckbox ? 20 : 0), useHTML = options.useHTML, itemClassName = item.options.className;
-        if (!li) { // generate it once, later move it
-            // Generate the group box, a group to hold the symbol and text. Text
-            // is to be appended in Legend class.
-            item.legendGroup = renderer
-                .g('legend-item')
-                .addClass('highcharts-' + series.type + '-series ' +
-                'highcharts-color-' + item.colorIndex +
-                (itemClassName ? ' ' + itemClassName : '') +
-                (isSeries ?
-                    ' highcharts-series-' + item.index :
-                    ''))
-                .attr({ zIndex: 1 })
-                .add(legend.scrollGroup);
-            // Generate the list item text and add it to the group
-            item.legendItem = li = renderer.text('', ltr ?
-                symbolWidth + symbolPadding :
-                -symbolPadding, legend.baseline || 0, useHTML);
-            if (!chart.styledMode) {
-                // merge to prevent modifying original (#1021)
-                li.css(merge(item.visible ?
-                    itemStyle :
-                    itemHiddenStyle));
-            }
-            li
-                .attr({
-                align: ltr ? 'left' : 'right',
-                zIndex: 2
-            })
-                .add(item.legendGroup);
-            // Get the baseline for the first item - the font size is equal for
-            // all
-            if (!legend.baseline) {
-                legend.fontMetrics = renderer.fontMetrics(chart.styledMode ? 12 : itemStyle.fontSize, li);
-                legend.baseline =
-                    legend.fontMetrics.f + 3 + legend.itemMarginTop;
-                li.attr('y', legend.baseline);
-            }
-            // Draw the legend symbol inside the group box
-            legend.symbolHeight =
-                options.symbolHeight || legend.fontMetrics.f;
-            series.drawLegendSymbol(legend, item);
-            if (legend.setItemEvents) {
-                legend.setItemEvents(item, li, useHTML);
-            }
-        }
-        // Add the HTML checkbox on top
-        if (showCheckbox && !item.checkbox && legend.createCheckboxForItem) {
-            legend.createCheckboxForItem(item);
-        }
-        // Colorize the items
-        legend.colorizeItem(item, item.visible);
-        // Take care of max width and text overflow (#6659)
-        if (chart.styledMode || !itemStyle.width) {
-            li.css({
-                width: ((options.itemWidth ||
-                    legend.widthOption ||
-                    chart.spacingBox.width) - itemExtraWidth) + 'px'
-            });
-        }
-        // Always update the text
-        legend.setText(item);
-        // calculate the positions for the next line
-        bBox = li.getBBox();
-        item.itemWidth = item.checkboxOffset =
-            options.itemWidth ||
-                item.legendItemWidth ||
-                bBox.width + itemExtraWidth;
-        legend.maxItemWidth = Math.max(legend.maxItemWidth, item.itemWidth);
-        legend.totalItemWidth += item.itemWidth;
-        legend.itemHeight = item.itemHeight = Math.round(item.legendItemHeight || bBox.height || legend.symbolHeight);
-    };
-    /**
-     * Get the position of the item in the layout. We now know the
-     * maxItemWidth from the previous loop.
-     *
-     * @private
-     * @function Highcharts.Legend#layoutItem
-     * @param {Highcharts.BubbleLegend|Highcharts.Point|Highcharts.Series} item
-     */
-    Legend.prototype.layoutItem = function (item) {
-        var options = this.options, padding = this.padding, horizontal = options.layout === 'horizontal', itemHeight = item.itemHeight, itemMarginBottom = this.itemMarginBottom, itemMarginTop = this.itemMarginTop, itemDistance = horizontal ? pick(options.itemDistance, 20) : 0, maxLegendWidth = this.maxLegendWidth, itemWidth = (options.alignColumns &&
-            this.totalItemWidth > maxLegendWidth) ?
-            this.maxItemWidth :
-            item.itemWidth;
-        // If the item exceeds the width, start a new line
-        if (horizontal &&
-            this.itemX - padding + itemWidth > maxLegendWidth) {
-            this.itemX = padding;
-            if (this.lastLineHeight) { // Not for the first line (#10167)
-                this.itemY += (itemMarginTop +
-                    this.lastLineHeight +
-                    itemMarginBottom);
-            }
-            this.lastLineHeight = 0; // reset for next line (#915, #3976)
-        }
-        // Set the edge positions
-        this.lastItemY = itemMarginTop + this.itemY + itemMarginBottom;
-        this.lastLineHeight = Math.max(// #915
-        itemHeight, this.lastLineHeight);
-        // cache the position of the newly generated or reordered items
-        item._legendItemPos = [this.itemX, this.itemY];
-        // advance
-        if (horizontal) {
-            this.itemX += itemWidth;
-        }
-        else {
-            this.itemY +=
-                itemMarginTop + itemHeight + itemMarginBottom;
-            this.lastLineHeight = itemHeight;
-        }
-        // the width of the widest item
-        this.offsetWidth = this.widthOption || Math.max((horizontal ? this.itemX - padding - (item.checkbox ?
-            // decrease by itemDistance only when no checkbox #4853
-            0 :
-            itemDistance) : itemWidth) + padding, this.offsetWidth);
-    };
-    /**
-     * Get all items, which is one item per series for most series and one
-     * item per point for pie series and its derivatives. Fires the event
-     * `afterGetAllItems`.
-     *
-     * @private
-     * @function Highcharts.Legend#getAllItems
-     * @return {Array<(Highcharts.BubbleLegend|Highcharts.Point|Highcharts.Series)>}
-     * The current items in the legend.
-     * @fires Highcharts.Legend#event:afterGetAllItems
-     */
-    Legend.prototype.getAllItems = function () {
-        var allItems = [];
-        this.chart.series.forEach(function (series) {
-            var seriesOptions = series && series.options;
-            // Handle showInLegend. If the series is linked to another series,
-            // defaults to false.
-            if (series && pick(seriesOptions.showInLegend, !defined(seriesOptions.linkedTo) ? void 0 : false, true)) {
-                // Use points or series for the legend item depending on
-                // legendType
-                allItems = allItems.concat(series.legendItems ||
-                    (seriesOptions.legendType === 'point' ?
-                        series.data :
-                        series));
-            }
-        });
-        fireEvent(this, 'afterGetAllItems', { allItems: allItems });
-        return allItems;
-    };
-    /**
-     * Get a short, three letter string reflecting the alignment and layout.
-     *
-     * @private
-     * @function Highcharts.Legend#getAlignment
-     * @return {string}
-     * The alignment, empty string if floating
-     */
-    Legend.prototype.getAlignment = function () {
-        var options = this.options;
-        // Use the first letter of each alignment option in order to detect
-        // the side. (#4189 - use charAt(x) notation instead of [x] for IE7)
-        if (this.proximate) {
-            return options.align.charAt(0) + 'tv';
-        }
-        return options.floating ? '' : (options.align.charAt(0) +
-            options.verticalAlign.charAt(0) +
-            options.layout.charAt(0));
-    };
-    /**
-     * Adjust the chart margins by reserving space for the legend on only one
-     * side of the chart. If the position is set to a corner, top or bottom is
-     * reserved for horizontal legends and left or right for vertical ones.
-     *
-     * @private
-     * @function Highcharts.Legend#adjustMargins
-     * @param {Array<number>} margin
-     * @param {Array<number>} spacing
-     */
-    Legend.prototype.adjustMargins = function (margin, spacing) {
-        var chart = this.chart, options = this.options, alignment = this.getAlignment();
-        if (alignment) {
-            ([
-                /(lth|ct|rth)/,
-                /(rtv|rm|rbv)/,
-                /(rbh|cb|lbh)/,
-                /(lbv|lm|ltv)/
-            ]).forEach(function (alignments, side) {
-                if (alignments.test(alignment) && !defined(margin[side])) {
-                    // Now we have detected on which side of the chart we should
-                    // reserve space for the legend
-                    chart[marginNames[side]] = Math.max(chart[marginNames[side]], (chart.legend[(side + 1) % 2 ? 'legendHeight' : 'legendWidth'] +
-                        [1, -1, -1, 1][side] * options[(side % 2) ? 'x' : 'y'] +
-                        pick(options.margin, 12) +
-                        spacing[side] +
-                        (chart.titleOffset[side] || 0)));
-                }
-            });
-        }
-    };
-    /**
-     * @private
-     * @function Highcharts.Legend#proximatePositions
-     */
-    Legend.prototype.proximatePositions = function () {
-        var chart = this.chart, boxes = [], alignLeft = this.options.align === 'left';
-        this.allItems.forEach(function (item) {
-            var lastPoint, height, useFirstPoint = alignLeft, target, top;
-            if (item.yAxis && item.points) {
-                if (item.xAxis.options.reversed) {
-                    useFirstPoint = !useFirstPoint;
-                }
-                lastPoint = find(useFirstPoint ?
-                    item.points :
-                    item.points.slice(0).reverse(), function (item) {
-                    return isNumber(item.plotY);
-                });
-                height = this.itemMarginTop +
-                    item.legendItem.getBBox().height +
-                    this.itemMarginBottom;
-                top = item.yAxis.top - chart.plotTop;
-                if (item.visible) {
-                    target = lastPoint ?
-                        lastPoint.plotY :
-                        item.yAxis.height;
-                    target += top - 0.3 * height;
-                }
-                else {
-                    target = top + item.yAxis.height;
-                }
-                boxes.push({
-                    target: target,
-                    size: height,
-                    item: item
-                });
-            }
-        }, this);
-        H.distribute(boxes, chart.plotHeight);
-        boxes.forEach(function (box) {
-            box.item._legendItemPos[1] =
-                chart.plotTop - chart.spacing[0] + box.pos;
-        });
-    };
-    /**
-     * Render the legend. This method can be called both before and after
-     * `chart.render`. If called after, it will only rearrange items instead
-     * of creating new ones. Called internally on initial render and after
-     * redraws.
-     *
-     * @private
-     * @function Highcharts.Legend#render
-     */
-    Legend.prototype.render = function () {
-        var legend = this, chart = legend.chart, renderer = chart.renderer, legendGroup = legend.group, allItems, display, legendWidth, legendHeight, box = legend.box, options = legend.options, padding = legend.padding, allowedWidth;
-        legend.itemX = padding;
-        legend.itemY = legend.initialItemY;
-        legend.offsetWidth = 0;
-        legend.lastItemY = 0;
-        legend.widthOption = relativeLength(options.width, chart.spacingBox.width - padding);
-        // Compute how wide the legend is allowed to be
-        allowedWidth =
-            chart.spacingBox.width - 2 * padding - options.x;
-        if (['rm', 'lm'].indexOf(legend.getAlignment().substring(0, 2)) > -1) {
-            allowedWidth /= 2;
-        }
-        legend.maxLegendWidth = legend.widthOption || allowedWidth;
-        if (!legendGroup) {
-            /**
-             * SVG group of the legend.
-             *
-             * @readonly
-             * @name Highcharts.Legend#group
-             * @type {Highcharts.SVGElement}
-             */
-            legend.group = legendGroup = renderer.g('legend')
-                .attr({ zIndex: 7 })
-                .add();
-            legend.contentGroup = renderer.g()
-                .attr({ zIndex: 1 }) // above background
-                .add(legendGroup);
-            legend.scrollGroup = renderer.g()
-                .add(legend.contentGroup);
-        }
-        legend.renderTitle();
-        // add each series or point
-        allItems = legend.getAllItems();
-        // sort by legendIndex
-        stableSort(allItems, function (a, b) {
-            return ((a.options && a.options.legendIndex) || 0) -
-                ((b.options && b.options.legendIndex) || 0);
-        });
-        // reversed legend
-        if (options.reversed) {
-            allItems.reverse();
-        }
-        /**
-         * All items for the legend, which is an array of series for most series
-         * and an array of points for pie series and its derivatives.
-         *
-         * @readonly
-         * @name Highcharts.Legend#allItems
-         * @type {Array<(Highcharts.Point|Highcharts.Series)>}
-         */
-        legend.allItems = allItems;
-        legend.display = display = !!allItems.length;
-        // Render the items. First we run a loop to set the text and properties
-        // and read all the bounding boxes. The next loop computes the item
-        // positions based on the bounding boxes.
-        legend.lastLineHeight = 0;
-        legend.maxItemWidth = 0;
-        legend.totalItemWidth = 0;
-        legend.itemHeight = 0;
-        allItems.forEach(legend.renderItem, legend);
-        allItems.forEach(legend.layoutItem, legend);
-        // Get the box
-        legendWidth = (legend.widthOption || legend.offsetWidth) + padding;
-        legendHeight = legend.lastItemY + legend.lastLineHeight +
-            legend.titleHeight;
-        legendHeight = legend.handleOverflow(legendHeight);
-        legendHeight += padding;
-        // Draw the border and/or background
-        if (!box) {
-            /**
-             * SVG element of the legend box.
-             *
-             * @readonly
-             * @name Highcharts.Legend#box
-             * @type {Highcharts.SVGElement}
-             */
-            legend.box = box = renderer.rect()
-                .addClass('highcharts-legend-box')
-                .attr({
-                r: options.borderRadius
-            })
-                .add(legendGroup);
-            box.isNew = true;
-        }
-        // Presentational
-        if (!chart.styledMode) {
-            box
-                .attr({
-                stroke: options.borderColor,
-                'stroke-width': options.borderWidth || 0,
-                fill: options.backgroundColor || 'none'
-            })
-                .shadow(options.shadow);
-        }
-        if (legendWidth > 0 && legendHeight > 0) {
-            box[box.isNew ? 'attr' : 'animate'](box.crisp.call({}, {
-                x: 0,
-                y: 0,
-                width: legendWidth,
-                height: legendHeight
-            }, box.strokeWidth()));
-            box.isNew = false;
-        }
-        // hide the border if no items
-        box[display ? 'show' : 'hide']();
-        // Open for responsiveness
-        if (chart.styledMode && legendGroup.getStyle('display') === 'none') {
-            legendWidth = legendHeight = 0;
-        }
-        legend.legendWidth = legendWidth;
-        legend.legendHeight = legendHeight;
-        if (display) {
-            legend.align();
-        }
-        if (!this.proximate) {
-            this.positionItems();
-        }
-        fireEvent(this, 'afterRender');
-    };
-    /**
-     * Align the legend to chart's box.
-     *
-     * @private
-     * @function Highcharts.align
-     * @param {Highcharts.BBoxObject} alignTo
-     * @return {void}
-     */
-    Legend.prototype.align = function (alignTo) {
-        if (alignTo === void 0) { alignTo = this.chart.spacingBox; }
-        var chart = this.chart, options = this.options;
-        // If aligning to the top and the layout is horizontal, adjust for
-        // the title (#7428)
-        var y = alignTo.y;
-        if (/(lth|ct|rth)/.test(this.getAlignment()) &&
-            chart.titleOffset[0] > 0) {
-            y += chart.titleOffset[0];
-        }
-        else if (/(lbh|cb|rbh)/.test(this.getAlignment()) &&
-            chart.titleOffset[2] > 0) {
-            y -= chart.titleOffset[2];
-        }
-        if (y !== alignTo.y) {
-            alignTo = merge(alignTo, { y: y });
-        }
-        this.group.align(merge(options, {
-            width: this.legendWidth,
-            height: this.legendHeight,
-            verticalAlign: this.proximate ? 'top' : options.verticalAlign
-        }), true, alignTo);
-    };
-    /**
-     * Set up the overflow handling by adding navigation with up and down arrows
-     * below the legend.
-     *
-     * @private
-     * @function Highcharts.Legend#handleOverflow
-     * @param {number} legendHeight
-     * @return {number}
-     */
-    Legend.prototype.handleOverflow = function (legendHeight) {
-        var legend = this, chart = this.chart, renderer = chart.renderer, options = this.options, optionsY = options.y, alignTop = options.verticalAlign === 'top', padding = this.padding, spaceHeight = (chart.spacingBox.height +
-            (alignTop ? -optionsY : optionsY) - padding), maxHeight = options.maxHeight, clipHeight, clipRect = this.clipRect, navOptions = options.navigation, animation = pick(navOptions.animation, true), arrowSize = navOptions.arrowSize || 12, nav = this.nav, pages = this.pages, lastY, allItems = this.allItems, clipToHeight = function (height) {
-            if (typeof height === 'number') {
-                clipRect.attr({
-                    height: height
-                });
-            }
-            else if (clipRect) { // Reset (#5912)
-                legend.clipRect = clipRect.destroy();
-                legend.contentGroup.clip();
-            }
-            // useHTML
-            if (legend.contentGroup.div) {
-                legend.contentGroup.div.style.clip = height ?
-                    'rect(' + padding + 'px,9999px,' +
-                        (padding + height) + 'px,0)' :
-                    'auto';
-            }
-        }, addTracker = function (key) {
-            legend[key] = renderer
-                .circle(0, 0, arrowSize * 1.3)
-                .translate(arrowSize / 2, arrowSize / 2)
-                .add(nav);
-            if (!chart.styledMode) {
-                legend[key].attr('fill', 'rgba(0,0,0,0.0001)');
-            }
-            return legend[key];
-        };
-        // Adjust the height
-        if (options.layout === 'horizontal' &&
-            options.verticalAlign !== 'middle' &&
-            !options.floating) {
-            spaceHeight /= 2;
-        }
-        if (maxHeight) {
-            spaceHeight = Math.min(spaceHeight, maxHeight);
-        }
-        // Reset the legend height and adjust the clipping rectangle
-        pages.length = 0;
-        if (legendHeight > spaceHeight &&
-            navOptions.enabled !== false) {
-            this.clipHeight = clipHeight =
-                Math.max(spaceHeight - 20 - this.titleHeight - padding, 0);
-            this.currentPage = pick(this.currentPage, 1);
-            this.fullHeight = legendHeight;
-            // Fill pages with Y positions so that the top of each a legend item
-            // defines the scroll top for each page (#2098)
-            allItems.forEach(function (item, i) {
-                var y = item._legendItemPos[1], h = Math.round(item.legendItem.getBBox().height), len = pages.length;
-                if (!len || (y - pages[len - 1] > clipHeight &&
-                    (lastY || y) !== pages[len - 1])) {
-                    pages.push(lastY || y);
-                    len++;
-                }
-                // Keep track of which page each item is on
-                item.pageIx = len - 1;
-                if (lastY) {
-                    allItems[i - 1].pageIx = len - 1;
-                }
-                if (i === allItems.length - 1 &&
-                    y + h - pages[len - 1] > clipHeight &&
-                    y !== lastY // #2617
-                ) {
-                    pages.push(y);
-                    item.pageIx = len;
-                }
-                if (y !== lastY) {
-                    lastY = y;
-                }
-            });
-            // Only apply clipping if needed. Clipping causes blurred legend in
-            // PDF export (#1787)
-            if (!clipRect) {
-                clipRect = legend.clipRect =
-                    renderer.clipRect(0, padding, 9999, 0);
-                legend.contentGroup.clip(clipRect);
-            }
-            clipToHeight(clipHeight);
-            // Add navigation elements
-            if (!nav) {
-                this.nav = nav = renderer.g()
-                    .attr({ zIndex: 1 })
-                    .add(this.group);
-                this.up = renderer
-                    .symbol('triangle', 0, 0, arrowSize, arrowSize)
-                    .add(nav);
-                addTracker('upTracker')
-                    .on('click', function () {
-                    legend.scroll(-1, animation);
-                });
-                this.pager = renderer.text('', 15, 10)
-                    .addClass('highcharts-legend-navigation');
-                if (!chart.styledMode) {
-                    this.pager.css(navOptions.style);
-                }
-                this.pager.add(nav);
-                this.down = renderer
-                    .symbol('triangle-down', 0, 0, arrowSize, arrowSize)
-                    .add(nav);
-                addTracker('downTracker')
-                    .on('click', function () {
-                    legend.scroll(1, animation);
-                });
-            }
-            // Set initial position
-            legend.scroll(0);
-            legendHeight = spaceHeight;
-            // Reset
-        }
-        else if (nav) {
-            clipToHeight();
-            this.nav = nav.destroy(); // #6322
-            this.scrollGroup.attr({
-                translateY: 1
-            });
-            this.clipHeight = 0; // #1379
-        }
-        return legendHeight;
-    };
-    /**
-     * Scroll the legend by a number of pages.
-     *
-     * @private
-     * @function Highcharts.Legend#scroll
-     *
-     * @param {number} scrollBy
-     *        The number of pages to scroll.
-     *
-     * @param {boolean|Highcharts.AnimationOptionsObject} [animation]
-     *        Whether and how to apply animation.
-     *
-     * @return {void}
-     */
-    Legend.prototype.scroll = function (scrollBy, animation) {
-        var _this = this;
-        var chart = this.chart, pages = this.pages, pageCount = pages.length, currentPage = this.currentPage + scrollBy, clipHeight = this.clipHeight, navOptions = this.options.navigation, pager = this.pager, padding = this.padding;
-        // When resizing while looking at the last page
-        if (currentPage > pageCount) {
-            currentPage = pageCount;
-        }
-        if (currentPage > 0) {
-            if (typeof animation !== 'undefined') {
-                setAnimation(animation, chart);
-            }
-            this.nav.attr({
-                translateX: padding,
-                translateY: clipHeight + this.padding + 7 + this.titleHeight,
-                visibility: 'visible'
-            });
-            [this.up, this.upTracker].forEach(function (elem) {
-                elem.attr({
-                    'class': currentPage === 1 ?
-                        'highcharts-legend-nav-inactive' :
-                        'highcharts-legend-nav-active'
-                });
-            });
-            pager.attr({
-                text: currentPage + '/' + pageCount
-            });
-            [this.down, this.downTracker].forEach(function (elem) {
-                elem.attr({
-                    // adjust to text width
-                    x: 18 + this.pager.getBBox().width,
-                    'class': currentPage === pageCount ?
-                        'highcharts-legend-nav-inactive' :
-                        'highcharts-legend-nav-active'
-                });
-            }, this);
-            if (!chart.styledMode) {
-                this.up
-                    .attr({
-                    fill: currentPage === 1 ?
-                        navOptions.inactiveColor :
-                        navOptions.activeColor
-                });
-                this.upTracker
-                    .css({
-                    cursor: currentPage === 1 ? 'default' : 'pointer'
-                });
-                this.down
-                    .attr({
-                    fill: currentPage === pageCount ?
-                        navOptions.inactiveColor :
-                        navOptions.activeColor
-                });
-                this.downTracker
-                    .css({
-                    cursor: currentPage === pageCount ?
-                        'default' :
-                        'pointer'
-                });
-            }
-            this.scrollOffset = -pages[currentPage - 1] + this.initialItemY;
-            this.scrollGroup.animate({
-                translateY: this.scrollOffset
-            });
-            this.currentPage = currentPage;
-            this.positionCheckboxes();
-            // Fire event after scroll animation is complete
-            var animOptions = animObject(pick(animation, chart.renderer.globalAnimation, true));
-            syncTimeout(function () {
-                fireEvent(_this, 'afterScroll', { currentPage: currentPage });
-            }, animOptions.duration || 0);
-        }
-    };
-    return Legend;
-}());
-// Workaround for #2030, horizontal legend items not displaying in IE11 Preview,
-// and for #2580, a similar drawing flaw in Firefox 26.
-// Explore if there's a general cause for this. The problem may be related
-// to nested group elements, as the legend item texts are within 4 group
-// elements.
-if (/Trident\/7\.0/.test(win.navigator && win.navigator.userAgent) ||
-    isFirefox) {
-    wrap(Legend.prototype, 'positionItem', function (proceed, item) {
-        var legend = this, 
-        // If chart destroyed in sync, this is undefined (#2030)
-        runPositionItem = function () {
-            if (item._legendItemPos) {
-                proceed.call(legend, item);
-            }
-        };
-        // Do it now, for export and to get checkbox placement
-        runPositionItem();
-        // Do it after to work around the core issue
-        if (!legend.bubbleLegend) {
-            setTimeout(runPositionItem);
-        }
-    });
-}
-H.Legend = Legend;
-export default H.Legend;
-                                                                                                                                                                                                                                                                es, fixedMin, fixedMax, ext;
-        if (
-        // MouseUp is called for both, navigator and scrollbar (that order),
-        // which causes calling afterSetExtremes twice. Prevent first call
-        // by checking if scrollbar is going to set new extremes (#6334)
-        (navigator.hasDragged && (!scrollbar || !scrollbar.hasDragged)) ||
-            e.trigger === 'scrollbar') {
-            unionExtremes = navigator.getUnionExtremes();
-            // When dragging one handle, make sure the other one doesn't change
-            if (navigator.zoomedMin === navigator.otherHandlePos) {
-                fixedMin = navigator.fixedExtreme;
-            }
-            else if (navigator.zoomedMax === navigator.otherHandlePos) {
-                fixedMax = navigator.fixedExtreme;
-            }
-            // Snap to right edge (#4076)
-            if (navigator.zoomedMax === navigator.size) {
-                fixedMax = navigator.reversedExtremes ?
-                    unionExtremes.dataMin :
-                    unionExtremes.dataMax;
-            }
-            // Snap to left edge (#7576)
-            if (navigator.zoomedMin === 0) {
-                fixedMin = navigator.reversedExtremes ?
-                    unionExtremes.dataMax :
-                    unionExtremes.dataMin;
-            }
-            ext = xAxis.navigatorAxis.toFixedRange(navigator.zoomedMin, navigator.zoomedMax, fixedMin, fixedMax);
-            if (defined(ext.min)) {
-                chart.xAxis[0].setExtremes(Math.min(ext.min, ext.max), Math.max(ext.min, ext.max), true, 
-                // Run animation when clicking buttons, scrollbar track etc,
-                // but not when dragging handles or scrollbar
-                navigator.hasDragged ? false : null, {
-                    trigger: 'navigator',
-                    triggerOp: 'navigator-drag',
-                    DOMEvent: DOMEvent // #1838
-                });
-            }
-        }
-        if (e.DOMType !== 'mousemove' &&
-            e.DOMType !== 'touchmove') {
-            navigator.grabbedLeft = navigator.grabbedRight =
-                navigator.grabbedCenter = navigator.fixedWidth =
-                    navigator.fixedExtreme = navigator.otherHandlePos =
-                        navigator.hasDragged = navigator.dragOffset = null;
-        }
-        // Update position of navigator shades, outline and handles (#12573)
-        if (navigator.navigatorEnabled) {
-            if (navigator.shades) {
-                navigator.drawMasks(zoomedMin, zoomedMax, inverted, verb);
-            }
-            if (navigator.outline) {
-                navigator.drawOutline(zoomedMin, zoomedMax, inverted, verb);
-            }
-            if (navigator.navigatorOptions.handles.enabled &&
-                Object.keys(navigator.handles).length ===
-                    navigator.handles.length) {
-                navigator.drawHandle(zoomedMin, 0, inverted, verb);
-                navigator.drawHandle(zoomedMax, 1, inverted, verb);
-            }
-        }
-    };
-    /**
-     * Removes the event handlers attached previously with addEvents.
-     *
-     * @private
-     * @function Highcharts.Navigator#removeEvents
-     * @return {void}
-     */
-    Navigator.prototype.removeEvents = function () {
-        if (this.eventsToUnbind) {
-            this.eventsToUnbind.forEach(function (unbind) {
-                unbind();
-            });
-            this.eventsToUnbind = void 0;
-        }
-        this.removeBaseSeriesEvents();
-    };
-    /**
-     * Remove data events.
-     *
-     * @private
-     * @function Highcharts.Navigator#removeBaseSeriesEvents
-     * @return {void}
-     */
-    Navigator.prototype.removeBaseSeriesEvents = function () {
-        var baseSeries = this.baseSeries || [];
-        if (this.navigatorEnabled && baseSeries[0]) {
-            if (this.navigatorOptions.adaptToUpdatedData !== false) {
-                baseSeries.forEach(function (series) {
-                    removeEvent(series, 'updatedData', this.updatedDataHandler);
-                }, this);
-            }
-            // We only listen for extremes-events on the first baseSeries
-            if (baseSeries[0].xAxis) {
-                removeEvent(baseSeries[0].xAxis, 'foundExtremes', this.modifyBaseAxisExtremes);
-            }
-        }
-    };
-    /**
-     * Initialize the Navigator object
-     *
-     * @private
-     * @function Highcharts.Navigator#init
-     *
-     * @param {Highcharts.Chart} chart
-     */
-    Navigator.prototype.init = function (chart) {
-        var chartOptions = chart.options, navigatorOptions = chartOptions.navigator, navigatorEnabled = navigatorOptions.enabled, scrollbarOptions = chartOptions.scrollbar, scrollbarEnabled = scrollbarOptions.enabled, height = navigatorEnabled ? navigatorOptions.height : 0, scrollbarHeight = scrollbarEnabled ?
-            scrollbarOptions.height :
-            0;
-        this.handles = [];
-        this.shades = [];
-        this.chart = chart;
-        this.setBaseSeries();
-        this.height = height;
-        this.scrollbarHeight = scrollbarHeight;
-        this.scrollbarEnabled = scrollbarEnabled;
-        this.navigatorEnabled = navigatorEnabled;
-        this.navigatorOptions = navigatorOptions;
-        this.scrollbarOptions = scrollbarOptions;
-        this.outlineHeight = height + scrollbarHeight;
-        this.opposite = pick(navigatorOptions.opposite, Boolean(!navigatorEnabled && chart.inverted)); // #6262
-        var navigator = this, baseSeries = navigator.baseSeries, xAxisIndex = chart.xAxis.length, yAxisIndex = chart.yAxis.length, baseXaxis = baseSeries && baseSeries[0] && baseSeries[0].xAxis ||
-            chart.xAxis[0] || { options: {} };
-        chart.isDirtyBox = true;
-        if (navigator.navigatorEnabled) {
-            // an x axis is required for scrollbar also
-            navigator.xAxis = new Axis(chart, merge({
-                // inherit base xAxis' break and ordinal options
-                breaks: baseXaxis.options.breaks,
-                ordinal: baseXaxis.options.ordinal
-            }, navigatorOptions.xAxis, {
-                id: 'navigator-x-axis',
-                yAxis: 'navigator-y-axis',
-                isX: true,
-                type: 'datetime',
-                index: xAxisIndex,
-                isInternal: true,
-                offset: 0,
-                keepOrdinalPadding: true,
-                startOnTick: false,
-                endOnTick: false,
-                minPadding: 0,
-                maxPadding: 0,
-                zoomEnabled: false
-            }, chart.inverted ? {
-                offsets: [scrollbarHeight, 0, -scrollbarHeight, 0],
-                width: height
-            } : {
-                offsets: [0, -scrollbarHeight, 0, scrollbarHeight],
-                height: height
-            }));
-            navigator.yAxis = new Axis(chart, merge(navigatorOptions.yAxis, {
-                id: 'navigator-y-axis',
-                alignTicks: false,
-                offset: 0,
-                index: yAxisIndex,
-                isInternal: true,
-                zoomEnabled: false
-            }, chart.inverted ? {
-                width: height
-            } : {
-                height: height
-            }));
-            // If we have a base series, initialize the navigator series
-            if (baseSeries || navigatorOptions.series.data) {
-                navigator.updateNavigatorSeries(false);
-                // If not, set up an event to listen for added series
-            }
-            else if (chart.series.length === 0) {
-                navigator.unbindRedraw = addEvent(chart, 'beforeRedraw', function () {
-                    // We've got one, now add it as base
-                    if (chart.series.length > 0 && !navigator.series) {
-                        navigator.setBaseSeries();
-                        navigator.unbindRedraw(); // reset
-                    }
-                });
-            }
-            navigator.reversedExtremes = (chart.inverted && !navigator.xAxis.reversed) || (!chart.inverted && navigator.xAxis.reversed);
-            // Render items, so we can bind events to them:
-            navigator.renderElements();
-            // Add mouse events
-            navigator.addMouseEvents();
-            // in case of scrollbar only, fake an x axis to get translation
-        }
-        else {
-            navigator.xAxis = {
-                chart: chart,
-                navigatorAxis: {
-                    fake: true
-                },
-                translate: function (value, reverse) {
-                    var axis = chart.xAxis[0], ext = axis.getExtremes(), scrollTrackWidth = axis.len - 2 * scrollbarHeight, min = numExt('min', axis.options.min, ext.dataMin), valueRange = numExt('max', axis.options.max, ext.dataMax) - min;
-                    return reverse ?
-                        // from pixel to value
-                        (value * valueRange / scrollTrackWidth) + min :
-                        // from value to pixel
-                        scrollTrackWidth * (value - min) / valueRange;
-                },
-                toPixels: function (value) {
-                    return this.translate(value);
-                },
-                toValue: function (value) {
-                    return this.translate(value, true);
-                }
-            };
-            navigator.xAxis.navigatorAxis.axis = navigator.xAxis;
-            navigator.xAxis.navigatorAxis.toFixedRange = (NavigatorAxis.AdditionsClass.prototype.toFixedRange.bind(navigator.xAxis.navigatorAxis));
-        }
-        // Initialize the scrollbar
-        if (chart.options.scrollbar.enabled) {
-            chart.scrollbar = navigator.scrollbar = new Scrollbar(chart.renderer, merge(chart.options.scrollbar, {
-                margin: navigator.navigatorEnabled ? 0 : 10,
-                vertical: chart.inverted
-            }), chart);
-            addEvent(navigator.scrollbar, 'changed', function (e) {
-                var range = navigator.size, to = range * this.to, from = range * this.from;
-                navigator.hasDragged = navigator.scrollbar.hasDragged;
-                navigator.render(0, 0, from, to);
-                if (chart.options.scrollbar.liveRedraw ||
-                    (e.DOMType !== 'mousemove' &&
-                        e.DOMType !== 'touchmove')) {
-                    setTimeout(function () {
-                        navigator.onMouseUp(e);
-                    });
-                }
-            });
-        }
-        // Add data events
-        navigator.addBaseSeriesEvents();
-        // Add redraw events
-        navigator.addChartEvents();
-    };
-    /**
-     * Get the union data extremes of the chart - the outer data extremes of the
-     * base X axis and the navigator axis.
-     *
-     * @private
-     * @function Highcharts.Navigator#getUnionExtremes
-     * @param {boolean} [returnFalseOnNoBaseSeries]
-     *        as the param says.
-     * @return {Highcharts.Dictionary<(number|undefined)>|undefined}
-     */
-    Navigator.prototype.getUnionExtremes = function (returnFalseOnNoBaseSeries) {
-        var baseAxis = this.chart.xAxis[0], navAxis = this.xAxis, navAxisOptions = navAxis.options, baseAxisOptions = baseAxis.options, ret;
-        if (!returnFalseOnNoBaseSeries || baseAxis.dataMin !== null) {
-            ret = {
-                dataMin: pick(// #4053
-                navAxisOptions && navAxisOptions.min, numExt('min', baseAxisOptions.min, baseAxis.dataMin, navAxis.dataMin, navAxis.min)),
-                dataMax: pick(navAxisOptions && navAxisOptions.max, numExt('max', baseAxisOptions.max, baseAxis.dataMax, navAxis.dataMax, navAxis.max))
-            };
-        }
-        return ret;
-    };
-    /**
-     * Set the base series and update the navigator series from this. With a bit
-     * of modification we should be able to make this an API method to be called
-     * from the outside
-     *
-     * @private
-     * @function Highcharts.Navigator#setBaseSeries
-     * @param {Highcharts.SeriesOptionsType} [baseSeriesOptions]
-     *        Additional series options for a navigator
-     * @param {boolean} [redraw]
-     *        Whether to redraw after update.
-     * @return {void}
-     */
-    Navigator.prototype.setBaseSeries = function (baseSeriesOptions, redraw) {
-        var chart = this.chart, baseSeries = this.baseSeries = [];
-        baseSeriesOptions = (baseSeriesOptions ||
-            chart.options && chart.options.navigator.baseSeries ||
-            (chart.series.length ?
-                // Find the first non-navigator series (#8430)
-                find(chart.series, function (s) {
-                    return !s.options.isInternal;
-                }).index :
-                0));
-        // Iterate through series and add the ones that should be shown in
-        // navigator.
-        (chart.series || []).forEach(function (series, i) {
-            if (
-            // Don't include existing nav series
-            !series.options.isInternal &&
-                (series.options.showInNavigator ||
-                    (i === baseSeriesOptions ||
-                        series.options.id === baseSeriesOptions) &&
-                        series.options.showInNavigator !== false)) {
-                baseSeries.push(series);
-            }
-        });
-        // When run after render, this.xAxis already exists
-        if (this.xAxis && !this.xAxis.navigatorAxis.fake) {
-            this.updateNavigatorSeries(true, redraw);
-        }
-    };
-    /**
-     * Update series in the navigator from baseSeries, adding new if does not
-     * exist.
-     *
-     * @private
-     * @function Highcharts.Navigator.updateNavigatorSeries
-     * @param {boolean} addEvents
-     * @param {boolean} [redraw]
-     * @return {void}
-     */
-    Navigator.prototype.updateNavigatorSeries = function (addEvents, redraw) {
-        var navigator = this, chart = navigator.chart, baseSeries = navigator.baseSeries, baseOptions, mergedNavSeriesOptions, chartNavigatorSeriesOptions = navigator.navigatorOptions.series, baseNavigatorOptions, navSeriesMixin = {
-            enableMouseTracking: false,
-            index: null,
-            linkedTo: null,
-            group: 'nav',
-            padXAxis: false,
-            xAxis: 'navigator-x-axis',
-            yAxis: 'navigator-y-axis',
-            showInLegend: false,
-            stacking: void 0,
-            isInternal: true,
-            states: {
-                inactive: {
-                    opacity: 1
-                }
-            }
-        }, 
-        // Remove navigator series that are no longer in the baseSeries
-        navigatorSeries = navigator.series =
-            (navigator.series || []).filter(function (navSeries) {
-                var base = navSeries.baseSeries;
-                if (baseSeries.indexOf(base) < 0) { // Not in array
-                    // If there is still a base series connected to this
-                    // series, remove event handler and reference.
-                    if (base) {
-                        removeEvent(base, 'updatedData', navigator.updatedDataHandler);
-                        delete base.navigatorSeries;
-                    }
-                    // Kill the nav series. It may already have been
-                    // destroyed (#8715).
-                    if (navSeries.chart) {
-                        navSeries.destroy();
-                    }
-                    return false;
-                }
-                return true;
-            });
-        // Go through each base series and merge the options to create new
-        // series
-        if (baseSeries && baseSeries.length) {
-            baseSeries.forEach(function eachBaseSeries(base) {
-                var linkedNavSeries = base.navigatorSeries, userNavOptions = extend(
-                // Grab color and visibility from base as default
-                {
-                    color: base.color,
-                    visible: base.visible
-                }, !isArray(chartNavigatorSeriesOptions) ?
-                    chartNavigatorSeriesOptions :
-                    defaultOptions.navigator.series);
-                // Don't update if the series exists in nav and we have disabled
-                // adaptToUpdatedData.
-                if (linkedNavSeries &&
-                    navigator.navigatorOptions.adaptToUpdatedData === false) {
-                    return;
-                }
-                navSeriesMixin.name = 'Navigator ' + baseSeries.length;
-                baseOptions = base.options || {};
-                baseNavigatorOptions = baseOptions.navigatorOptions || {};
-                mergedNavSeriesOptions = merge(baseOptions, navSeriesMixin, userNavOptions, baseNavigatorOptions);
-                // Once nav series type is resolved, pick correct pointRange
-                mergedNavSeriesOptions.pointRange = pick(
-                // Stricte set pointRange in options
-                userNavOptions.pointRange, baseNavigatorOptions.pointRange, 
-                // Fallback to default values, e.g. `null` for column
-                defaultOptions.plotOptions[mergedNavSeriesOptions.type || 'line'].pointRange);
-                // Merge data separately. Do a slice to avoid mutating the
-                // navigator options from base series (#4923).
-                var navigatorSeriesData = baseNavigatorOptions.data || userNavOptions.data;
-                navigator.hasNavigatorData =
-                    navigator.hasNavigatorData || !!navigatorSeriesData;
-                mergedNavSeriesOptions.data =
-                    navigatorSeriesData ||
-                        baseOptions.data && baseOptions.data.slice(0);
-                // Update or add the series
-                if (linkedNavSeries && linkedNavSeries.options) {
-                    linkedNavSeries.update(mergedNavSeriesOptions, redraw);
-                }
-                else {
-                    base.navigatorSeries = chart.initSeries(mergedNavSeriesOptions);
-                    base.navigatorSeries.baseSeries = base; // Store ref
-                    navigatorSeries.push(base.navigatorSeries);
-                }
-            });
-        }
-        // If user has defined data (and no base series) or explicitly defined
-        // navigator.series as an array, we create these series on top of any
-        // base series.
-        if (chartNavigatorSeriesOptions.data &&
-            !(baseSeries && baseSeries.length) ||
-            isArray(chartNavigatorSeriesOptions)) {
-            navigator.hasNavigatorData = false;
-            // Allow navigator.series to be an array
-            chartNavigatorSeriesOptions =
-                splat(chartNavigatorSeriesOptions);
-            chartNavigatorSeriesOptions.forEach(function (userSeriesOptions, i) {
-                navSeriesMixin.name =
-                    'Navigator ' + (navigatorSeries.length + 1);
-                mergedNavSeriesOptions = merge(defaultOptions.navigator.series, {
-                    // Since we don't have a base series to pull color from,
-                    // try to fake it by using color from series with same
-                    // index. Otherwise pull from the colors array. We need
-                    // an explicit color as otherwise updates will increment
-                    // color counter and we'll get a new color for each
-                    // update of the nav series.
-                    color: chart.series[i] &&
-                        !chart.series[i].options.isInternal &&
-                        chart.series[i].color ||
-                        chart.options.colors[i] ||
-                        chart.options.colors[0]
-                }, navSeriesMixin, userSeriesOptions);
-                mergedNavSeriesOptions.data = userSeriesOptions.data;
-                if (mergedNavSeriesOptions.data) {
-                    navigator.hasNavigatorData = true;
-                    navigatorSeries.push(chart.initSeries(mergedNavSeriesOptions));
-                }
-            });
-        }
-        if (addEvents) {
-            this.addBaseSeriesEvents();
-        }
-    };
-    /**
-     * Add data events.
-     * For example when main series is updated we need to recalculate extremes
-     *
-     * @private
-     * @function Highcharts.Navigator#addBaseSeriesEvent
-     * @return {void}
-     */
-    Navigator.prototype.addBaseSeriesEvents = function () {
-        var navigator = this, baseSeries = navigator.baseSeries || [];
-        // Bind modified extremes event to first base's xAxis only.
-        // In event of > 1 base-xAxes, the navigator will ignore those.
-        // Adding this multiple times to the same axis is no problem, as
-        // duplicates should be discarded by the browser.
-        if (baseSeries[0] && baseSeries[0].xAxis) {
-            addEvent(baseSeries[0].xAxis, 'foundExtremes', this.modifyBaseAxisExtremes);
-        }
-        baseSeries.forEach(function (base) {
-            // Link base series show/hide to navigator series visibility
-            addEvent(base, 'show', function () {
-                if (this.navigatorSeries) {
-                    this.navigatorSeries.setVisible(true, false);
-                }
-            });
-            addEvent(base, 'hide', function () {
-                if (this.navigatorSeries) {
-                    this.navigatorSeries.setVisible(false, false);
-                }
-            });
-            // Respond to updated data in the base series, unless explicitily
-            // not adapting to data changes.
-            if (this.navigatorOptions.adaptToUpdatedData !== false) {
-                if (base.xAxis) {
-                    addEvent(base, 'updatedData', this.updatedDataHandler);
-                }
-            }
-            // Handle series removal
-            addEvent(base, 'remove', function () {
-                if (this.navigatorSeries) {
-                    erase(navigator.series, this.navigatorSeries);
-                    if (defined(this.navigatorSeries.options)) {
-                        this.navigatorSeries.remove(false);
-                    }
-                    delete this.navigatorSeries;
-                }
-            });
-        }, this);
-    };
-    /**
-     * Get minimum from all base series connected to the navigator
-     * @private
-     * @param  {number} currentSeriesMin
-     *         Minium from the current series
-     * @return {number} Minimum from all series
-     */
-    Navigator.prototype.getBaseSeriesMin = function (currentSeriesMin) {
-        return this.baseSeries.reduce(function (min, series) {
-            // (#10193)
-            return Math.min(min, series.xData ? series.xData[0] : min);
-        }, currentSeriesMin);
-    };
-    /**
-     * Set the navigator x axis extremes to reflect the total. The navigator
-     * extremes should always be the extremes of the union of all series in the
-     * chart as well as the navigator series.
-     *
-     * @private
-     * @function Highcharts.Navigator#modifyNavigatorAxisExtremes
-     */
-    Navigator.prototype.modifyNavigatorAxisExtremes = function () {
-        var xAxis = this.xAxis, unionExtremes;
-        if (typeof xAxis.getExtremes !== 'undefined') {
-            unionExtremes = this.getUnionExtremes(true);
-            if (unionExtremes &&
-                (unionExtremes.dataMin !== xAxis.min ||
-                    unionExtremes.dataMax !== xAxis.max)) {
-                xAxis.min = unionExtremes.dataMin;
-                xAxis.max = unionExtremes.dataMax;
-            }
-        }
-    };
-    /**
-     * Hook to modify the base axis extremes with information from the Navigator
-     *
-     * @private
-     * @function Highcharts.Navigator#modifyBaseAxisExtremes
-     */
-    Navigator.prototype.modifyBaseAxisExtremes = function () {
-        var baseXAxis = this, navigator = baseXAxis.chart.navigator, baseExtremes = baseXAxis.getExtremes(), baseMin = baseExtremes.min, baseMax = baseExtremes.max, baseDataMin = baseExtremes.dataMin, baseDataMax = baseExtremes.dataMax, range = baseMax - baseMin, stickToMin = navigator.stickToMin, stickToMax = navigator.stickToMax, overscroll = pick(baseXAxis.options.overscroll, 0), newMax, newMin, navigatorSeries = navigator.series && navigator.series[0], hasSetExtremes = !!baseXAxis.setExtremes, 
-        // When the extremes have been set by range selector button, don't
-        // stick to min or max. The range selector buttons will handle the
-        // extremes. (#5489)
-        unmutable = baseXAxis.eventArgs &&
-            baseXAxis.eventArgs.trigger === 'rangeSelectorButton';
-        if (!unmutable) {
-            // If the zoomed range is already at the min, move it to the right
-            // as new data comes in
-            if (stickToMin) {
-                newMin = baseDataMin;
-                newMax = newMin + range;
-            }
-            // If the zoomed range is already at the max, move it to the right
-            // as new data comes in
-            if (stickToMax) {
-                newMax = baseDataMax + overscroll;
-                // If stickToMin is true, the new min value is set above
-                if (!stickToMin) {
-                    newMin = Math.max(baseDataMin, // don't go below data extremes (#13184)
-                    newMax - range, navigator.getBaseSeriesMin(navigatorSeries && navigatorSeries.xData ?
-                        navigatorSeries.xData[0] :
-                        -Number.MAX_VALUE));
-                }
-            }
-            // Update the extremes
-            if (hasSetExtremes && (stickToMin || stickToMax)) {
-                if (isNumber(newMin)) {
-                    baseXAxis.min = baseXAxis.userMin = newMin;
-                    baseXAxis.max = baseXAxis.userMax = newMax;
-                }
-            }
-        }
-        // Reset
-        navigator.stickToMin =
-            navigator.stickToMax = null;
-    };
-    /**
-     * Handler for updated data on the base series. When data is modified, the
-     * navigator series must reflect it. This is called from the Chart.redraw
-     * function before axis and series extremes are computed.
-     *
-     * @private
-     * @function Highcharts.Navigator#updateDataHandler
-     */
-    Navigator.prototype.updatedDataHandler = function () {
-        var navigator = this.chart.navigator, baseSeries = this, navigatorSeries = this.navigatorSeries, xDataMin = navigator.getBaseSeriesMin(baseSeries.xData[0]);
-        // If the scrollbar is scrolled all the way to the right, keep right as
-        // new data  comes in.
-        navigator.stickToMax = navigator.reversedExtremes ?
-            Math.round(navigator.zoomedMin) === 0 :
-            Math.round(navigator.zoomedMax) >= Math.round(navigator.size);
-        // Detect whether the zoomed area should stick to the minimum or
-        // maximum. If the current axis minimum falls outside the new updated
-        // dataset, we must adjust.
-        navigator.stickToMin = isNumber(baseSeries.xAxis.min) &&
-            (baseSeries.xAxis.min <= xDataMin) &&
-            (!this.chart.fixedRange || !navigator.stickToMax);
-        // Set the navigator series data to the new data of the base series
-        if (navigatorSeries && !navigator.hasNavigatorData) {
-            navigatorSeries.options.pointStart = baseSeries.xData[0];
-            navigatorSeries.setData(baseSeries.options.data, false, null, false); // #5414
-        }
-    };
-    /**
-     * Add chart events, like redrawing navigator, when chart requires that.
-     *
-     * @private
-     * @function Highcharts.Navigator#addChartEvents
-     * @return {void}
-     */
-    Navigator.prototype.addChartEvents = function () {
-        if (!this.eventsToUnbind) {
-            this.eventsToUnbind = [];
-        }
-        this.eventsToUnbind.push(
-        // Move the scrollbar after redraw, like after data updata even if
-        // axes don't redraw
-        addEvent(this.chart, 'redraw', function () {
-            var navigator = this.navigator, xAxis = navigator && (navigator.baseSeries &&
-                navigator.baseSeries[0] &&
-                navigator.baseSeries[0].xAxis ||
-                this.xAxis[0]); // #5709, #13114
-            if (xAxis) {
-                navigator.render(xAxis.min, xAxis.max);
-            }
-        }), 
-        // Make room for the navigator, can be placed around the chart:
-        addEvent(this.chart, 'getMargins', function () {
-            var chart = this, navigator = chart.navigator, marginName = navigator.opposite ?
-                'plotTop' : 'marginBottom';
-            if (chart.inverted) {
-                marginName = navigator.opposite ?
-                    'marginRight' : 'plotLeft';
-            }
-            chart[marginName] =
-                (chart[marginName] || 0) + (navigator.navigatorEnabled || !chart.inverted ?
-                    navigator.outlineHeight :
-                    0) + navigator.navigatorOptions.margin;
-        }));
-    };
-    /**
-     * Destroys allocated elements.
-     *
-     * @private
-     * @function Highcharts.Navigator#destroy
-     */
-    Navigator.prototype.destroy = function () {
-        // Disconnect events added in addEvents
-        this.removeEvents();
-        if (this.xAxis) {
-            erase(this.chart.xAxis, this.xAxis);
-            erase(this.chart.axes, this.xAxis);
-        }
-        if (this.yAxis) {
-            erase(this.chart.yAxis, this.yAxis);
-            erase(this.chart.axes, this.yAxis);
-        }
-        // Destroy series
-        (this.series || []).forEach(function (s) {
-            if (s.destroy) {
-                s.destroy();
-            }
-        });
-        // Destroy properties
-        [
-            'series', 'xAxis', 'yAxis', 'shades', 'outline', 'scrollbarTrack',
-            'scrollbarRifles', 'scrollbarGroup', 'scrollbar', 'navigatorGroup',
-            'rendered'
-        ].forEach(function (prop) {
-            if (this[prop] && this[prop].destroy) {
-                this[prop].destroy();
-            }
-            this[prop] = null;
-        }, this);
-        // Destroy elements in collection
-        [this.handles].forEach(function (coll) {
-            destroyObjectProperties(coll);
-        }, this);
-    };
-    return Navigator;
-}());
-// End of prototype
-if (!H.Navigator) {
-    H.Navigator = Navigator;
-    NavigatorAxis.compose(Axis);
-    // For Stock charts. For x only zooming, do not to create the zoom button
-    // because X axis zooming is already allowed by the Navigator and Range
-    // selector. (#9285)
-    addEvent(Chart, 'beforeShowResetZoom', function () {
-        var chartOptions = this.options, navigator = chartOptions.navigator, rangeSelector = chartOptions.rangeSelector;
-        if (((navigator && navigator.enabled) ||
-            (rangeSelector && rangeSelector.enabled)) &&
-            ((!isTouchDevice && chartOptions.chart.zoomType === 'x') ||
-                (isTouchDevice && chartOptions.chart.pinchType === 'x'))) {
-            return false;
-        }
-    });
-    // Initialize navigator for stock charts
-    addEvent(Chart, 'beforeRender', function () {
-        var options = this.options;
-        if (options.navigator.enabled ||
-            options.scrollbar.enabled) {
-            this.scroller = this.navigator = new Navigator(this);
-        }
-    });
-    // For stock charts, extend the Chart.setChartSize method so that we can set
-    // the final top position of the navigator once the height of the chart,
-    // including the legend, is determined. #367. We can't use Chart.getMargins,
-    // because labels offsets are not calculated yet.
-    addEvent(Chart, 'afterSetChartSize', function () {
-        var legend = this.legend, navigator = this.navigator, scrollbarHeight, legendOptions, xAxis, yAxis;
-        if (navigator) {
-            legendOptions = legend && legend.options;
-            xAxis = navigator.xAxis;
-            yAxis = navigator.yAxis;
-            scrollbarHeight = navigator.scrollbarHeight;
-            // Compute the top position
-            if (this.inverted) {
-                navigator.left = navigator.opposite ?
-                    this.chartWidth - scrollbarHeight -
-                        navigator.height :
-                    this.spacing[3] + scrollbarHeight;
-                navigator.top = this.plotTop + scrollbarHeight;
-            }
-            else {
-                navigator.left = this.plotLeft + scrollbarHeight;
-                navigator.top = navigator.navigatorOptions.top ||
-                    this.chartHeight -
-                        navigator.height -
-                        scrollbarHeight -
-                        this.spacing[2] -
-                        (this.rangeSelector && this.extraBottomMargin ?
-                            this.rangeSelector.getHeight() :
-                            0) -
-                        ((legendOptions &&
-                            legendOptions.verticalAlign === 'bottom' &&
-                            legendOptions.layout !== 'proximate' && // #13392
-                            legendOptions.enabled &&
-                            !legendOptions.floating) ?
-                            legend.legendHeight +
-                                pick(legendOptions.margin, 10) :
-                            0) -
-                        (this.titleOffset ? this.titleOffset[2] : 0);
-            }
-            if (xAxis && yAxis) { // false if navigator is disabled (#904)
-                if (this.inverted) {
-                    xAxis.options.left = yAxis.options.left = navigator.left;
-                }
-                else {
-                    xAxis.options.top = yAxis.options.top = navigator.top;
-                }
-                xAxis.setAxisSize();
-                yAxis.setAxisSize();
-            }
-        }
-    });
-    // Merge options, if no scrolling exists yet
-    addEvent(Chart, 'update', function (e) {
-        var navigatorOptions = (e.options.navigator || {}), scrollbarOptions = (e.options.scrollbar || {});
-        if (!this.navigator && !this.scroller &&
-            (navigatorOptions.enabled || scrollbarOptions.enabled)) {
-            merge(true, this.options.navigator, navigatorOptions);
-            merge(true, this.options.scrollbar, scrollbarOptions);
-            delete e.options.navigator;
-            delete e.options.scrollbar;
-        }
-    });
-    // Initialize navigator, if no scrolling exists yet
-    addEvent(Chart, 'afterUpdate', function (event) {
-        if (!this.navigator && !this.scroller &&
-            (this.options.navigator.enabled ||
-                this.options.scrollbar.enabled)) {
-            this.scroller = this.navigator = new Navigator(this);
-            if (pick(event.redraw, true)) {
-                this.redraw(event.animation); // #7067
-            }
-        }
-    });
-    // Handle adding new series
-    addEvent(Chart, 'afterAddSeries', function () {
-        if (this.navigator) {
-            // Recompute which series should be shown in navigator, and add them
-            this.navigator.setBaseSeries(null, false);
-        }
-    });
-    // Handle updating series
-    addEvent(Series, 'afterUpdate', function () {
-        if (this.chart.navigator && !this.options.isInternal) {
-            this.chart.navigator.setBaseSeries(null, false);
-        }
-    });
-    Chart.prototype.callbacks.push(function (chart) {
-        var extremes, navigator = chart.navigator;
-        // Initialize the navigator
-        if (navigator && chart.xAxis[0]) {
-            extremes = chart.xAxis[0].getExtremes();
-            navigator.render(extremes.min, extremes.max);
-        }
-    });
-}
-H.Navigator = Navigator;
-export default H.Navigator;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         O   TAG CQb^EÊº   ATTRCQc>Z´(   PSEUDO  CQcB6JÎ   CHILD   CQbJîÂ2   boolCQd
-¢Äp   needsContextCQbJ üš   ^#( …
-QbRœ?9   ^\.(‰
-Qb	   ^(  QcB‹Çæ   |[*])   
-‘
-•
-DQo‚ÉÂ$5   ^:(only|first|last|nth|nth-last)-(child|of-type)(?:\(   (Qhªç   *(even|odd|(([+-]|)(\d*)n|) Qdş]Ò®   *(?:([+-]|) QdÑûO	   *(\d+)|))   QcšZŞ   *\)|)    bï™
-Qb&,á)   ^(?:Qb~Aß^   )$  
-<Qmªt/   *[>+~]|:(even|odd|eq|gt|lt|nth|first|last)(?:\( Qeúş3¨   *((?:-\d)?\d*)  Qe§œ   *\)|)(?=[^-]|$) ¡
-Qc&Ğ›   HTML$   0QjÚÓ¤"   ^(?:input|select|textarea|button)$  Qc®ˆÜ°   ^h\d$   $QgzÒEi   ^[^{]+\{\s*\[native \w  ,QiÒ¸¸ç    ^(?:#([\w-]+)|(\w+)|\.([\w-]+))$Qb2<   [+~] Qf&QÚ   \\[\da-fA-F]{1,6}   QejÆŸ   ?|\\([^\r\n\f]) $SÍEaµ  2  “u,c        +   @Qnz@³2   ([\0-\x1f\x7f]|^-?\d)|^-$|[^\0-\x1f\x7f-\uFFFF\w-]  $S’Maw  Ú  –”•c        ,   $S’Qaæ  í  —”•c          -   $S’Pc      be.dir  aü  =  I”•c        .   ¤a
-      ½	áùQc¢d’P   legend  ÙQd*ä_ã
-   childNodes  ©‘Rb
- €        Qbò    e$0 `¤ÿ u¤a      ”C$SÍPc      H.apply aÖ  ñ  I1,c        /   $S’Eaú  5  I“”c        0   1$SX¨`f    L`   Qdº‡=‹   namespaceURIQÒé1Ø   ownerDocument   QeF­5V   documentElement Qb*hh   testQcçx   nodeNameQb&¸¿N   HTMLK`    Dp(            -  Æ-˜Ä-øÅ/Ã-÷Äú˜ù™-ù˜Â_ø÷ö
-V«   (Rb„ã‚        I`şÿÿÿPc      se.isXMLaêA  ºB  ˜c       P @ ”c       B   Qc±¾è   isXML   $Sİ—`r  äL`n   a‘eQd–Uı¯   defaultView Qb–ƒz7   top Q’¤İ€   addEventListenerQ~}Âˆ   unload  QöâºÊ   attachEvent QcÂŒ   onunload$Sh—`Œ    L`   QdŠJ)   appendChild ÑQbB{²V   div QeRFw   querySelectorAll Qbû9l   :scope fieldset div ©K`    Dt(            Ä-ø  Å_ùøÅ-ù ÆÃ-÷ÄÂ_ø÷öÄ_úùø
-- W›-ÆÄ_úøÆ-úV«(Rb„ã‚        I`şÿÿÿDaE  FF  ud       P @ P ,c       D   Qcn€   scope   $S8¨`*   L`    bïQ^6så	   className   QÔØŒ   getAttributeK`    Dh             3 -ÆÄ_úøV« (Rb„ã‚        I`şÿÿÿDazF  êF  –˜b       @ —c       E   Qd£z
-   attributes  $ST`^    L`   ¹Qe*›DÑ   createComment   I QfzG¢   getElementsByTagName•K`    Do(            -  ÆÃ-÷ÄÂ_ø÷öÄ_úø-ÆÄ_úø
-Æ-úV«   (Rb„ã‚        I`şÿÿÿDa2G  ÖG  –‘d       @ @    —c       F   i$Qg‚aÊ   getElementsByClassName  $SX`j   L`   ’Qb’Á@³   id   Qfş?Z   getElementsByName   ©K`    Dp            Å-ù  Æ_úùÆ3úÆ-úVšÅ-ùÆÄ_úùøÆ-ú
-V« (Rb„ã‚        I`şÿÿÿDaxH  $I  u‘c         P ,c       G   Qcv|B   getById Qc~gkt   filter  $SÑ9a   2   ”’a   1   é’a   0   ‘’a   (   ”’a   '   “’a   &   ”’a   %   e’a      ”’a      y’a      ”’a      APd      .b.filter.IDa³$  %  äd	       ŞI‚J      Iu,c        H   …
-Qbr^ï7   find$SÍ9a   0   ”–a   /   é–a   .   ‘–a   &   –a   %   —–a   $   –a   #   e–a      –a      y–a      –a      APd   
-   .b.find.ID  a%  s%  Iu,c        J   $SÑ9a   2   ”a   1   éa   0   ‘a   (   ’a   '   ‘a   &   ’a   %   ea      ’a      ya      ’a      APd      .b.filter.IDaŠ%  &  äd	       ´K•L      Iu,c        K   $SÍ9a   0   ”“a   /   é“a   .   ‘“a   &   •“a   %   ”“a   $   •“a   #   e“a      •“a      y“a      •“a      APd   
-   .b.find.ID  a)&  &'  Iu,c        M   $SÍ9a   '   ”•a   &   é•a   %   ‘•a      —•a      –•a      —•a      ePd      .b.find.TAG aR'  Æ'  I’“c        N   $S”=aÏ'  G(  Iu,c        O   
-$SÍ9a   )   ”—a   (   é—a   '   ‘—a      ‘—a      —a      ‘—a      e—a      ‘Pd      b.find.CLASSaw(  Ó(  Iu,c        P   ‰
-ÁQb™»   qsa $SÕ¨`^  ˆL`@   ¹Qc†ÂL   <a id='  Qf*ªc   '></a><select id='  LQq†‚®‘=   -\' msallowcapture=''><option selected=''></option></select>   Qd’5,™	   innerHTML   — Qşp\   [msallowcapture^='']©Qc²Å«ß   [*^$]=  Qdw»Î
-   *(?:''|"")  Qîì¨Ñ
-   [selected]  =
-Qdn <÷
-   *(?:value|  y
-Qc‚âsğ   [id~=   QbòÒÍ°   -]  Qb.Ïöz   ~=  Ñ…QF&¬+   setAttributeåIQ^…ÏĞ	   [name='']   Qcºs à   *name   QbbkÙu   *=  QÎEé   :checkedQbÊ—70   a#  Qb½ˆ*   +*  Qc2ÙbW   .#.+[+~]Qbªd¯   \  QcªÜ–   [\r\n\f]K`    DÁ(            Ä-ø  Å_ùøÅÄ:øÄ:øÄ:øÄ:ø3ù-
-ÅÃ_ù÷Å-ù™Ä-øÅ	Ã%:÷Ã
-:÷Ã_ùø÷-
-ÅÃ_ù÷Å-ù˜*Ä-øÅÃ%:÷Ã:÷Ã$:÷Ã:÷Ã_ùø÷-
-ÅÃ:÷ Ã:÷!Ã_ù÷"Å-ù$˜Ä-øÅÃ_ùø÷&Ã-÷(ÄÂ_ø÷ö*Æ-ú,ÅÃÂ`ùú÷ö.- 0Å_ùú2-
-ÅÃ_ù÷4Å-ù6˜6Ä-øÅÃ%:÷8Ã:÷9Ã%:÷:Ã:÷;Ã%:÷<Ã
-:÷=Ã_ùø÷>-
-ÅÃ_ù÷@Å-ùB˜Ä-øÅÃ_ùø÷D-
-ÅÃ:÷FÃ:÷GÃ_ù÷HÅ-ùJ˜Ä-øÅÃ_ùø÷L-
-ÅÃ_ù÷NÄ-øÅÃ_ùø÷P«   (Rb„ã‚        I`şÿÿÿDaR  nW  uD˜oR       ğï	P P ï@ ¼÷¼G P @ @ ¼÷ï@ ğ@   ,c       Q   $S)¨`  XL`(   `Q\’Bû°Q   <a href='' disabled='disabled'></a><select disabled='disabled'><option/></select>   ­–—ÑÁQ
-*ë   hidden  ¹åàÁQN!jŸ   [name=d]©Qd®g›   *[*^$|!~]?= Q"tÛb   :enabledQNÊSÈ	   :disabled   QÎÉr   disabledQbj3KÜ   *,:xQbºÑ1   ,.*:K`    D(             3 Ä-øÅÃ_ùø÷Æ-úÅÃÂ`ùú÷ö-
-Ä_øúÄ-øÅÃ	Â`ùø÷ö-
-ÅÃ_ù÷Å-ù™Ä-øÅÃ%:÷Ã:÷Ã_ùø÷Å-
-ÄÂ_øöÄ-ø nù"W›Ä-øÅÃÂ`ùø÷ö#Ä-ø%Å_ùø'Å3ù)Å-
-ÄÂ_øö+Ä-ø-nù/W›Ä-øÅÃÂ`ùø÷ö0-
-ÅÃ_ù÷2Ä-øÅÃ_ùø÷4«  (Rb„ã‚        I`şÿÿÿDaˆW  h[  u0˜j6       @ P @ P ¼G  	  €€ @ ,c       R   Qc&§á>   matches $Qg­®>   webkitMatchesSelector    Qf¾xF    mozMatchesSelector  QefÛx   oMatchesSelector Qfşÿ}Ì   msMatchesSelector   QeFïæp   matchesSelector $Sd¨`~    L`   Ù QfÆ-ü   disconnectedMatch   Qæ‹÷:	   [s!='']:x   •Qb.‡ò   !=  K`    Ds(            ÆÄ-ø  ÅÂ`ùøö3úÅ-ù  ÆÃ`úù÷Å-ùÆÄ&Ã`úùø÷
-«   (Rb„ã‚        I`şÿÿÿDa†\  ]  –—c         @ c       S   ” ’§QbJàKá   |   $Qgîû   compareDocumentPosition QcÊ´ï   contains$SÍ9a      ”–a      é–a      ‘–a      –a      —–a      –a      eQbZ….   .y  a/  Ú/  Iu,c        T   $S•‘aã/  0  I“”c        U   $SÍ9a      ”—a      é—a      ‘—a      ‘—a      —a      ‘—a      eQb²ˆÑi   .D  a+0  v1  Iu,c        V   $S–Áa1  ³2  I”•c        W   b>  &    K`    DÉ@            ™-  ˜ŒÄmøW”4	Ã-øn÷”5-ø—6ø%-ø%ÃÂc÷ö
-V%Ãm÷W›MÃ-÷Å™C-ùÃùn÷W›6-ù™-ùÃÁ9À¿ùö]÷öŒ-ù™-ùÃÁ9À`÷ùõôÃ=Â‚	 Ácöõ3÷
-Ã=Â‚Ácöõ3÷ Ã=Â‚Ácöõ"3÷$Ã2Á-õ&ÂÀ-ô(À_öõô*3÷,Ã=Â‚Ácöõ.3÷0Ã-÷2™'Ã-÷4Ã‚3÷6Ã-÷8Ã‚Â3÷:öŒ%Ã-÷4Ã‚3÷<Ã-÷8Ã‚Â3÷>öÃ-÷8ÃÂ-ö@™‚Œ‚	3÷BÃ-÷8ÃÂ-öD™‚
-3÷F}H%}I%Ã2Á-õ&ÂÀ-ôJÀ_öõôLÂ3÷ Nö™=Ã‚!Âc÷öP=Ã‚"Âc÷öRÃ2Á-õ&ÂÀ-ô#T˜$À-ô$V˜À-ô%X˜À-ô&Z˜	À-ô'\%À_öõô^Â3÷(`ö™=Ã‚)Âc÷öbÃ-÷*d™!+fÃÁ-õ,hÂ-À_öõôjÂ÷k÷öl%Ã-÷*n™!+fÃÁ-õ,pÂ-À_öõôrÂ÷k÷öt%2Â-ö&ÃÁ-õ.vÁ_÷öõxÆ˜2Â-ö&ÃÁ-õ/zÁ_÷öõ|™‚0Œ‚1%ú™‚2Œ‚3%« (Rb„ã‚        I`şÿÿÿ—a      YPd      .setDocumentaîB  ne  ”`˜v~      À @ °€ P   @ P @ P   P   s@ @ P @ P @ P P @ •c       C   QdŠŸO   setDocument $SÍPd   
-   se.matches  aË2  ë2  I”•c        X   A$S‘9a      —“a      éUa3  ì3  Iu,c        Y   •$S‘Pd      se.contains a4  24  I–—c        Z   …$S‘Pc      se.attr aC4  25  I–—c        [   QbÂän   attr$S‘Pd   	   se.escape   aE5  e5  I–—c        \   QcÂëN   escape  $S‘Pc      se.erroraw5  ¹5  I–—c        ]   $SÍ“a      YPd      .uniqueSort aĞ5  {6  I–—c        ^   QdÂ^Gd
-   uniqueSort  $S’Pd   
-   se.getText  a‘6  7  I–—c        _   Qc2ƒ.×   getText T¤a&      QdÚ¿B   cacheLength `d   QdònDÊ   createPseudoCCQdWäö
-   attrHandle  ”a      …”a      Qc–š?   relative,”a       2è”a
-      ½	á‘G rç”a      —”a
-      —Qef~ë   previousSibling ‘GQb‚5²   ~   ”a      —¥QdŸ[	   preFilter   CECQc’}"   pseudos C$¤a      ‘
-C™
-C•
-C$SÍ9a      Y”a      é”a      QdêK9¨	   selectors   ”a      –”a      ±Pc      .ATTR   ak8  é8  u,c        `   $S“”a      •”a      –”a      Ñ”a      –”a      —Pc      .CHILD  aø8  ½9  ™
-‘c        a   $SÍ9a      Y•a      é•a      ’•a      —•a      ±Pc      .PSEUDO aÍ9  ˜:  •
-u,c        b   4¤a      
-C‰
-C‘
-C™
-C‘C$SÑ9a      Y’a      é’a      ÑPd      .filter.TAG a®:  8;  äe       îuúu  ƒv·v   
-u,c        c   $SÑ9a      Y“a      é“a      Ñ“a      •Pd      filter.CLASSaG;  <  äd	       ›w™x      ‰
-u,c        f   $SÑ9a      Y”a      é”a      ÑPd      .filter.ATTRa)<  Y=  äd
-       ÀxØz   *   ‘
-u,c        h   $SÑ9a      Y•a      é•a      Ñ•a      —Pd      filter.CHILDah=  6A   äf       Ò{ë{  ô{µ‚    ª€ ™
-u,c        j   $SÑ9a      Y–a      é–a      Ñ–a      –a      EPc      .PSEUDO aFA  nB  $äg       †„Ì„
-  Ö„ê„   €   •
-u,c        m   ’Ì¤ab      Qb.ºC‰   not CaC…CQb:ò\   langCõCQbÒ}{   rootCQÚ&ùÑ   focus   CQcZÓ:t   enabled C)CQ^L Æ   checked CQc¾&Ìp   selectedCQcVYjÒ   empty   CQ‚ÅçQ   parent  CQcNo "   header  C…CQcZ˜s
-   button  CQbşlß   textC‘C	CCCC%C=C$SÑIaˆB  \C  $äg       É…š†  ¤†Û†   
-€   Iu,c        p   Å$S”IamC  C  •d       €‡œ‡     I–—c        s   a$S”Ia³C  D  •d       Ù‡‡ˆ   0 I–—c        u   $S”IaD  3E  •d       şˆ²Š   0 I–—c        w   É$SÍ9a      Y”a      é”a      Ñ”a      –”a      µPc      .target aDE  †E  õu,c        y   ‘$SÍ9a      Y•a      é•a      Ñ•a      —Pd      pseudos.roota”E  ¥E  Í’“c        z   ‘$S”•a      –•a      —•a      •a      —•a      µPc      .focus  a´E  F  Ñu,c        {   “Õ)$SÍ9a      Y‘a      é‘a      Ñ‘a      “‘a      µPc      .checkedaAF  ŸF  Ùu,c        |   –$SÍ9a      Y’a      é’a      Ñ’a      ”’a      µPd   	   .selected   a±F  öF  İu,c        }   —$SÍ9a      Y“a      é“a      Ñ“a      •“a      µPc      .empty  aG  PG  áu,c        ~   $SÍ9a      Y”a      é”a      Ñ”a      –”a      µPc      .parent a`G  ~G  åu,c           ‘$SÍ9a      Y•a      é•a      Ñ•a      —•a      µPc      .header aG  ¬G  éu,c        €   ’$SÍ9a      Y–a      é–a      Ñ–a      –a      µPc      .input  a»G  ÙG  …u,c           “$SÍ9a      Y—a      é—a      Ñ—a      ‘—a      µPc      .button aéG  ?H  íu,c        ‚   ”$SÍ9a      Ya      éa      Ña      ’Pd      pseudos.textaMH  ÏH  ñ•–c        ƒ   ”$S—IaâH  ïH  I•–c          „   ‘$S—IaI  I  Iu,c        …   	$SÍIa#I  =I  I–—c        †   $S‘IaOI  }I  I–—c        ‡   $S‘IaI  ¼I  I–—c        ˆ   $S‘IaÌI  	J  I–—c        ‰   %$S‘IaJ  OJ  I–—c        Š   =µÑQbÒÖß   nth 4¤a      QæQî   radio   GQÊŒ1   checkboxGQb*&K    fileGQc²Û©¦   passwordGQcBOmF   image   G‘a
-      Qjİ£ÿ   submit  GQ2K/   reset   GQc–O˜   filters ]Qdb~§}
-   setFilters  $SÍPd      se.tokenize a:S  õT  Iu,c        š   Qc†èŒ   tokenize$SÑPd   
-   se.compile  aU  ËW  äe       ¶«©¯   ÿA   I”•c        ›   Qc¾2Ø¦   compile $S“Pd   	   se.select   aàW  ZZ  I”•c           QòK<Z   select  MI ’§Qdæ¦D|
-   sortStable  QeJ®ş]   detectDuplicates$SD¨`>   L`   ÑÕK`    Dk(            - ÆÃ-÷ÄÂ_ø÷öÄ_úøN «   (Rb„ã‚        I`şÿÿÿDa|µ  ¶  u˜c	       ¯€€   ,c          Qd&¥t   sortDetached$SD’`>    L`   Q¾Üx–   <a href='#'></a>­QbÆ—l<   #   Qd:Sîª
-   firstChild  é 2ğK`    Dk              3 Æ-Ä-øÅÃ_ùø÷nú«   (Rb„ã‚        I`şÿÿÿDa ¶  Ä¶  –—c	       P @  c       Ÿ   $Qg*jÑß   type|href|height|width  $SÍIa‰[  Í[  I–c            ù$SX¨`j   $L`   QN¼`W   <input/>‘QÑAI’K`    Dp              3 -Å-ùÆÄÃ`úùø÷Æ-Ä-øÅÃ_ùø÷
-nú« (Rb„ã‚        I`şÿÿÿDaĞ·  °¸  u˜d       P @    ,c       ¡   $SÍIan\  ¶\  I‘“c        ¢   $S4•`   L`   é)K`    Dg            -  ÆÄ_úø«   (Rb„ã‚        I`şÿÿÿDa†¹  à¹  ‘’b         “c       £   $S”Ia ]  h]  I‘“c        ¤   Kd    Ø    ù      D	            … Dï%‚ %;‚Â‚%<‚%=‚Á‚%>‚À‚¿‚	¾‚
-	½‚
-%?‚¼‚%@‚%A‚%B‚%C‚%D‚%Eº!¹kíú H:î %º-î%%%bö%bö
-%bö%bö%‚%º-î%}Å-ù%-ù% -ù%!-ù%"‚%#%$%%º%:îº:îÄ º%:îº!:îºø:îº":îº%:îº#:î º%:î!º$:î"ºø:î#º%:î$º%:î%º&:î&Ã'ºø:î'º(:î(º÷:î)º):î*%&!*+º%¹+:í-¹,¸îkîí.%'!*+º-¹%:í0¹.:í1¹%:í2¹/:í3¹,¸îkîí4%(!*+º-¹%:í6¹0:í7¹%:í8¹1:í9¹îkîí:%)!*+º-¹%:í<¹2:í=¹%:í>¹3:í?¹%:í@¹1:íA¹îkîíB%*!*+º%¹4:íD¹îkîíE%+!*+º&¹îkîíG%,!*+º-¹ø:íI¹5:íJ¹îkîíK%-~6M)º!*+¹7¸ø:ìN¸3:ìO¸íkíìP5î8R!*+¹9¸ø:ìT¸3:ìU¸íkíìV5î:X!*+¹;¸ø:ìZ¸<:ì[¸íkíì\5î=^!*+¹-¸÷:ì`¸íkíìa5î>c!*+¹-¸&:ìe¸íkíìf5î?h!*+¹@¸%:ìj¸A:ìk¸%:ìl¸B:ìm¸%:ìn¸C:ìo¸%:ìp¸D:ìq¸E·íkíìr5îFt!*+¹G¸$:ìv¸H:ìw¸E·íkíìx5îIz!*+¹-¸%:ì|¸J:ì}¸%:ì~¸K:ì¸%:ì€¸L:ì¸E·íkíì‚5îM„î%.zN†%/zO‡%0zPˆ%1zQ‰ %2zRŠ %3zS‹ %4!*+ºT¹%:íŒ¹U:í¹,¸îkîí%5‚V%6zW%7‚X%8‚Y%9Aº‚Z¹~[‘)¸dîíì’%:ÿî!¸-ì\”¹"ê-ê]–·é-é^˜é_ëêéšÅê-ê^˜ê`íìùêœ¸-ì^˜¸-ì_0ù ¹-í`¢Œ.¹„íaº¨îí~b¤)¸-ù_¥™‚cŒ‚d5ì\§ì$í! í;º¹3îeªí%;º‚f¹3îg¬í%;º‚h¹3îi®í%;º‚j3îk°;º‚l3îm²;º‚n3îo´;º‚p3îq¶;º‚r 3îs¸;º‚t!3îuº;º‚v"3îw¼;º‚x#¹3îy¾í%;º~zÀ¹<5í{Á.5í|Ã~}Å)¸‚~$5ì>Æ‚%5ìFÈ‚€&5ì?Êì5íÌ~‚Î)¸‚ƒ'5ì=Ï‚„(5ì:Ñ‚…)5ì>Ó‚†*5ìFÕ‚‡+5ì?×ì5íˆÙ~‰Û)¸<·‚Š,êcëêÜ5ì‹Ş<·‚Œ-êcëêà5ìâ<·‚.êcëêä5ìoæ<·‚/êcëêè5ìê‚‘05ì’ì‚“15ì”î‚•25ì–ğêcòêò5ì—ôêcòêö5ì˜ø‚™35ìšú‚›45ìœü‚55ìş‚Ÿ6 5ìÿ   ‚¡7 5ìÿ¢ ‚£8 5ìÿ¤ ‚¥9 5ìÿ¦ ‚§: 5ìÿ¨ ‚©;ê cñÿêÿ
- 5ìÿª ‚«<ê cñÿêÿ 5ìÿ¬ ‚­=ê cñÿêÿ 5ìÿ® ‚¯>ê cñÿêÿ 5ìÿ° ‚±?ê cñÿêÿ 5ìÿ² ‚³@ê cñÿêÿ 5ìÿ´  ‚µAê cñÿêÿ" 5ìÿ¶ $ì 5íÿ· &í 3îÿ¸ (í% -íÿ· *º¹ -íÿ· ,¹ -íÿ® . 3îÿ¹ 0 ~º 2) >xî£î¤í©ê¥êë›/¦îêí©!Æé -éÿ· ,é côÿúÿ3 6éÿúÿ5§êê‹/  ~» 8) Fxî£î ¤íÿ7ê¥êë›4 ¦îÿêÿíÿ7!Æé -éÿ· ,é cóÿúÿ9 6éÿúÿ;§êê‹4 ¹¸ -ìÿ· ,¸ 3íÿ¼ =ì 3ğÿ½ ?ºğ kğÿúÿ  A 3îÿ¾ C;º‚¿B¹ 3îÿÀ Eí%;º‚ÁC¹ 3îÿÂ Gí%;º‚ÃD¹ 3îÿÄ Ií%	ºê -êÿÅ K·Æé _ëÿêÿéÿM· -ëÿÇ O¸ê _ìÿëÿêÿQ¸ -ìÿÈ S¹Æ· _íÿìÿëÿU¹ níÿW 3îÿÉ XºVW 3îÿÊ Zº bîÿ\º=¹‚ËE¸ cíÿìÿ^ 3îÿÌ `=º‚ÍF¹ cîÿíÿb˜Î¹‚ÏG¸ dõÿíÿìÿdº -îÿĞ f™=º‚ÑH¹ cîÿíÿh˜Ò¹‚ÓI¸ dõÿíÿìÿj=º‚ÔJ¹ cîÿíÿl˜$¹‚ÕK¸ dõÿíÿìÿn;«  ‘’p  L   ï@ @ P ³€
-à½÷ï½÷ï½÷Ï€G ï½G ï½G ï½÷<à=&ïÀ ïÀ ïÀ  0ğï½÷0ğ0ğï½G Ì9's¾G sP @ € Ì€
-        “&0À L€€I À 0@ 0À À 0À 0À 0À À 0@ À 0@ À P   “€(“€@ @   
-€€ 
-    P @    “c       (   …ÑQbÖ&wÌ   exprµQb¦‚à1   :   eQcê‚m   unique  uñ…Qc.Cd™   isXMLDoc…EQe"dï&   escapeSelector  $SÍÌa-^  §^  ‘Œ,c        ¥   $SĞa²^  _  ”’“c        ¦   ¡
-LQqF¢nÈ>   ^<([a-z][^\/\0>:\x20\t\r\n\f]*)[\x20\t\r\n\f]*\/?>(?:<\/\1>|)$  $SÑPc      S.filtera`  La  äd       ¯ÂÉÂ    I’“c        ¬   E,¤a      …C‘CÅCQb~Û.À   is  C$S—9a      Ä•a      é•a      İPd      .extend.findaga  Sb  äd       ÈÃıÃ    “Œ,c        ®   $SÍ•a      –•a      —•a      •a      —•a      YPc      .filter acb  b  E’“c        °   $S”9a      Ä—a      é—a      İPd      .extend.not aœb  Èb  ÅŒ,c        ±   “$SÍ—a      —a      ‘Pd      fn.extend.isaÔb  c  õ”•c        ²   —0QjZ²tÎ#   ^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]+))$ $S	¨`È  TL`&    2ç 2è©Y`   L`   F`    Fõ…¡%QdZâ	   parseHTML   ‘aiá5Qev¿jl   getElementById  `  QcnÇg‚   ready   K`    DõX             ˜«˜ ” Ä0 nø›2Ä-G0nø› Ä-qø	›{
-%ÃÄ7÷ø÷ŒÃ-÷Ä_ø÷Æ™0ú˜9™5™-™˜Ã-÷Ä_ø÷Œ-Ã_÷Ã-÷Ä_ø÷«0ú!™Ës#›0$ŒÃ-÷&ÄÀ-ô	(Á0ú*¿ö™-
-,™-.˜Œ¾½]õô0Á`ø÷öõ2Ã-÷4Ä0ú6Â_ø÷ö8™dÃ-÷:Ä_ø÷<™U Qxø£ø¤÷>À¥ôõ›C¦øô÷>6Æ¿ú0?¾cóòA™ú0C¿ú0E½_óñGŒ-I¿ú0K¼`óúğM§ôÀ‹C «Ã-÷OÄ0úQÂ_ø÷öSÅ™Ãù6÷UÃ3W÷«-
-Y™Ã6÷[3]Œ4Äcø_™-a-aÄ_øcŒ	Ãc÷eŒÃ-÷gÄ`ø÷i«  ,Rc„á‚        şÿÿÿI`şÿÿÿPd   	   S.fn.init   aÀÆ  ^Ë  ŒT˜sk       ÀW @8   €  
-€ *P P P P P     ` 
-`      ,c       ³   á,QiÆ“Yœ   ^(?:parents|prev(?:Until|All))  ,¤a      QcÚÃ<ı   childrenGQcŞõ8‡   contentsGùGQb^
--­   prevG4’a      aCQc¾¥‹ÿ   closest CuCùCQcÊ(å   addBack C$SÑ9a      Äa      éa      İPd      .extend.has alf  áf  äd       ¦ÍßÍ   
- aŒ,c        µ   •$SÍ9a      Ä‘a      é‘a      İ‘a      “‘a      YPc      .closestaóf  h  ­Œ,c        ·   –$SÍ9a      Ä’a      é’a      İ’a      ”Pd      extend.indexah  ¥h  u—c        ¸   –$S‘’a      “’a      ”’a      •Pd      .extend.add a²h  ùh  ùŒ,c        ¹   —$SÍ9a      Ä“a      é“a      İ“a      •“a      YPc      .addBacka
-i  Qi  ±Œ,c        º   l¤a2      åCQcúvP   parents CQdòá„ù   parentsUntilCùC¥CQcê`Ôm   nextAll CQcN¯Vù   prevAll CQd"¶L	   nextUntil   CQd‚ŒZ‡	   prevUntil   CQcjq?ô   siblingsCC¡C$SÍ9a      ÄPd      .each.parentaki  £i  ”Œ,c        »   å$S‘’a      “’a      éPd      each.parentsa´i  Ñi  I”•c        ¼   $S‘’a      “’a      —’a      ’a      —Maçi  
-j  ’”•c        ½   ’$SÍPd      S.each.next aj  6j  ùŒ,c        ¾   ”$S“Pd      S.each.prev aDj  fj  ¥•–c        ¿   —$S“9a      Äa      éPd      each.nextAllawj  •j  Q•–c        À   “$SÍa      ‘a      ’Pd      each.prevAlla¦j  Èj  UŒ,c        Á   •$S”a      ‘a      ’a      Pd   
-   .nextUntil  aÛj   k  Y–—c        Â   ‘$S”9a      Ä’a      é’a      Pd   
-   .prevUntil  ak  ;k  ]–—c        Ã   •$SÍ’a      “’a      ”’a      Pd   	   .siblings   aMk  {k  aŒ,c        Ä   —$S–’a      “’a      ”’a      Pd   	   .children   ak  ¨k  ‘c        Å   “$S–9a      Ä”a      é”a      ’Pd   	   .contents   aºk  Bl  ¡‘c        Æ   —$SH¨`H   L`   8Rb„ã‚        bï”a¤   $   I`şÿÿÿDa˜Ø  8Ú  Œİ$SÍ9a      Ä•a      é•a      “Pd      .<computed> abl  m  Ie,c        È   K`    Dl            … ú%%ú Å-ù ÅÄ‚ 6ùø«  ˜b        ‘c       Ç   QezmYì   [^\x20\t\r\n\f]+$Sô¨`  |L`:   €Rb„ã‚       ”œ bïH  Bé˜ b‘¨¼}jd   äÿ äÿ äÿ äÿ äÿ äÿ äÿ äÿ ¤ÿ ¤ÿ I`şÿÿÿPd      S.Callbacks a@Ü  ¬ä  Œ$S,¨`   ]K`    De            Æ6ú «(Rb„ã‚        I`şÿÿÿDaÒÜ  îÜ  ™˜b          ,c       Í   Y$SÍ¼a°n  [o  •’c          Î   d¤a.      ùCQcšP&   remove  CaCáCQcâœ–   disable C)CQbÆë»Ñ   lockCQcJÑäô   locked  CQcêÎ   fireWithCQb~=-î   fireCQc~PÑ   fired   C$Sh¨`Œ   L`   ©$SD“`@   L`   (Rb„Ã‚        œ`   DaFß  à  ™$S€“`º   L`
-   Áa•”İK`    Dz            ÿÆcú ™/ÿÆ-ú ™ÿÅ-ùÆ_úù˜ÿÅ-ùÆ_úù
-Œ%™!-™ÆÿÅcùnúW›	Æcú« (Rb„ã‚        I`şÿÿÿDapß  à  õ˜e       P @  	    ,c       Ñ   K`    Dk(            … úş%ÿÄ-ø Å‚ Â`ùøö«  ”•b        –c  
-  €  Ğ   K`    Dt             ˆÆ™?™#V›Å-ù G %
-	Ä-øÅÃ_ùø÷‚ Åcùú™V›Åbù	«,Rc„á‚         şÿÿÿù`şÿÿÿPc      f.add   aÖŞ  Fà  ™•c      ¯€€  –c         Ï   —$SÑPc      f.removea3p  Ÿp  äd       Öà˜á
-     Á–c          Ò   “$SÍPc      f.has   a¬p  Öp  a–c        Ô   •$S”Pc      f.empty aåp  ÿp  á,c          Õ   –$S”Pd   	   f.disable   aq  -q  Å™—c          Ö   $S”Pd   
-   f.disabled  a?q  Kq  )‘—c          ×   ’$S”Pc      f.lock  aYq  ~q  É‘—c          Ø   “$S”Pc      f.lockedaq  ›q  Í‘—c          Ù   ”$SÍPd   
-   f.fireWith  a­q  ÷q  Ñ‘—c        Ú   –$S•Pc      f.fire  ar  /r  Õ‘,c          Û   —$S•Pc      f.fired a>r  Kr  Ù™c          Ü   ‘K`    Dà8            … ù% ›5Æ%ù Ã-÷ Ä-úÂù" À_öúô˜}Â‚ Á`ø÷öõŒù Ã-÷	ÄÂÁ`ø÷öõ%}%}%	ÿ%
-‚%~)Ä‚5ø‚	5ø
-‚5ø‚5ø‚5ø‚5ø‚5ø‚	5ø‚
-5ø ‚5ø"‚5ø$ø%«   ’(˜h&      @ “€`ÎÉ 0À 0À 0À    c       Ì   Qd–[Ö"	   Callbacks   ¤a
-      QcŠÉ   DeferredCQbºİ$   whenC$Sq¨`š  lL`2   HRb„ã‚         bï Bé˜c¤ÿ äÿ ¤ÿ ¤ÿ µ`şÿÿÿ9a      Ä‘a      é‘a      YPd   	   .Deferred   aää  Šó  ŒY`    Lc               –`   L`
-   QcŠ‚œ   notify  QVWP   progressb           ­Qc–ÑºÎ   memory  –`    L`   Áb            Qc^g°Q   resolvedQd2»Ë&   once memory –`    L`   QcÖÛñ¡   reject  Qbò«Å…   failb            ÂĞQc6Îïõ   pending <¤a      QcîeV   state   CCQcÆá]5   catch   CQbÆ4`M   pipeCùCQcö¾®ˆ   promise C$SÍ9a      µPc      .a.statea‹s  —s  !É,c          Ş   $S•–a      —Pd   	   .a.always   a§s  Øs  “‘’c          ß   “$S•–a      —Pc      .a.catchaés  t  %‘’c        à   “$SÑ–a      —Pc      .a.pipe at  2u  äd      ¾è¦ê  0 •d      Óèê    •d       ƒé›ê   
- )‘’c          á   –$S”9a      µPc      .a.then a@u  Yx  (•g      ÚêËï åïÍğ   *à   •d      óêÊï  *€$•g       —ëÍí  Üíïî   >€   ùÉ,c        å   ‘$S@¨`:   L`   YK`    Dj             šÿÅ-ù  ÆÃ`úù÷Œ« (Rb„ã‚        -`şÿÿÿ—a      Pd   
-   .a.promise  aÔğ  ñ  ’˜b         “c       ë   –$S”`è  ,L`   8Rb„ã‚       H”a¤   ¤ÿ I`şÿÿÿDaXñ  Jó  Éù$SÍIaãx  êx  IÅ,c          í   ÅÉÕ$S•Pd      s.<computed>aLy  Šy  I–—c          î   Qbv&w^   WithÑK`    DH            … ù%Ä0ø ÆÄ0ø%ù ÄÃ0÷Ã-ú6ø÷™v-úÄ‚ Âù ÁÀ;ô
-0õÁ0õÁ-õÁù À¿;ó0ôÀ0ôÀ-ôÀù ¿0ó¿0ó¿-ó¿ù ¾0ò¾0ò ¾-ò"¾ú÷]ø÷$-úÄÂ0ö&Â-ö(Â_øúö*ù ÄÃ0÷,Ã‚6ø÷.ù ÄÃ0÷1Ã:÷0Ã-ú36ø÷5«  –4˜k7       € ğ  P  P  P  P  0     —c       ì   ÙK`    D]@            … ú{ ÄÅ{%ÂÃú À-ôÁ¿_õôó7ö÷Ãú À-ôÁ¿_õôó7ö÷ö7øù
-Å{%ÂÃú À-ôÁ¿_õôó7ö÷Ãú À-ôÁ¿_õôó7ö÷ö7øù
-Å{%ÂÃú À-ôÁ¿_õôó7ö÷Ãú À-ôÁ¿_õôó7ö÷ö7øù
-ø%%~	)Å‚
- 5ù‚5ù‚5ù‚5ù!‚5ù#‚5ù%ù%%ú Ä-ø'ÅÃ‚Â`ùø÷ö)Ä-ø+ÅÃ_ùø÷-™-/ÅÃÂ`ù÷ö1« É0”j3      s@ à “ `à L€€  
-€   —c       İ   µ$SÑ9a      ÄPd      .extend.whenaÓy  0{   äe      ªôõ  ¨    “d       ½ôõ     ¹Œ,c        ï   ”DQo–´Şk6   ^(Eval|Internal|Range|Reference|Syntax|Type|URI)Error$  $SÍ‘a      ’‘a      é‘a      µ9a      Qe‚';à   exceptionHook   a“{  	|  I•–c        ò   %$SÑ’a      Ä’a      Qeê¸/_   readyException  a#|  J|  äd       ¼øÈø     IŒ,c        ó   9$S”Pd   
-   S.fn.ready  aÔ|  }  –d       úù’ú     I—c        ö   $¤a      	HQdÖš.¶	   readyWait   `   ’C$SÍ9a      Ä–a      éPd      extend.readyaJ}  ª}  ’Œ,c        ø   ùQÒÜÇ   completeQbÑz´
-   readyState  Qc‚“-_   loading eQc^EK÷   doScrollQdÊWxú
-   setTimeout  QrúÈ.   DOMContentLoadedQbzØ^L   load$SÑ a~~  ²  äe       µşÓş   L    ‘’c        ù   QcL   ^-ms-   Qc^¢ï   -([a-z])$SÍ%a5€  m€  ‘Œ,c        ı   a<¤a      QcVÅ   cache   CµCECQcnğ   access  CÁCQcÚUSù   hasData C$SÍPc      G.cache a½€  P  ©Œ,c        ÿ   ’$S‘Pc      G.set   a]  Á  –“”c           –$S‘Pc      G.get   aÎ  ‚  —“”c          $S‘Pc      G.accessa+‚  —‚  ­“”c          •$S‘Pc      G.removea§‚  ¢ƒ  “”c          $S‘Pd   	   G.hasData   a³ƒ  ôƒ  ±“”c          –,Qi’Të   ^(?:\{[\w\W]*\}|\[[\w\W]*\])$   Qc.üš   [A-Z]   4¤a      –CQb2¤àe   dataCQdÎ w
-   removeData  CQcz'g   _data   CQdâ¦¿   _removeData C$S‘9a      Äa      éa      YPc      .hasDataak…  ‘…  –Œ,c          $SÍa      ‘Pd      .extend.dataaŸ…  ¾…  	”•c          —$S–a      ‘a      ’a      “Pd      .removeData aÒ…  æ…  ”•c          $S–9a      Ä‘a      éPd      extend._dataaõ…  †  Œ,c        	  ”$SÍ‘a      ’‘a      “‘a      YPd      ._removeDataa)†  =†  •–c        
-  ‘¤a
-      	CC$SÑ9a      Ä–a      é–a      İPd      .extend.dataaZ†  Oˆ  (äg      ‰š  ««  !X   ’d       –©   $ “Œ,c          $S•–a      —–a      –a      ‘–a      –a      YPd      .removeData acˆ  –ˆ  ’d       €‘”‘     “”c          $¤a      Qc¬¿Õ   queue   CQcRi   dequeue CQdÆwçÑ   _queueHooks C$SÍ9a      Ä‘a      éPd      extend.queuea±ˆ  6‰  ÑŒ,c          ”$SÑ‘a      ’‘a      “‘a      YPc      .dequeueaG‰  ,Š  äd       ÿ“‘”   ,PÕ•–c          ’$S—9a      Ä“a      é“a      Pd      ._queueHooksaAŠ  ËŠ  ‘d       ª•Ç•   * ÙŒ,c          –,¤a      ÑCÕCQdù«6
-   clearQueue  C-C$SÑ9a      Ä–a      é–a      İ–a      Pd      extend.queueaéŠ  Ï‹  äd       ë–Í—   = ÑŒ,c          $SÑ9a      Ä—a      é—a      İ—a      ‘—a      YPc      .dequeueaà‹  Œ  äd       ı—’˜     ÕŒ,c          $SÍ9a      Ä‘a      é‘a      İ‘a      “‘a      YPd      .clearQueue a(Œ  JŒ  -Œ,c          –$SÑ9a      Ä’a      é’a      İ’a      ”’a      YPc      .promisea[Œ  E  äe       ™™¶™   é    -Œ,c          0Qj>zÉ#   [+-]?(?:\d*\.|)\d+(?:[eE][+-]?\d+|) ÅQeN^¶ñ   ^(?:([+-])=|)(  Qd¦÷€¥   )([a-z%]*)$  bïY`   M`   Qb‚nÃ¡   Top Qc´Ğá   Right   Qc
-sıD   Bottom  Qb.Ôé   Left$SÍMaô    —‘’c          ¤a      Qc:ù»   composedGQ’mÔú   getRootNode $S–9a      I‘a      é‘a      íPb      .ie aK  ™  —Œ,c          $SÍUaª    •–c          $¤a      Qb>İ<B   showCQbJ™òÜ   hideCQcºïw   toggle  C$S—9a      Ä’a      é’a      İPd      .extend.showaà’  ÷’  Œ,c          $  –$SÍ’a      “’a      ”’a      •Pd      .extend.hidea“  “  —c          %  ’$SÑ9a      Ä”a      é”a      İ”a      –”a      YPc      .toggle a(“  “  äd       ò¦œ§     Œ,c        &  ’ Qf
-¦,y   ^(?:checkbox|radio)$,QiÖè"©   <([a-z][^\/\0>\x20\t\r\n\f]*)   0QjÎPù!   ^$|^module$|\/(?:java|ecma)script   $QgÒÊÕË   createDocumentFragment  ¹Ñ½…ÑÁ½ÙåHQd	¯«	   cloneNode   QdúX£^	   lastChild   Qdnü˜ 
-   checkClone  $Q "Tœõ   <textarea>x</textarea>  ­QdÖ±Ö   defaultValueQev—Rô   noCloneChecked   Qºq£Ò   <option></option>   QjçŒ{   option  4¤a      Qc²íé   thead   Y`   Ma      Qcê•ÙQ   <table> QcâÃC÷   </table>QbrÔó¿   col ‘`   Ma       Qfj é   <table><colgroup>    Qf‚†²   </colgroup></table> Qbjš   tr  ‘`   Ma      Qe’É”.   <table><tbody>  QeŠrmÚ   </tbody></table>QbF¡à   td  ‘`   Ma       Qf:t¡j   <table><tbody><tr>  $Qg*xÿ!   </tr></tbody></table>   QcÎÑİ   _default‘`   Ma       €I©Qcê÷‘¶   caption Qc*Ã÷   colgroupQcÖ‘!Î   tfoot   QcNe—&   tbody   åQbşîS‡   th  ‘`   Ma      (QhâMK   <select multiple='multiple'>QdÊö	   </select>   QcªÄé   optgroupQdâßŞz	   <|&#?\w+;   Qbş÷€C   ^key<Qm:%VÙ.   ^(?:mouse|pointer|contextmenu|drag|drop)|click   Qf÷#‰   ^([^.]*)(?:\.(.+)|) La"      Qa      ùCÁCQcöB   dispatchCQcî8’ß   handlersCQc:QãH   addProp CQb^•2L   fix CQcª6R"   special C$SÑPd      S.event.add aÕŸ  £  äe       ÄÁ¬Â   %UU@ •Œ,c        4  $SÍ9a      Ä”a      éPd      event.removea‘£  y¦  Á‘’c        6  $S“”a      •”a      –”a      Qc.?4d   event   Pd   	   .dispatch   a‹¦  ‚©  E‘’c        7  $S“”a      •”a      –”a      ‘Pd   	   .handlers   a”©  Z«  IŒ,c        8  ’$S|¨`°   4L`   8Rb„ã‚       %Ha¤   $   M`şÿÿÿ9a      Ä‘a      é‘a      ‘Pc      .addPropaÖV LY Œ%µQîñ   Event   ],¤a      õG•GECµC$SÍ9a      %—a      é—a      µPb      .getaË«  ¬  I½,c          :  $S–áa
-¬  @¬  I“”c          ;  E$SÍ9a      %a      éa      µPb      .setaM¬  £¬  µ½,c        <  ”K`    Dy@            … ú%%! Ä-øÅú Ã-÷Ã-÷ÃÂ~)Áú À¿côó	™‚ Œ‚5õ‚	5õ
-]ùø«  •˜d      P L€ –c       9  M$SÍPd      S.event.fix a³¬  İ¬  QŒ–c        =  ’$¤a      …”a      QcVª†â   noBubbleGQ" ™ñ   click   CQdª‚K   beforeunloadC$”a      Qc~³Ï   setup   CQÏ…G   trigger CùC$S‘9a      Ä—a      é—a      ‘—a      ‘—a      UPd      .click.setupa­  d­  =Œ,c        >  ”$SÍ9a      Äa      éa      ‘a      ’a      Ua      ’a      1Pc      .triggerau­  Ç­  AŒ,c        ?  –$SÍ9a      Ä’a      é’a      ‘’a      ”’a      U’a      ”’a      1Pd   	   ._default   aÙ­  6®  ùŒ,c        @  —¤a      QdÒ!r   postDispatchC$SÍ9a   )   Ä•a   (   é•a   '   ‘•a   "   —•a   !   U•a      —•a      5•a      —¹a[®  ª®  “Œ,c        A  “’‘$SÍ9a      ÄPd      .removeEventaÄ®  ÿ®  I”•c        B  Qd>¡¤    removeEvent $S–Pc      S.Event a¯  Í°  I”•c        C  ÑL¤a"      ¡C Qf¨W   isDefaultPrevented  C Qfv
-d±   isPropagationStoppedC,Qi’ÓP   isImmediatePropagationStopped   CQdzR„É   isSimulated HQeRŒş>   preventDefault  CQeÆË—E   stopPropagation C$QgZY:E   stopImmediatePropagationC	$SÍ9a      Äa      éa      Ña      ’aj±  Ê±  ”Œ,c          D  ”$S—a      ‘a      ’a      “a      ’aã±  F²  —•–c          E  —$SÍ9a       Ä‘a      é‘a      Ñ‘a      “!ah²  õ²  •Œ,c          F  •¤a~      QcJˆ™   altKey  GQc‚‡…   bubbles GQdn0à]
-   cancelable  GQeJk¶   changedTouches  GQcÆ„M   ctrlKey GQc&~)–   detail  GQd*U#
-   eventPhase  GQcz¤ı,   metaKey GQcæXá­   pageX   GQc:'   pageY   GQcæŠfB   shiftKeyGQbºGõ   viewGQbòqi7   charG‰GQc~Ïê   charCodeGQbÎ¼rS   key GQcš=Æ›   keyCode GíGQc-Õs   buttons GQcìk    clientX GQc–2+   clientY GQcÑ£   offsetX GQcvcİf   offsetY GQd¶f%	   pointerId   GQd’»Ï   pointerType GQc„+§   screenX GQcJi¼   screenY GQe¢½­á   targetTouches   GQdâYšÍ	   toElement   GQc:Ji@   touches GQcúÃó©   which   C$SÍPd      S.each.whichab´  µ  á–—c        G  ”a
-      ÑQc²S©c   focusin Qb¯ˆ~   blurQc2Ë"‰   focusout$S`¨`|   ,L`   0Rb„ã‚       %`$   I`şÿÿÿDaj Šk Œ‘U$¤a      =CACQdÆYš³   delegateTypeC$SÍ9a       Ä—a      é—a      ‘—a      ‘—a      U—a      ‘—a      ‘Pc      .setup  apµ  ‹µ  = ,c          I  •$SÍ9a   "   Ä‘a   !   é‘a       ‘‘a      “‘a      U‘a      “‘a      ‘Pc      .triggeraœµ  ´µ  A ,c          J  — K`    Dr             … ú%ú Å-ù Å-ùÅÄ~)Ã‚ 5÷‚5÷5÷	÷6ùø«˜d      0€    ‘c       H  ,¤a      QdZ®"ş
-   mouseenter  QnªWâ	   mouseover   Q½8
-   mouseleave  Qš¬ÆN   mouseoutQd&Ãñ   pointerenterQdúõÎ³   pointerover QdU_Ò   pointerleaveQd.R,
-   pointerout  $S\¨`r   (L`   0Rb„ã‚        bï`¤   I`şÿÿÿDatl *n Œ‘U$”a      ’CQcÚa…ı   bindTypeCQcV")W   handle  C’© $SÍ9a   !   Ä“a       é“a      —“a      •“a      “a      •“a      ‘Pc      .handle a}¶  ·  ­ ¡ ,c        L  —K`    Dq             … ú%ú Å-ù Å-ùÅ~)Ã5÷5÷‚ 5÷	÷6ù« ˜d      0€    ‘c       K  $¤a      Qb~n»   on  CQb‚V´*   one CQb2.B   off C$SÍ9a      Ä•a      éPd      fn.extend.ona/·  Q·  å Œ,c        M  $S”•a      –•a      —•a      İPd      .extend.one a^·  ‚·  é ‘’c        N  ”$SÑ9a      Ä–a      é–a      “Pd      .extend.off a·  ó¸  äd       Óñññ   /Pí Œ,c        O  ’ Qf2SA   <script|<style|<link,Qi"ÑUÍ    checked\s*(?:[^=]|=\s*.checked.)4Qkš¶6'   ^\s*<!(?:\[CDATA\[|--)|(?:\]\]|--)>\s*$ $¤a      QeòÏà   htmlPrefilter   CQcÚè_   clone   CQdÖû`™	   cleanData   C$SÍ9a      Ä—a      é—a      Y—a      ‘I!aU¿  b¿  “Œ,c        X  “$S–—a      —a      ‘Pd      extend.cloneaq¿  KÁ  M!”•c        Y  –$SÍ9a      Äa      éa      YPd   
-   .cleanData  a^Á  DÂ  Q!Œ,c        Z  ”d¤a.      Qc†ÇşJ   detach  CÁCñCQc2ßË@   append  CQcÎµå   prepend CQcZŠ2   before  CQc¢0È5   after   CáCM!CQbÊUE   htmlCQd®İŞç   replaceWith C$SÍ9a      Ä•a      é•a      İ•a      —•a      YPc      .detach acÂ  |Â  !Œ,c        [  ’$SÍ9a      Ä–a      é–a      İ–a      –a      YPc      .remove aŒÂ  £Â  ÁŒ,c        \  $SÑ9a      Ä—a      é—a      İPd      .extend.texta±Â  vÃ  äd      Ë…Ü†    “d       ˆ†Ú†     ñŒ,c        ]  $SÑ9a      Äa      éa      İa      ’a      YPc      .append a†Ã  Ä  äd       ª‡‚ˆ     ¡!Œ,c          `  –$SÑ9a      Ä’a      é’a      İ’a      ”’a      YPc      .prependaÄ  ®Ä  äd       ¹ˆ¬‰     ¥!Œ,c          b  $SÑ9a      Ä”a      é”a      İ”a      –”a      YPc      .before a¾Ä  Å  äd       â‰œŠ     ©!Œ,c          d  ’$SÑ9a      Ä–a      é–a      İ–a      Pd      extend.aftera-Å  ™Å  äd       ÑŠ—‹     ­!Œ,c          f  “$SÍ9a      Ä—a      é—a      İ—a      ‘Pd      extend.emptya¨Å  Æ  á”•c          h  “$SÑ—a      —a      ‘—a      ’—a      ‘Pd      extend.clonea#Æ  zÆ  äd       ÜŒøŒ   < M!Œ,c        i  $S”9a      Ä‘a      é‘a      İPd      .extend.htmlaˆÆ  üÇ  •d       £â     ±!—c        k  •$SÑ‘a      ’‘a      “‘a      ”‘a      “‘a      YPd      .replaceWithaÈ  ¤È  äd       ¾ ‘     µ!Œ,c          m  ‘4¤a      Qc†"   appendTo¡!Qd>4ş	   prependTo   ¥!QdVS_m   insertBefore©!Qdş´{Ñ   insertAfter ­!QdÖaÔ
-   replaceAll  ‘$S@¨`:   L`   0Rb„ã‚        Bé`¤   I`şÿÿÿDaB’ „“ ’İ$SÍ9a      Ä”a      é”a      ’Pd      .<computed> a7É  ÁÉ  IE#,c        p  K`    Dj            … ú%ú Å-ù Å‚ 6ù« —˜b        c       o  ­
-Qe
-Ò   )(?!px)[a-z%]+$ $S“Ía Ê  VÊ  “Œc        q  $SÍÑabÊ  ÓÊ  –”c        r   ’§}$Sô¨`¤  lL`2   xRb„ã‚        %Hœ” bï  Bé˜ b‘¨i¤ÿ ¤ÿ äÿ äÿ äÿ äÿ äÿ äÿ ¤ÿ äÿ I`şÿÿÿDa0™ z£ Œ$SÍIa¥Ì  „Î  %‰#,c    
-      w  $S‘IaÎ  ´Î  H“”c  
-      x  Ñ½¥Qêeww   content-box Q*•!5   backgroundClip  …IQe‚`BÆ   clearCloneStyle Y<¤a       QfŞœUÂ   boxSizingReliable   CQe¶³­F   pixelBoxStyles  CQeòV·   pixelPosition   C Qf6+y   reliableMarginLeft  CQe^ÂåŒ   scrollboxSize   C Qfjv   reliableTrDimensionsC$SÍ9a   "   ¨•a   !   é•a       •a      —•a      Ä•a      —•a      ’•a      —­#a¬Ï  ¼Ï  ‘‰#,c          y  ‘$S”•a      –•a      —•a      ¥•a      —•a      •a      —•a      Y9a      —±#aÔÏ  äÏ  —’“c          z  —$SÍ–a      ¨–a      é–a      ”–a      ’–a      Ä–a      ’–a      •–a      ’µ#aûÏ  Ğ  ”‰#,c          {  ”$S9a   #   ‘—a   "   ’—a   !   ¥—a      ’—a      “—a      ’—a      Y—a      ’¹#a'Ğ  7Ğ  ’•–c          |  ’$SÍ—a      ¨—a      é—a      —a      •—a      Ä—a      •—a      ‘—a      •½#aNĞ  ^Ğ  —‰#,c          }  —$S“9a   %   ”’a   $   •’a   #   ¥’a      •’a      –’a      •’a      Y’a      •Á#a|Ğ  ¹Ñ  •‘c          ~  •K`    Dà(            … 
-ú‚ %‚%ú Ä-ø ÅÃ_ùø÷%
-ú Ä-ø ÅÃ_ùø÷%Å-ù™Å-ùÅ3ùÄ-ø
-ÅÃ_ùø÷Å-ùÅ	3ùú ÅÄÃ-÷Ã-÷nø3ù
-ú Ä-øÅú Ã~)Â‚5ö‚5ö‚5ö‚5ö ‚5ö"‚5ö$`ùø÷ö&«(˜h(      @ P   @
-`2À 0À   ‘c         v  Y`   M`   QcÕ&˜   Webkit  QbÊÕ¡H   Moz Qbæ@Uû   ms  “(QhfEÉ.   ^(none|table(?!-c[ea]).+)   QbÎpbõ   ^-- $¤a      IQúóâ!   absoluteQŠ;KÏ
-   visibility  Q:;rØ   display Q½µä   block   a
-      Qer÷Û   letterSpacing   aQdò)…Ú
-   fontWeight  Qb@    400 4a      QcŠuÔÃ   cssHooksCQdfF@	   cssNumber   ¬aR      $Qg¾£§   animationIterationCount GQdÑ¾   columnCount GQdæ8@Â   fillOpacity GQcşŸœç   flexGrowGQd†ßh	
-   flexShrink  Gõ$GQcrHIr   gridAreaGQdR=¬
-   gridColumn  GQeb    gridColumnEnd   GQeÚ›à:   gridColumnStart GQc‚Wƒ   gridRow GQdÇl
-   gridRowEnd  GQdŠÃ   gridRowStartGQÚûY 
-   lineHeight  GGQczû¬À   order   GQcÊÇJ–   orphans GQc.C[ˆ   widows  GQ:É¡   zIndex  GQb)[g   zoomGQcVÆ   cssPropsa      ¥CQb¢òF   css Ca      •Ca      EC$SÍ9a      Ä‘a      é‘a      Y‘a      “‘a      %Pd      .opacity.getaÚ×  Ø  —Œ,c        …  •$SÍ9a      Ä’a      éPd      extend.styleaKÙ  @Û  ¥–—c        †  $S‘Pd      S.extend.cssaMÛ  8Ü  ]%Œ,c        ‡  –Y`   M`   ™$SX¨`f   $L`   0Rb„ã‚        b‘`¤   I`şÿÿÿDaº¸ è¼ —%¤a
-      ECµC$SÑ9a      Ä’a      é’a      •’a      ”’a      ‘Pb      .geta~Ü  İ  äd       …º™º   " —½%,c        ‰  E$SÍ9a      Ä“a      é“a      %“a      •“a      ‘Pb      .seta(İ  rŞ  µ½%,c        ‹  K`    Dp             … ú%ú Å-ù ÅÄ~)Ã‚ 5÷‚5÷÷6ùø«   ‘˜c	      L`   ’c       ˆ  ¹#$SÑIa­Ş  Kß  äd       š¾Ã¾     IŒ’c        Œ  Qr{¸<
-   marginLeft  $¤a      ‘I•IQÊ´şn   border  Qcz{Cu   Width   $S„¨`Â   $L`   8Rb„ã‚         bïa¤   $   I`şÿÿÿDa¿ zÀ —%a      Qc›î²   expand  C$SÍ9a      Ä—a      é—a      •—a      ‘—a      ‘Pc      .expand a¨ß  à  A&9&,c          “‘µK`    D{             … ú%%ú Å-ù ÅÄ:øÄ~)Ã‚ 5÷÷6ùøÅnùW›#ú Å-ù ÅÄ:ø	0ù
-Åúe Ä3ùø« ”˜d      ¼É À‡    •c         ¤a      ]%C$SÑ9a      Ä”a      é”a      İPd      .extend.css aXà  +á  äd       ôÀ’Â     ’Œ,c          QcrÇí   Tween   ,¤a      ¡CáCQbşò¾\   cur CQbÎ5   run C$SÍ•acá  	â  •‘’c        ’  $S–•&aâ  sâ  —‘’c          “  —$S–™&a€â  Îã  ‘’c        ”  “a      ùC“a
-      ECµC$S–9a      ”a      é”a      Qd
-qŒü	   propHooks   ”a      –Pd      _default.getaä  ¥ä  ’Œ,c        •  $SÍ”a      •”a      –”a      Ñ&”a      –Pd      _default.seta²ä  _å  “—c        –  ’¤a      µC$S‘9a   %   QdZÓm´	   scrollTop   •a      –•a      •a      é•a      ’•a      —•a      Qdê½s
-   scrollLeft  Pb      .seta’å  Ñå  ”Œ,c        —  %'	'$¤a      µCQcùĞ•   swing   Cù1'$SÍ9a      Ä‘a      é‘a      Qcï8   easing  Pc      .linear aìå  ùå  •Œ,c        ˜  µ$S‘a      ’‘a      “Pd      easing.swingaæ  +æ  —”•c        ™  —I'QbnMXr   fx  QbÎsÚM   step$Qgâ·Ú|   ^(?:toggle|show|hide)$  Qd.]ø~   queueHooks$ ,¤a      Qc–•„   tweenersCQcZyaK   tweener CQd^˜]8
-   prefilters  CQdfÆÛX	   prefilter   Ca      CY`    La       $SÍ9a      Ä”a      é”a      Qdr¨·	   Animation   ”a      –”a      •”a      –”a      YPd      .tweeners.* aoî  µî  IŒ,c        ¥  y'$SÍ9a      Ä•a      é•a      ©'•a      —•a      –•a      —•a      YPc      .tweeneraÈî  Rï  }'Œ,c        ¦  ’Y`    La       $SÑ9a      Ä—a      é—a      ©'—a      ‘—a      —a      ‘—a      YPd      .prefilters agï  ºô  Dän3      Ìàßà  ÿàÍá Ûåêå  ãæ³ç  ¯èïè   "×İ*Ğ ”d       “áËá     IŒ,c        §  '$SÍ9a      Ä‘a      é‘a      ©'‘a      “‘a      ’‘a      “‘a      YPd   
-   .prefilter  aÎô  õ  …'Œ,c        ®  –”$SÑPc      S.speed aõ  ¸ö  äd       õìµí    €I—c        ¯  QcÎÈ(   speed   ,¤a      Qc…„‰   fadeTo  CQcvÉz­   animate CQbŠÜùĞ   stopCQc’FƒÛ   finish  C$SÍ9a      Ä•a      é•a      İ•a      —•a      YPc      .fadeTo aÕö  /÷  a(Œ,c        ±  ’$SÑ9a      Ä–a      é–a      İ–a      –a      YPc      .animatea@÷  ø  äe       şîÇï    (    e(Œ,c        ²  ”$SÑ9a      Äa      éa      İPd      .extend.stopaø  Ãù  $äg       ±ğÕğ  °ñÁó   7€   i(Œ,c        ´  •$SÑ9a      Ä‘a      é‘a      İ‘a      “‘a      YPc      .finish aÓù  <û  äd       ƒôºö   0 m(Œ,c        ·  —Y`   M`   $ST¨`b   L`   8Rb„ã‚       ” bïa¤   ¤ÿ I`şÿÿÿDaÎö Ú÷ İ$SÍ9a      Ä’a      é’a      Pd      .<computed> a‹û  ìû  I	),c        º  K`    Do            … ú%ú Å-ù Å0ù%ú Å-ù ÅÄ‚ 6ùø« •˜b       0 –c       ¹  <¤a      Qd²£	   slideDown   CQcêvÜ    slideUp CQdteå   slideToggle CQc®K¶¤   fadeIn  a      Qczë×V   fadeOut a      ‘Qd–læm
-   fadeToggle  a      ‘1)5)9)$S@¨`:   L`   0Rb„ã‚       ”`¤   I`şÿÿÿDa ù šù Œİ$SÍ9a      Ä•a      é•a      “Pd      .<computed> a§ü  Ìü  Ia),c        ¼  K`    Dj            … ú%ú Å-ù Å‚ 6ù« ˜b        ‘c       »  Qc¾¨O!   timers  $S”Pd   	   S.fx.tick   aíü  lı  IŒ‘c          ½  Qb&$9è   tick$S”Pd   
-   S.fx.timer  a€ı  ¢ı  I“‘c        ¾  Qc:üD   timer   Qc’u›   interval$S”Pd   
-   S.fx.start  aÇı  Ûı  I“‘c          ¿  QcÊÁ/   start   $S”Pd   	   S.fx.stop   aîı  ùı  I“‘c          À  $¤a      Qb‚Mè   slow`°  Qb6˜    fast`  ù`   Qc® Û   speeds  $SÑPd   
-   S.fn.delay  a:ş  Æş  äd      €ıÄı  4 —d       ®ıÃı    I“‘c        Á  Qc
-%h   delay   ÁAQc>ÕÔ   checkOn İQd*e<)   optSelected Qd^ºÛ8
-   radioValue  …¤a
-      5CQd²aÊ
-   removeAttr  C$SÍ9a      Äa      éa      İPd      .extend.attraöÿ  )  –Œ,c        Ä  –$SÑa      ‘a      ’a      “a      ’a      YPd      .removeAttr a=  t  äd       Ú€ò€     *”•c        Å  ‘$¤a      5CQdŠgIé	   attrHooks   C‘C$SÍ9a      ÄPd      .extend.attra   “Œ,c        Ç  ’a      ÁC’a      µC$S”•a      –•a      é•a      Y•a      “•a      E*Pd   	   .type.set   a2 ¦ ’—c        È  •$SÍ9a      Ä—a      “—a      ”Pd      .removeAttr a¼  *Œ,c        É  ¤a      µC$S–Pc      pt.set  a( e •’“c        Ê  
-Qb‡   \w+ $ST¨``   L`   0Rb„ã‚        Bé`¤ÿ I`şÿÿÿDa: V ’…5$SÍ9a      5Pd      .<computed> aÊ * I¹*,c        Ì  K`    Do            … úús Å0ù ˜ú Å-ùÅ-ù%ús Å‚ 6ù«  •˜c      P    –c       Ë  á
-QdFÅa3   ^(?:a|area)$¤a
-      QbÆIÚ5   propCQd.gÈ
-   removeProp  C$S’“a      Ä“a      é9a      İPd      .extend.propaF y İ*Œ,c        Ğ  –$SÑ”a      ’”a      “”a      •”a      “”a      YPd      .removeProp a Ì äd       ª‹Ê‹     á*—c        Ñ  ”$¤a      –CÑ&CQcfÈ˜‘   propFix •a
-      Qb~˜İû   for QcRÂ   htmlFor QV%â   class   å$SÍ9a      ÄPd      .extend.propaæ Ä İ*Œ,c        Ó  ¤a      Qc‚¿ö¨   tabIndexC–a      EC$S‘a      ’‘a      é‘a      Y9a      ’a      Ñ&’a      Pd      tabIndex.getaæ X —”•c        Ô  M+–a
-      —CµC$SÍ’a   &   ¬’a   %   ’a   $   õ)’a      é’a      Ä9a      ‘“a      Ñ&“a      ‘Pd      selected.geta½  EŒ,c        Õ  $SÍ“a   &   ¬“a   %   é“a   $   õ)9a      ’”a      Ä”a      ’”a      Ñ&”a      ’Pd      selected.seta n µŒ,c        Ö  Y`   0M`   M+Qcš—Ùá   readOnlyQd*Üî	   maxLength   QdÚJ   cellSpacing QdÄ£É   cellPadding Qc~A   rowSpan QcV[‰!   colSpan Qc†‹ğà   useMap  Qæ=$   frameBorder Qeİ¥r   contentEditable $S<¨`4   L`   %+	K`    Di            Æ-ú  Æ-Å^ùÅ6úù«,Rc„á‚         şÿÿÿI`şÿÿÿDaü H ˜c       @    ‘c         ×  ,¤a      Qc*»V    addClassCQdŠA_4   removeClass CQd#P   toggleClass CQcn—û@   hasClassC$SÑ9a      Ä’a      é’a      İ’a      ”’a      YPd   	   .addClass   aD	 l
- äe       ÿ’­“   %UP   ,Œ,c        Ø  $SÑ9a      Ä”a      é”a      İ”a      –”a      YPd      .removeClassa
- õ äe       ½•î•   %UP   !,Œ,c        Ú  ’$SÑ9a      Ä–a      é–a      İ–a      –a      YPd      .toggleClassa
- ÷ $äg       œ™Ñ™  å™õ›   *€   %,Œ,c        Ü  ”$SÍ9a      Äa      éa      İa      ’a      YPd   	   .hasClass   a	 ~ ),Œ,c        ß  •Qb¶ğ©   \r  ¤a      Qbrú$½   val C$SÑ9a      Ä’a      é’a      İPd      .extend.val a¨ Ë äd      ò›   -À–d       ş™Ÿ    Á,Œ,c        à  —¤a      Qcv ^Ê   valHooksC’a
-      ¡CC’a      EC$SÍ9a      Ä—a      é—a      Y—a      ‘—a      é,Pd      .option.get aö 6 •Œ,c        ã  ¤a
-      ECµC$SÍ9a      Ä’a      é’a      Y’a      ”’a      é,Pd      .select.get aL X —Œ,c        ä  $S‘’a      “’a      ”’a      •’a      ”’a      –Pd      .select.set ae  µ—c        å  –Y`   M`   ½Á$Sd¨`~   $L`   –¤a      ‘C$SÍ9a      Äa      éa      é,a      ’a      ‘Pb      .setaV œ µŒ,c        ç  •ñ)$SÍ9a   #   ¬’a   "   é’a   !   ’a      ”’a      Ä’a      ”’a      é,’a      ”’a      ‘Pb      .getaÇ ş IŒ,c        è  EK`    Ds            Æ-ú  Æ~)Ä‚ 5øø6úÆ-ú˜Æ-ú  Æ0ú	Æ‚Å3úù«   ,Rc„á‚         şÿÿÿI`şÿÿÿDaj&  ( ˜d      L      ‘c         æ  Q‚–E	   onfocusin   õ,Qi«-X   ^(?:focusinfocus|focusoutblur)$ $SÍUaP h –‘c        é  ¤a
-      ACQcÚ¾   simulateC$S•9a      Ä‘a      é‘a      YPc      .triggeraŒ Ö Œ,c        ê  $SÍ‘a      ’‘a      “‘a      ”Pd   	   .simulate   aè @ á-•–c        ë  ¤a
-      ACQeÖ‡    triggerHandler  C$SÑ9a      Ä”a      é”a      İ”a      –”a      YPc      .triggera` Ÿ äd       €µµ   ( ’Œ,c        ì  $SÍ9a      Ä•a      é•a      İ•a      —•a      Y•a      —.a· ñ ’Œ,c        î  ’¤a
-      Ñõùı$Sd¨`„   ,L`   @Rb„ã‚       ”œ bïb¤   $   ¤ÿ I`şÿÿÿDa`6 J9 Œ$SÍ bïaD t  bïq.,c        ğ  ‘U¤a
-      =CQcÆËH   teardownC$S–9a       Ä•a      é•a      ‘•a      —•a      ’•a      —•a      ‘Pc      .setup  a—  ”q.,c          ñ  ”$SÍ•a   #   –•a   "   —•a   !   ‘•a      —•a      U9a      —–a      Pd   	   .teardown   a £ .‘’c          ò  —K`    Ds             … ú%%‚ %ú Å-ù Å-ùÅÄ~)Ã‚5÷‚5÷÷6ùø	«‘˜c      0€ ’c       ï  Qc’¯7å   location¤a      -C©Qbö³   now ’Qbâ·øµ   \?  $SÍPd   
-   S.parseXML  aé ¹ IŒ,c        ó  QcB&6   parseXMLQcFèÂ   \[\]$   Qc¶
-@    \r?\n
