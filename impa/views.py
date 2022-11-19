@@ -27,8 +27,21 @@ class impnew(LoginRequiredMixin, generic.CreateView):
     success_url = reverse_lazy("impa:imp_list")
     login_url = "bases:login"
 
+<<<<<<< HEAD
     def form_valid(self, form):
         form.instance.uc = self.request.user
+=======
+    def form_valid(self, form, *numini, **numfin):
+        form.instance.uc = self.request.user
+        rango= []
+        impguias = ImpGuias
+        for imp in range(numini,numfin):
+            if numini>=numini.objects.filter(numini).exists() and numfin>=numfin.objects.filter(numfin).exists():
+                mensaje = "Rango ya existe"
+            else:
+                rango.append(impguias)
+        ImpGuias.objects.bulk_create(rango)
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
         return super().form_valid(form)
     
 class impedit(LoginRequiredMixin, generic.UpdateView):

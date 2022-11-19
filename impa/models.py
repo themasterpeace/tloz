@@ -42,8 +42,13 @@ class ImpGuias(ClaseModelo):
         return self.numini
 
     def save(self):
+<<<<<<< HEAD
         self.numini = self.numini
         self.numfin = self.numfin
+=======
+        self.numini = self.numini.upper()
+        self.numfin = self.numfin.upper()
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
         super(ImpGuias, self).save()
     
     class Meta:

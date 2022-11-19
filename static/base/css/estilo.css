@@ -421,35 +421,55 @@ input#id_guias{
 }
 .box.registro i.fas.fa-at{
     position: absolute;
+<<<<<<< HEAD
     top: 340px;
+=======
+    top: 410px;
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     left: 15px;
     transform: scale(1.2);
     color: #FFF;
 }
 .box.registro i.fa.fa-lock{
     position: absolute;
+<<<<<<< HEAD
     top: 410px;
+=======
+    top: 490px;
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     left: 15px;
     transform: scale(1.2);
     color: #FFF;
 }
 .box.registro i.fa.fa-lock.c{
     position: absolute;
+<<<<<<< HEAD
     top: 580px !important;
+=======
+    top:790px !important;
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     left: 15px;
     transform: scale(1.2);
     color: #FFF;
 }
 .box.registro i.fas.fa-address-card{
     position: absolute;
+<<<<<<< HEAD
     top: 200px;
+=======
+    top: 235px;
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     left: 15px;
     transform: scale(1.2);
     color: #FFF;
 }
 .box.registro i.far.fa-address-card{
     position: absolute;
+<<<<<<< HEAD
     top: 270px;
+=======
+    top: 320px;
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
     left: 15px;
     transform: scale(1.2);
     color: #FFF;

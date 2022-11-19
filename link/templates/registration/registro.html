@@ -10,7 +10,11 @@
                 <h2>Registro de Usuario</h2>
                 <form action="" method="POST" autocomplete="off">
                     {% csrf_token %}
+<<<<<<< HEAD
                     {{ form | crispy }}
+=======
+                    {{ form.as_p }}
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
                     <i class="fa fa-user" aria-hidden="true"></i>
                     <i class="fas fa-address-card" aria-hidden="true"></i>
                     <i class="far fa-address-card" aria-hidden="true"></i>

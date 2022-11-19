@@ -869,7 +869,10 @@ input[type="email"]:focus,
 input[type="number"]:focus,
 input[type="tel"]:focus,
 input[type="date"]:focus,
+<<<<<<< HEAD
 input[type="time"]:focus,
+=======
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
 textarea:focus,
 select:focus-visible,
 .form-control:focus{
@@ -883,7 +886,10 @@ input[type="email"],
 input[type="number"],
 input[type="tel"],
 input[type="date"],
+<<<<<<< HEAD
 input[type="time"],
+=======
+>>>>>>> 9cc37fec992af651cec4f2a352743cc414d2984e
 textarea,
 select,
 .form-control{
