@@ -1,0 +1,105 @@
+ svg
+            .replace(/<IMG /g, '<image ')
+            .replace(/<(\/?)TITLE>/g, '<$1title>')
+            .replace(/height=([^" ]+)/g, 'height="$1"')
+            .replace(/width=([^" ]+)/g, 'width="$1"')
+            .replace(/hc-svg-href="([^"]+)">/g, 'xlink:href="$1"/>')
+            .replace(/ id=([^" >]+)/g, ' id="$1"') // #4003
+            .replace(/class=([^" >]+)/g, 'class="$1"')
+            .replace(/ transform /g, ' ')
+            .replace(/:(path|rect)/g, '$1')
+            .replace(/style="([^"]+)"/g, function (s) {
+            return s.toLowerCase();
+        });
+        return svg;
+    };
+    /**
+     * VML namespaces can't be added until after complete. Listening
+     * for Perini's doScroll hack is not enough.
+     *
+     * @private
+     * @function Highcharts.Chart#isReadyToRender
+     */
+    Chart.prototype.isReadyToRender = function () {
+        var chart = this;
+        // Note: win == win.top is required
+        if (!svg &&
+            (win == win.top && // eslint-disable-line eqeqeq
+                doc.readyState !== 'complete')) {
+            doc.attachEvent('onreadystatechange', function () {
+                doc.detachEvent('onreadystatechange', chart.firstRender);
+                if (doc.readyState === 'complete') {
+                    chart.firstRender();
+                }
+            });
+            return false;
+        }
+        return true;
+    };
+    // IE compatibility hack for generating SVG content that it doesn't really
+    // understand. Used by the exporting module.
+    if (!doc.createElementNS) {
+        doc.createElementNS = function (ns, tagName) {
+            return doc.createElement(tagName);
+        };
+    }
+    /**
+     * Old IE polyfill for addEventListener, called from inside the addEvent
+     * function.
+     *
+     * @private
+     * @function Highcharts.addEventListenerPolyfill<T>
+     * @param {string} type
+     * @param {Highcharts.EventCallbackFunction<T>} fn
+     * @return {void}
+     */
+    H.addEventListenerPolyfill = function (type, fn) {
+        var el = this;
+        /**
+         * @private
+         */
+        function wrappedFn(e) {
+            e.target = e.srcElement || win; // #2820
+            fn.call(el, e);
+        }
+        if (el.attachEvent) {
+            if (!el.hcEventsIE) {
+                el.hcEventsIE = {};
+            }
+            // unique function string (#6746)
+            if (!fn.hcKey) {
+                fn.hcKey = uniqueKey();
+            }
+            // Link wrapped fn with original fn, so we can get this in
+            // removeEvent
+            el.hcEventsIE[fn.hcKey] = wrappedFn;
+            el.attachEvent('on' + type, wrappedFn);
+        }
+    };
+    /**
+     * @private
+     * @function Highcharts.removeEventListenerPolyfill<T>
+     * @param {string} type
+     * @param {Highcharts.EventCallbackFunction<T>} fn
+     * @return {void}
+     */
+    H.removeEventListenerPolyfill = function (type, fn) {
+        if (this.detachEvent) {
+            fn = this.hcEventsIE[fn.hcKey];
+            this.detachEvent('on' + type, fn);
+        }
+    };
+    /**
+     * The VML element wrapper.
+     *
+     * @private
+     * @class
+     * @name Highcharts.VMLElement
+     *
+     * @augments Highcharts.SVGElement
+     */
+    VMLElement = {
+        docMode8: doc && doc.documentMode === 8,
+        /**
+         * Initialize a new VML element wrapper. It builds the markup as a
+ 

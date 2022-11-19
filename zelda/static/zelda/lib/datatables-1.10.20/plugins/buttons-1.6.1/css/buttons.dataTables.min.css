@@ -1,0 +1,242 @@
+e, callbackArgs, scale);
+                }
+                else {
+                    canvas.height = img.height * scale;
+                    canvas.width = img.width * scale;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    // Now we try to get the contents of the canvas.
+                    try {
+                        dataURL = canvas.toDataURL(imageType);
+                        successCallback(dataURL, imageType, callbackArgs, scale);
+                    }
+                    catch (e) {
+                        taintedHandler(imageURL, imageType, callbackArgs, scale);
+                    }
+                }
+            }
+            finally {
+                if (finallyCallback) {
+                    finallyCallback(imageURL, imageType, callbackArgs, scale);
+                }
+            }
+            // IE bug where image is not always ready despite calling load
+            // event.
+        }, loadEventDeferDelay);
+    }, 
+    // Image load failed (e.g. invalid URL)
+    errorHandler = function () {
+        failedLoadCallback(imageURL, imageType, callbackArgs, scale);
+        if (finallyCallback) {
+            finallyCallback(imageURL, imageType, callbackArgs, scale);
+        }
+    };
+    // This is called on load if the image drawing to canvas failed with a
+    // security error. We retry the drawing with crossOrigin set to Anonymous.
+    taintedHandler = function () {
+        img = new win.Image();
+        taintedHandler = taintedCallback;
+        // Must be set prior to loading image source
+        img.crossOrigin = 'Anonymous';
+        img.onload = loadHandler;
+        img.onerror = errorHandler;
+        img.src = imageURL;
+    };
+    img.onload = loadHandler;
+    img.onerror = errorHandler;
+    img.src = imageURL;
+};
+/* eslint-enable valid-jsdoc */
+/**
+ * Get data URL to an image of an SVG and call download on it options object:
+ *
+ * - **filename:** Name of resulting downloaded file without extension. Default
+ *   is `chart`.
+ *
+ * - **type:** File type of resulting download. Default is `image/png`.
+ *
+ * - **scale:** Scaling factor of downloaded image compared to source. Default
+ *   is `1`.
+ *
+ * - **libURL:** URL pointing to location of dependency scripts to download on
+ *   demand. Default is the exporting.libURL option of the global Highcharts
+ *   options pointing to our server.
+ *
+ * @function Highcharts.downloadSVGLocal
+ *
+ * @param {string} svg
+ * The generated SVG
+ *
+ * @param {Highcharts.ExportingOptions} options
+ * The exporting options
+ *
+ * @param {Function} failCallback
+ * The callback function in case of errors
+ *
+ * @param {Function} [successCallback]
+ * The callback function in case of success
+ *
+ * @return {void}
+ */
+H.downloadSVGLocal = function (svg, options, failCallback, successCallback) {
+    var svgurl, blob, objectURLRevoke = true, finallyHandler, libURL = (options.libURL || getOptions().exporting.libURL), dummySVGContainer = doc.createElement('div'), imageType = options.type || 'image/png', filename = ((options.filename || 'chart') +
+        '.' +
+        (imageType === 'image/svg+xml' ? 'svg' : imageType.split('/')[1])), scale = options.scale || 1;
+    // Allow libURL to end with or without fordward slash
+    libURL = libURL.slice(-1) !== '/' ? libURL + '/' : libURL;
+    /* eslint-disable valid-jsdoc */
+    /**
+     * @private
+     */
+    function svgToPdf(svgElement, margin) {
+        var width = svgElement.width.baseVal.value + 2 * margin, height = svgElement.height.baseVal.value + 2 * margin, pdf = new win.jsPDF(// eslint-disable-line new-cap
+        height > width ? 'p' : 'l', // setting orientation to portrait if height exceeds width
+        'pt', [width, height]);
+        // Workaround for #7090, hidden elements were drawn anyway. It comes
+        // down to https://github.com/yWorks/svg2pdf.js/issues/28. Check this
+        // later.
+        [].forEach.call(svgElement.querySelectorAll('*[visibility="hidden"]'), function (node) {
+            node.parentNode.removeChild(node);
+        });
+        win.svg2pdf(svgElement, pdf, { removeInvalid: true });
+        return pdf.output('datauristring');
+    }
+    /**
+     * @private
+     * @return {void}
+     */
+    function downloadPDF() {
+        dummySVGContainer.innerHTML = svg;
+        var textElements = dummySVGContainer.getElementsByTagName('text'), titleElements, svgData, 
+        // Copy style property to element from parents if it's not there.
+        // Searches up hierarchy until it finds prop, or hits the chart
+        // container.
+        setStylePropertyFromParents = function (el, propName) {
+            var curParent = el;
+            while (curParent && curParent !== dummySVGContainer) {
+                if (curParent.style[propName]) {
+                    el.style[propName] =
+                        curParent.style[propName];
+                    break;
+                }
+                curParent = curParent.parentNode;
+            }
+        };
+        // Workaround for the text styling. Making sure it does pick up settings
+        // for parent elements.
+        [].forEach.call(textElements, function (el) {
+            // Workaround for the text styling. making sure it does pick up the
+            // root element
+            ['font-family', 'font-size'].forEach(function (property) {
+                setStylePropertyFromParents(el, property);
+            });
+            el.style['font-family'] = (el.style['font-family'] &&
+                el.style['font-family'].split(' ').splice(-1));
+            // Workaround for plotband with width, removing title from text
+            // nodes
+            titleElements = el.getElementsByTagName('title');
+            [].forEach.call(titleElements, function (titleElement) {
+                el.removeChild(titleElement);
+            });
+        });
+        svgData = svgToPdf(dummySVGContainer.firstChild, 0);
+        try {
+            H.downloadURL(svgData, filename);
+            if (successCallback) {
+                successCallback();
+            }
+        }
+        catch (e) {
+            failCallback(e);
+        }
+    }
+    /* eslint-enable valid-jsdoc */
+    // Initiate download depending on file type
+    if (imageType === 'image/svg+xml') {
+        // SVG download. In this case, we want to use Microsoft specific Blob if
+        // available
+        try {
+            if (typeof nav.msSaveOrOpenBlob !== 'undefined') {
+                blob = new MSBlobBuilder();
+                blob.append(svg);
+                svgurl = blob.getBlob('image/svg+xml');
+            }
+            else {
+                svgurl = H.svgToDataUrl(svg);
+            }
+            H.downloadURL(svgurl, filename);
+            if (successCallback) {
+                successCallback();
+            }
+        }
+        catch (e) {
+            failCallback(e);
+        }
+    }
+    else if (imageType === 'application/pdf') {
+        if (win.jsPDF && win.svg2pdf) {
+            downloadPDF();
+        }
+        else {
+            // Must load pdf libraries first. // Don't destroy the object URL
+            // yet since we are doing things asynchronously. A cleaner solution
+            // would be nice, but this will do for now.
+            objectURLRevoke = true;
+            getScript(libURL + 'jspdf.js', function () {
+                getScript(libURL + 'svg2pdf.js', function () {
+                    downloadPDF();
+                });
+            });
+        }
+    }
+    else {
+        // PNG/JPEG download - create bitmap from SVG
+        svgurl = H.svgToDataUrl(svg);
+        finallyHandler = function () {
+            try {
+                domurl.revokeObjectURL(svgurl);
+            }
+            catch (e) {
+                // Ignore
+            }
+        };
+        // First, try to get PNG by rendering on canvas
+        H.imageToDataUrl(svgurl, imageType, {}, scale, function (imageURL) {
+            // Success
+            try {
+                H.downloadURL(imageURL, filename);
+                if (successCallback) {
+                    successCallback();
+                }
+            }
+            catch (e) {
+                failCallback(e);
+            }
+        }, function () {
+            // Failed due to tainted canvas
+            // Create new and untainted canvas
+            var canvas = doc.createElement('canvas'), ctx = canvas.getContext('2d'), imageWidth = svg.match(/^<svg[^>]*width\s*=\s*\"?(\d+)\"?[^>]*>/)[1] * scale, imageHeight = svg.match(/^<svg[^>]*height\s*=\s*\"?(\d+)\"?[^>]*>/)[1] * scale, downloadWithCanVG = function () {
+                ctx.drawSvg(svg, 0, 0, imageWidth, imageHeight);
+                try {
+                    H.downloadURL(nav.msSaveOrOpenBlob ?
+                        canvas.msToBlob() :
+                        canvas.toDataURL(imageType), filename);
+                    if (successCallback) {
+                        successCallback();
+                    }
+                }
+                catch (e) {
+                    failCallback(e);
+                }
+                finally {
+                    finallyHandler();
+                }
+            };
+            canvas.width = imageWidth;
+            canvas.height = imageHeight;
+            if (win.canvg) {
+                // Use preloaded canvg
+                downloadWithCanVG();
+            }
+            else {
+                // Must load canVG first. // Don't destroy the object URL
+                //

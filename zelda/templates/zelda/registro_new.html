@@ -1,0 +1,70 @@
+<div class="modal-dialog modal_lg combu_new">
+    <div class="modal-content">
+        {% if obj %}
+        <form method="POST" role="form" class="form-inline" action="{% url 'zelda:registro_edit' obj.pk %}">
+        {% else %}
+        <form method="POST" role="form" class="form-inline" action="{% url 'zelda:registro_new' %}">
+        {% endif %}
+            
+            <div class="col-xl-12 col-md-12 mb-12">
+                {% if obj %}
+                <div class="card border-left-warning shadow h-100 py-2">
+                {% else %}
+                <div class="card border-left-success shadow h-100 py-2">
+                {% endif %}
+                    <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {% if obj %} Editar {% else %} Nueva {% endif %} Factura
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            {% csrf_token %}
+                            <div class="row combu_new">
+                                {{ form.as_p }}
+                            </div>
+                            <div class="dropdown-divider"></div>
+                                <div class="row">
+                                <div class="col">
+                                    <button type="submit" class="btn btn-danger"><span class="fa fa-save"></span> Guardar</button>
+                                    <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
+                                    <button type="button" class="btn btn-success" onclick="return cerrar_modal()">
+                                     Cancelar   
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+        document.querySelector("div#div_id_fecha div").innerHTML = "<input type='date' name='fecha' class='dateinput form-control' required='' id='id_fecha'>"
+        document.querySelector("div#div_id_hora_llenado div").innerHTML = "<input type='time' name='hora_llenado' class='timeinput form-control' required='' id='id_hora_llenado'>"
+
+         $("input#id_galones").focusout(function(){
+             var total=$("input#id_total").val();
+             var galones=$("input#id_galones").val();
+             var precio=total/galones;
+
+             $("div#div_id_precioxgalon div").html("<input type='number' name='precioxgalon' class='numberinput form-control' required='' id='id_precioxgalon' value='" + precio + "'>");
+         });
+         $("input#id_kmfinal").focusout(function(){
+            var ki=$("input#id_kminicial").val();
+            var kf=$("input#id_kmfinal").val();
+            var recorrido=kf-ki+1;
+
+            $("div#div_id_recorrido div").html("<input type='number' name='recorrido' class='numberinput form-control' required='' id='id_recorrido' value='" + recorrido + "'>");
+
+        });
+        $("input#id_rendxgalon").focusin(function(){
+            var recor=$("input#id_recorrido").val();
+            var galones=$("input#id_galones").val();
+            var rendimiento=recor/galones;
+
+            $("div#div_id_rendxgalon div").html("<input type='number' name='rendxgalon' class='numberinput form-control' required='' id='id_rendxgalon' value='" + rendimiento + "'>");
+        });
+
+</script>

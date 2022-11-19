@@ -1,0 +1,27 @@
+{% extends 'base/base.html' %}
+
+{% load static %}
+
+{% block contenido %}
+{% load crispy_forms_tags %}
+<br><br><br>
+<div class="box registro">
+    <div class="form">
+                <h2>Registro de Usuario</h2>
+                <form action="" method="POST" autocomplete="off">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <i class="fa fa-user" aria-hidden="true"></i>
+                    <i class="fas fa-address-card" aria-hidden="true"></i>
+                    <i class="far fa-address-card" aria-hidden="true"></i>
+                    <i class="fas fa-at"></i>
+                    <i class="fa fa-lock" aria-hidden="true"></i>
+                    <i class="fa fa-lock c" aria-hidden="true"></i>
+                        <p>Regresar al <a href="{% url 'bases:home' %}">Inicio</a></p>
+                        <div class="inputBox">
+                            <input type="submit" value="Registrar">
+                        </div>
+                </form>
+            </div>
+</div>
+{% endblock %}

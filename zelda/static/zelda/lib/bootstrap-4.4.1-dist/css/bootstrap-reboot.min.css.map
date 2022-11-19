@@ -1,0 +1,429 @@
+
+        '(sign * minPixelPadding);',
+        '}',
+        'float xToPixels(float value) {',
+        'if (skipTranslation){',
+        'return value;// + xAxisPos;',
+        '}',
+        'return translate(value, 0.0, xAxisTrans, xAxisMin, xAxisMinPad, xAxisPointRange, xAxisLen, xAxisCVSCoord, xAxisIsLog, xAxisReversed);// + xAxisPos;',
+        '}',
+        'float yToPixels(float value, float checkTreshold) {',
+        'float v;',
+        'if (skipTranslation){',
+        'v = value;// + yAxisPos;',
+        '} else {',
+        'v = translate(value, 0.0, yAxisTrans, yAxisMin, yAxisMinPad, yAxisPointRange, yAxisLen, yAxisCVSCoord, yAxisIsLog, yAxisReversed);// + yAxisPos;',
+        'if (v > yAxisLen) {',
+        'v = yAxisLen;',
+        '}',
+        '}',
+        'if (checkTreshold > 0.0 && hasThreshold) {',
+        'v = min(v, translatedThreshold);',
+        '}',
+        'return v;',
+        '}',
+        'void main(void) {',
+        'if (isBubble){',
+        'gl_PointSize = bubbleRadius();',
+        '} else {',
+        'gl_PointSize = pSize;',
+        '}',
+        // 'gl_PointSize = 10.0;',
+        'vColor = aColor;',
+        'if (skipTranslation && isInverted) {',
+        // If we get translated values from JS, just swap them (x, y)
+        'gl_Position = uPMatrix * vec4(aVertexPosition.y + yAxisPos, aVertexPosition.x + xAxisPos, 0.0, 1.0);',
+        '} else if (isInverted) {',
+        // But when calculating pixel positions directly,
+        // swap axes and values (x, y)
+        'gl_Position = uPMatrix * vec4(yToPixels(aVertexPosition.y, aVertexPosition.z) + yAxisPos, xToPixels(aVertexPosition.x) + xAxisPos, 0.0, 1.0);',
+        '} else {',
+        'gl_Position = uPMatrix * vec4(xToPixels(aVertexPosition.x) + xAxisPos, yToPixels(aVertexPosition.y, aVertexPosition.z) + yAxisPos, 0.0, 1.0);',
+        '}',
+        // 'gl_Position = uPMatrix * vec4(aVertexPosition.x, aVertexPosition.y, 0.0, 1.0);',
+        '}'
+        /* eslint-enable max-len, @typescript-eslint/indent */
+    ].join('\n'), 
+    // Fragment shader source
+    fragShade = [
+        /* eslint-disable max-len, @typescript-eslint/indent */
+        'precision highp float;',
+        'uniform vec4 fillColor;',
+        'varying highp vec2 position;',
+        'varying highp vec4 vColor;',
+        'uniform sampler2D uSampler;',
+        'uniform bool isCircle;',
+        'uniform bool hasColor;',
+        // 'vec4 toColor(float value, vec2 point) {',
+        //     'return vec4(0.0, 0.0, 0.0, 0.0);',
+        // '}',
+        'void main(void) {',
+        'vec4 col = fillColor;',
+        'vec4 tcol;',
+        'if (hasColor) {',
+        'col = vColor;',
+        '}',
+        'if (isCircle) {',
+        'tcol = texture2D(uSampler, gl_PointCoord.st);',
+        'col *= tcol;',
+        'if (tcol.r < 0.0) {',
+        'discard;',
+        '} else {',
+        'gl_FragColor = col;',
+        '}',
+        '} else {',
+        'gl_FragColor = col;',
+        '}',
+        '}'
+        /* eslint-enable max-len, @typescript-eslint/indent */
+    ].join('\n'), uLocations = {}, 
+    // The shader program
+    shaderProgram, 
+    // Uniform handle to the perspective matrix
+    pUniform, 
+    // Uniform for point size
+    psUniform, 
+    // Uniform for fill color
+    fillColorUniform, 
+    // Uniform for isBubble
+    isBubbleUniform, 
+    // Uniform for bubble abs sizing
+    bubbleSizeAbsUniform, bubbleSizeAreaUniform, 
+    // Skip translation uniform
+    skipTranslationUniform, 
+    // Set to 1 if circle
+    isCircleUniform, 
+    // Uniform for invertion
+    isInverted, 
+    // Error stack
+    errors = [], 
+    // Texture uniform
+    uSamplerUniform;
+    /**
+     * Handle errors accumulated in errors stack
+     * @private
+     */
+    function handleErrors() {
+        if (errors.length) {
+            error('[highcharts boost] shader error - ' + errors.join('\n'));
+        }
+    }
+    /**
+     * String to shader program
+     * @private
+     * @param {string} str - the program source
+     * @param {string} type - the program type: either `vertex` or `fragment`
+     * @returns {bool|shader}
+     */
+    function stringToProgram(str, type) {
+        var t = type === 'vertex' ? gl.VERTEX_SHADER : gl.FRAGMENT_SHADER, shader = gl.createShader(t);
+        gl.shaderSource(shader, str);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            errors.push('when compiling ' +
+                type +
+                ' shader:\n' +
+                gl.getShaderInfoLog(shader));
+            return false;
+        }
+        return shader;
+    }
+    /**
+     * Create the shader.
+     * Loads the shader program statically defined above
+     * @private
+     */
+    function createShader() {
+        var v = stringToProgram(vertShade, 'vertex'), f = stringToProgram(fragShade, 'fragment');
+        if (!v || !f) {
+            shaderProgram = false;
+            handleErrors();
+            return false;
+        }
+        /**
+         * @private
+         */
+        function uloc(n) {
+            return gl.getUniformLocation(shaderProgram, n);
+        }
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, v);
+        gl.attachShader(shaderProgram, f);
+        gl.linkProgram(shaderProgram);
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            errors.push(gl.getProgramInfoLog(shaderProgram));
+            handleErrors();
+            shaderProgram = false;
+            return false;
+        }
+        gl.useProgram(shaderProgram);
+        gl.bindAttribLocation(shaderProgram, 0, 'aVertexPosition');
+        pUniform = uloc('uPMatrix');
+        psUniform = uloc('pSize');
+        fillColorUniform = uloc('fillColor');
+        isBubbleUniform = uloc('isBubble');
+        bubbleSizeAbsUniform = uloc('bubbleSizeAbs');
+        bubbleSizeAreaUniform = uloc('bubbleSizeByArea');
+        uSamplerUniform = uloc('uSampler');
+        skipTranslationUniform = uloc('skipTranslation');
+        isCircleUniform = uloc('isCircle');
+        isInverted = uloc('isInverted');
+        return true;
+    }
+    /**
+     * Destroy the shader
+     * @private
+     */
+    function destroy() {
+        if (gl && shaderProgram) {
+            gl.deleteProgram(shaderProgram);
+            shaderProgram = false;
+        }
+    }
+    /**
+     * Bind the shader.
+     * This makes the shader the active one until another one is bound,
+     * or until 0 is bound.
+     * @private
+     */
+    function bind() {
+        if (gl && shaderProgram) {
+            gl.useProgram(shaderProgram);
+        }
+    }
+    /**
+     * Set a uniform value.
+     * This uses a hash map to cache uniform locations.
+     * @private
+     * @param name {string} - the name of the uniform to set
+     * @param val {float} - the value to set
+     */
+    function setUniform(name, val) {
+        if (gl && shaderProgram) {
+            var u = uLocations[name] = (uLocations[name] ||
+                gl.getUniformLocation(shaderProgram, name));
+            gl.uniform1f(u, val);
+        }
+    }
+    /**
+     * Set the active texture
+     * @private
+     * @param texture - the texture
+     */
+    function setTexture(texture) {
+        if (gl && shaderProgram) {
+            gl.uniform1i(uSamplerUniform, texture);
+        }
+    }
+    /**
+     * Set if inversion state
+     * @private
+     * @flag is the state
+     */
+    function setInverted(flag) {
+        if (gl && shaderProgram) {
+            gl.uniform1i(isInverted, flag);
+        }
+    }
+    /**
+     * Enable/disable circle drawing
+     * @private
+     */
+    function setDrawAsCircle(flag) {
+        if (gl && shaderProgram) {
+            gl.uniform1i(isCircleUniform, flag ? 1 : 0);
+        }
+    }
+    /**
+     * Flush
+     * @private
+     */
+    function reset() {
+        if (gl && shaderProgram) {
+            gl.uniform1i(isBubbleUniform, 0);
+            gl.uniform1i(isCircleUniform, 0);
+        }
+    }
+    /**
+     * Set bubble uniforms
+     * @private
+     * @param series {Highcharts.Series} - the series to use
+     */
+    function setBubbleUniforms(series, zCalcMin, zCalcMax) {
+        var seriesOptions = series.options, zMin = Number.MAX_VALUE, zMax = -Number.MAX_VALUE;
+        if (gl && shaderProgram && series.type === 'bubble') {
+            zMin = pick(seriesOptions.zMin, clamp(zCalcMin, seriesOptions.displayNegative === false ?
+                seriesOptions.zThreshold : -Number.MAX_VALUE, zMin));
+            zMax = pick(seriesOptions.zMax, Math.max(zMax, zCalcMax));
+            gl.uniform1i(isBubbleUniform, 1);
+            gl.uniform1i(isCircleUniform, 1);
+            gl.uniform1i(bubbleSizeAreaUniform, (series.options.sizeBy !== 'width'));
+            gl.uniform1i(bubbleSizeAbsUniform, series.options
+                .sizeByAbsoluteValue);
+            setUniform('bubbleZMin', zMin);
+            setUniform('bubbleZMax', zMax);
+            setUniform('bubbleZThreshold', series.options.zThreshold);
+            setUniform('bubbleMinSize', series.minPxSize);
+            setUniform('bubbleMaxSize', series.maxPxSize);
+        }
+    }
+    /**
+     * Set the Color uniform.
+     * @private
+     * @param color {Array<float>} - an array with RGBA values
+     */
+    function setColor(color) {
+        if (gl && shaderProgram) {
+            gl.uniform4f(fillColorUniform, color[0] / 255.0, color[1] / 255.0, color[2] / 255.0, color[3]);
+        }
+    }
+    /**
+     * Set skip translation
+     * @private
+     */
+    function setSkipTranslation(flag) {
+        if (gl && shaderProgram) {
+            gl.uniform1i(skipTranslationUniform, flag === true ? 1 : 0);
+        }
+    }
+    /**
+     * Set the perspective matrix
+     * @private
+     * @param m {Matrix4x4} - the matrix
+     */
+    function setPMatrix(m) {
+        if (gl && shaderProgram) {
+            gl.uniformMatrix4fv(pUniform, false, m);
+        }
+    }
+    /**
+     * Set the point size.
+     * @private
+     * @param p {float} - point size
+     */
+    function setPointSize(p) {
+        if (gl && shaderProgram) {
+            gl.uniform1f(psUniform, p);
+        }
+    }
+    /**
+     * Get the shader program handle
+     * @private
+     * @return {GLInt} - the handle for the program
+     */
+    function getProgram() {
+        return shaderProgram;
+    }
+    if (gl) {
+        if (!createShader()) {
+            return false;
+        }
+    }
+    return {
+        psUniform: function () {
+            return psUniform;
+        },
+        pUniform: function () {
+            return pUniform;
+        },
+        fillColorUniform: function () {
+            return fillColorUniform;
+        },
+        setBubbleUniforms: setBubbleUniforms,
+        bind: bind,
+        program: getProgram,
+        create: createShader,
+        setUniform: setUniform,
+        setPMatrix: setPMatrix,
+        setColor: setColor,
+        setPointSize: setPointSize,
+        setSkipTranslation: setSkipTranslation,
+        setTexture: setTexture,
+        setDrawAsCircle: setDrawAsCircle,
+        reset: reset,
+        setInverted: setInverted,
+        destroy: destroy
+    };
+}
+export default GLShader;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         xìİio\Ù™'øyİŸ‚ÎFf·‚}IPãæ¸ ¨vYĞ`0
+Tˆ™ÁvPÊbHÌJÚ9Ÿ}~ÿçÜX¤ä\dWÙ]qã.gyöíœûrıæåÉd:ÿÇ¯şë/şËÉ=ùÇ7¯ßüæÛËÍ›ëË“¼¹¼<™œÎO'/¿;ù¿¾rí¢»Ô;Y½}ûÍæó_ıêàìéòÍu9¿Z^¾Ş\¼÷¦_­Û¿ú*=|úOË7¯7ŸŸœü÷ÿ÷d|ÚRÃpæ‹:?ùİ?ŸNONÎŞ¼ºüüäù?ıó¶ıÏôõ«ÿò‹¯Ş½^¾½zóúÓÏşøÉ;½nŞŞ\-ß~òëÛ‹›“åÓ?~ÿdåã×oo¾sùõ«Ë¯®^_¾úäOß~÷Íå›¯N¾½zıêÍ·¿üå§Ë§íğ³'İöêÍòİõåë·n\=İşøìûåÅÛåêÓågü>½­Ÿ~º<}}q{õõÅÛ77úÓ¿ÿìÔˆn~óµ'ŸÜ>½}sõê¤ÿôéÓõ?|òÉçë'wO—O6OWO?ıôîtÛè“_üb³ûñÛõeë5'W—¯~ùËO¶óıäév›Ó‹W¯~{«“ó«ÍÛË×—7¿üåætysyñö²káÉÿw{j¦—ÿö»¯>ıäùÿôÛO>ûÓŸNıóÍÕ+ÏÿêÓÿ—ù—üİÿøçùÍÿóÛ/~÷ü·~:{ıtÛ/8˜7—oßİ¼şEƒîÌàûï?ı¬ ÿìé]€ğëg_>ÿıŸşôi¾ â³'98İ¼ın}¹éNw¿öWWoŞüaw±~ì¯mVW×»kõãé—¿o=^<MÛ¿ŞõäÅ§Ë'·Ÿı1ÈY=ıtø^Ü|]hÜœ®/_ıvõË_6œüâéÓİ¥/‡¿ÿ‡ÃŸ›?\}ó,cz²îĞè¯ ñw/ÿ×åòíé.¿Û|zûÙéÍå«wËËO·c0‚U'¿\ış×˜~±>½B÷ÿ°ü²ü‹ëËß?mÇŸ/İøtıdùıÿzòÙ^œP‚øÿy±üÃŸş´ş‡‹ˆ_.¿ÇÕİgüêÍÍ§¿^>€À¯—ÿí¿µám¾~·^ÿâ ËC@,xép¶›Ã±íÈ±»ãëË·¿ûöõÿ¼yóÍåÍÛï¾øîúå›õ¦øgEP¼Æ:Ÿ~èÎO7Ÿ~uµ~{ys ÊÏ:²;yôÉÿûr³¼¹úï}ºy²üìôò5dß\¼\_~ÿÙgŸ=YÅo/0ì7m<Y?¹ıõêé&İ|¹~ºüı“õÉÕë“Õ?tı4±±Ë§+÷#ªõ»ËÏoŸì{ùüı'föÕÕ×ïª×üşöæêmFàøûÏ>_}¹şıÓÛï?û¾ÁÉİ÷ŸêæÂ/Oî>ûü¿ˆèg~u±ÁõO—¿üå‹Oıøm—àùêé/^}şåd0|’ÿ_şŞ­Óñà“'Ÿ<Lf§“áÉp6\¦§‹éù`6=æ§³ùÉşÚİóQnšL—½Áèt8:é÷†ã“Aÿt6ËÁp¼©c»¿ŞöŒÚqêïîùx:>™ŸçgÃÁéÄáIÿd>qÔ?†·Ãù|Ù?N¨ëãùIı­Æƒé²N÷èu×zãùO-ÉuÖ©öw÷|8éŸNæ'Æ¿êÌp¼ìMOç3Oçn;{ƒÉéÀ§ùLÎ‡êdr2öW½Yÿt¸X÷f§£yF2œüf0=ñ×Ï@u~:šŞkÚ³ıj Gip>é¯ÇÏcÎ¦zûÍptºX˜`ûêZœO§3=ôWæ2¶›Ú=]§ÃÁ°µ0ZOF§Ó,O§Ã¥c#êŸÍh0h£­®»c@‡Ñh
+²óÓùØ¤j.€¢¿ÀféÉ9ô§}˜:Îz¦³˜÷&§Óyo®“L{fİ_ĞûNÛáhq:óìlØOGù7İáIıZÎOÇ,ø Pˆe|:¾ èË°N2¬6&Ÿ+£ª³yª.å{0½¡»O1ùvs¹Ùô^’½Ÿ|şåx<ßSøğå">†"·/Á3MéÂöğ¶7îëÖ…œs¢ı­zÃş‹1
+|„v$|ı…oC—,*z”`u=_¹ö£uÛ›êCw×½áp7ËÑäÿ†ç`o–ïéxLæXí³Nø•¹¶»pw×P$&2e[¾§C²…3Ægƒ>æ€Ò…¯Y ƒ)"»íå. N±fÿtĞ#†¦'Ó™Vr´š,qçe¡Ş‰‘¹káÖùfè*Ú\ÔïŞÜ#“ùx6÷ÎÛQZ¹M/÷Èdyqó
+™LfÓC2y2™õ1Üáw4Ô&‹Hš÷o‰Ç<?àÎ?F@ğQº˜şUğ0Çjg3lÙ°ƒ¿:S<'£Hép| 9!SNæÏFX“à¡zÈrF‘9[grëj0/ë¾C?™w×xü7Ò*‰uñê½Û¼=ÒÅıñ0$HÇĞ°˜©41©m2Š”t¥ıßø&•s>ª–Ï¿-0Ä4ñ|àâI2Ü“uæî:æã³árĞ'xû¥hÑÄ“Q®Õÿğs]îí/÷u±ñÑÕMO¶YÅ‰ÀHèjÏH“WıÌb4›Ó²xip:œçcì;WcÌ¨ÿ&}h½h’ˆ?ÅK3CFçÃ³æC£GÎb`BÛ·vÉ‘Æ[ƒhûñb§î7"–ëÁ˜³Ü=¤p)ÊÓÑ¤ÚÈ-L`:½À$³3úvL€ôg!:cÖíÄxè×Ñ³Åâtt>9HKƒ³‘ÎÂGÙHà—ƒgTÎmÉ“eÓkì¦ÁòMƒ™`SÄjÍùUlŸÊ;PÒ·½<QmÕYÍ´¿gÆyK°¯#æÈ²Ù$”‘‹èê1ô*c-îaDz=İ!L£ÄIÑ9lŸ{3¡;¯»İÕ/úb.:İı(Y¦±ÃÛÛ1+²Oá†¡šA|£¬õÕ×¯{âúcEŞÍŠ°ÈÍñø6:;ÌhVp®æ}Ò:Ãö(†ˆ³1%a¹ü‚ğ(à¹¶=İÌ‰<äL»š²å¹/Z³ÌÎı-‡İv&ÄÁpZ>QÀáh»=˜Ãaéòæ&Ó¿jlOÿ|?lÀGàû°9@yÄáÕWß=Äyo0=ş îbwísË	ˆğrH%lx“U÷Ú=làïáq}şªD]–z1øúò«·Q={|†½ïñÓ!Ş>@!Ñ¨SÈİsü>Ê!ı ”NE^l Şğûç@÷O(×p÷=èıPæ¾½ÈÌ}sõõê|Ïƒo
+òÃÌı~ÔÌ÷pLÅÜ<É(ÉGtÀÿ&â\‹¿ïƒïN”a÷á÷Ãè$¿X¯/o¾¾ºÜyáãiÅ™HÔ„vÄâèñü˜l½|³¦G~Á6 qÏ/xK¿Z`ÖÃ÷·9jnPŞZİ±õ3o;üƒÚ›?ğ0oï=ãû‚	:f_Æo‡ãÁºØ°O'	©eN‹Şˆ9Ï!îM˜V¡a^yùÇ	¾0µœ]x¸ 9Î–B?q¸54‰×Í+Êm9Z ¼äÇÓâ£Çî6†Yo4[Wœ64"š—ŞŒW¶ˆÏ_>woìÉq¸ƒ>#ŒŠ¬q¹%¦–fbhmÚVôÃ'ŠA™ßí¨ÛÆı9pc©±ŸÕÄÇú9³@ÿˆæçµvÿ9M„{¯_¾[_¼^^~şåtÜßûtı¯Ê›&tØ"¨/†cËò7ã‚…tğã ÇZœ9q¡Á²·ğ	#íÕ:z†v~d€-q´Gl¨0q^E˜«ş6‹i¯~¢°U@óÁ8-a›Øş{
+kbŠ.ì)áFƒà§ ,,DŒÅÁnè¦;LlšÚ\ÑI¾»ÛvXãÃ3¶#15™ŞVàè´[FI8
+=7?¼P˜Â'ÚÍ½ÇQwæ>ªxTÑªÏçÜ@Fòsg?Ç1/:(sy¬9Ø‹“|¼ ¹š!;sµ¼xİÛÄ7D_¿»øú²wñ’«×_³%ïÑëğbT¶ä‚¯;æ·ÎYpùbÈ2±ı+º=X,„„¢IßÓùâ„à›rñ…m<õÙ¤r"I% Á¼>‰ì¹§q ½ıV Ô¹Ñí—Ş…#æeÒ˜ĞNöş¦0Äl(İ U0F·IÁIŒ{óŒººÍ/A8¶˜Ñ•xü`rïÇº7¥c H4b†ı¤-`Ÿ.(j!:`†#3Ó	ÂÍçŒ×,O€ËtÖ5-2$€0_ˆé°#|8XO2Yzw$²8 Ó`¢ùé@8 …^‡‚8	¢Œ4Ğ—Ó˜ùÏDc¸u`ˆBö«Úˆ)O'ƒã K»Üİ›Ì@‚2ú6Ä\f9äVŠ†í‹ÀÎ¤¦7$fã$¬Öág	ûL¼@×¢"GÆ)şaî‰CUû±M`¥'Lb&uN0íTö¬*q‘¹S»u½n’®ëm€@Õ—0©»¥ 5J0·'èmì†Ş%V¦íT ,¯Á`Œ¤fæÊ3)‰šÒÈ)ü E·l(ÆŸüO0$HØ&
+‰[™ïœĞDíö¾™å¢9„€ RÔíÓ$ ­Š¼cd4À‚BfFĞ¡F
+1Ãkûu¡jŸÉ‰°ìÒ2ôâ‘Ù‚eBëá„Rgës{KÅÿŒ¿¤»¸å–
+{‰ŒD~¡†šÍs­ƒ³ò”ü@wk2W˜»À–ó‘œàá]w×#Èé+“ÍˆºÁˆÃP)%©€h¨P}ñ+ªïÙ£ÌFö“X®Eò7dÒÈ¾×È1Ù÷Ù£§"û …^0Ÿ-:2(Z.ºÕD‘uX$yºØ7²,®h·¢¦ GÙwR¥aYX2×ÄÓƒ„h(dßhšğ+²'ÇCö½Fö[¶ÒVHPyÁ ÑIÒeS|[„8"ûÆ7´¸`#ûv7Z+²¯ÛÑHÈŞlÂªÀfÕa­‘½È,²”‘=şGö½Fö²š®Šì·øíØ¼‘}æ‹ì1²Ïí}Áãº£ˆx: ˜¢ÎPöpH ”Zˆä jTQzƒ–¦DS[µĞkj!ÄO-ô’²6¦ğ?åKZ0jEµ°ÅM§$Pf©…â$"VcÔB	×0f{„LÀ Gqò‹d¥æ’aäˆèySkÁÿ96òm ¢9 Ã ˆß“Ğ€Bàå2ÌYi¥ÖÚO¨8Qû&	ô	609Z	ÿÈ—
+¸ãÏöT'
+€dBñgIë;şL´vœ—_pÅŸØ3éˆ’ZaÏ-oo*ÙÓ¨?–ìéú)E:*EJ=”=[ìÙ3uJöQÉ:¨[Êo}½\½¹9Ê	F¯*D!¯}±|1f<“eä|ŒåÜg’	ƒ B€=É­Ä¯|Ë°$­µ?„ÙùI·úYÄ„ìZs+İœäe"ë4ª„¨+Í'”úO²Rê+*zZ Ïg¨˜Ôk§´‘Áö·O$êÁeX.nXâ@lĞ®†[/İpQtbv#¤(u³˜¢,¦®B	B
+ÎNØıÁ$FÚŠ›ñ‘DPŒ¤ôKmt†ºØÎkûc±J¼Ó|OâwÎBÀë(bZ…ç²‡ä+bÃægl”ÄŒæ¥ı(îlŸ¬HIóN#*.†&0zNÓ2€=aVå°2-š1¥ˆšYœR©²“ôÁÓ](1™ˆ–ÌÆH1°Ùä@@¥Úµí$ö’Ì„æ€Or-ğ±¦™…¬8üÖ“µÑÁ.æš[·Ğş‹ ÿ/JëŒˆÛÉ`rF£ô“ 6|‡`BÏÆ¾%í»ç¡\>6™²vb®FWŒ…è8Ñ•İ/lï„ÏîTvwï.6ãıõ×ëËŞ«7ï7ùúö5S·w-ı2Õ\5´$¹Fò"ÍQìÖhòöŸšªpâX“ähØG[îˆ+³ JÇ­“Êƒïîƒÿw:~ß½ç#6Òå†ˆ®úßº«æÖ“’U0S]-RZ”Áä@²ïtÀˆX®#½sßvTù>w¹üŞ¼êGùyË2'Ö5ê6ô÷ŞMsÉ²6PeÜ5ÂÃ±o‡ŞæÅ„íF}2ò
+È"è±¸ü _ùÜ!JÖßHğéhi´zî ÔDİ$)˜ÇÉƒî=¦ŞşóÑ¢ÂR}¬Í¢j¦Ûu¨äİÁ*84,õ³k# Fã½PÙµ´…G£ç!i¥µ$˜Cû¡ß'­ã{‡É¢³*hy«Ã¡o‰kÒ¡°¡ÉĞø!Š¥Ë×—¿«yl4= ÚG€¶Ÿk²‡œÆÙÓá1Ï6Ú¢&›ş?àÊ=ğk¦á º§MôŠàªF¾Eæ~D5Ä-º÷Vıö±qŸùKìég;¸íÍûörew5]—[sJ—1Ü ‰J»cşKï¾y(çª¸c0ÃDb¸³´¸ë·›BIŠÆG»i%¦ó6®N\0>š¸8šçñİ¢»©¢z¿d½?Íƒ¦‘°A?á¤ˆhšÖPG´İ?¢;ÒÚËéØ{ı=¥6ø¹òÑ‹V´Ñ¨'ø9éª;Q÷˜ªÒ‚(¡Hß(¡!Cê€q;Œÿe”P©´ŠÌ{}@-ÜŸa'ÅÉ×C5;„`|,!~_6Ò3œâŸ|-Ÿ7I8şYB|¯¬¶"ğh‚“¿u¸Ÿácâ£²ã‰²}<ñaôCÅÇ(îÿOÉ/¼şúæ;™ÁÅeN&-ïÏaŸŸ%êRQx&Ïi2İäL
+×ş§ò-¿‰ Uo¬Üvu~÷<*fXÕ¼<á"^'}h!+—’&qÆÿXp$ø™ø(íî—ë‰ wRcÄ]rnXÏ*…B„cîğtn«."“=£Ïø`Z`Vœ…vä>N…Q%¢·S¹íxĞÿºË÷\)IÈh¢R›m=~Q“ãDº½MS$^À*…ß|v‰@ƒb¹øk4i’Û«2ôÊ’g	+9ŠŠtc´±³Íƒƒ,<\’DÊ\]áNÍ7SG™b;—0ë|Y?‰Fğ2¤if\ÍœNî®Õ´3ÅØÓHŠ‡PëÖÜŒ3™Q•§ëÖ g²¸5óæUÄ?\+ã	(™Á©à@ éè|ê0 MÓ`*Í™ÒÒ.	õĞ”lÑ•F•uS NfS!ÜUntâ¬Ë¡ óp=
+ÿâõVG¾Ìt\Bv(TƒtW	ëN‡gU$8:¤Æâ¢ò²/ø¬Caƒ
+˜ÓMü_,7‘ 1Ô/øT¸Óùr®’|†ƒÄ›œÄm„ˆè`øÌd
+!2Íb¥ W…vt¡ê:§ı­Ê£+MşèUÏµó¡úb€<ªÑ"p}ÏÕ.o–GQƒqÄox4ª¥¹Ä‰ykgíIv¡‘SQ-ä,zdŠb¼®pBNçB˜>Ë÷¾O\[ˆeƒv9Ö2|9ß)UÏ=ıÍ7Ğ‹õƒ2”É«2GFãz.–l$©£ğ¶°›˜Ü»2…ĞpSHÄ±nP½c„!¦ ÍW¿ê!‡b¨›)* (¨ÕÄô´‡Ûg=?+WJtx†Í™'“šˆfnøxÈÈ¹!æAÙcºtS$Xİ˜»´PÚºNñ g)k²N$–çgå²l'$pi)â+bVp°sû¬!ˆl´Acš¬äQBÊmØ-<Šw3‹¤„óÑfŞ“\ªKÌåÈÈ×ëZZ/‘@0,!íT®qŸì"¯yÊ"”L¤»^W”D‰4©ô”‹˜.‰†B	–œf¨Ö3™ˆ¬À¬5ë`ÀgJãu$t=›“©ÖEŞ¾d¬£q’ÙÁhÍ0ñôğb¯Z$:f‚£“DVá;ãÑç4ªùV®DØ0àÊ@am{Ú¸œQ1:ŠÍ3}oÛY”¤‚úô™ûEÃ@&0YW—YŸdŒaÿê"ÕêÚm	„{ÖwpDÃL€a0¨^¤l4+Yw³\]İª
+Èº±ü¯µcƒy+ÈÅÉ4—ÎªQäUı­DíPJh°“êùYê3í?SñCôİÑbh:kxC($tíŠ™ûãİâ˜\qÚßmzs/"Ë™vû³¡{«…îr)_nî1¬ÏĞ±Ï@¥äiø²æ¶F/-<ªyl¿UÖtäd¤1ÒÈQÛ]ñQSÏMIùÜ‚éÛÎ½•%òµ±L'©°Ü'm,¦™<WC=èlUmÄ™LLR*)ßjÃKjABôÛQ9ÿ,Ë¤êt7²º–f«<¢g¹Šêm$„à_ˆyª¢ñÓß:w »• ùHûhdÏ@R#Õ±¿Tò˜ùœÕ`“ìŞ?“ÕDmÑ£3É¸Püƒ^ÊD¾¹yómDyoyu³Ü‡ïÑæhRÕ…IuRÅ!N…âv#˜¼‰Ö£ÈxríÈê¢è½İ)4²²Èj@Á¨¨µÂXš‘±–JÀua;O#3Åè
+D¼µ”Òî1šÜƒ×@’yÀt‰=––êàÙ¨ßW|õøÒ´Ô„YBê{iqˆcğtîàxª '"f7UT ùâ 9$FÃ$õ% #!	â`¬m§&€Æj}vy² ú. …¢Ùšâ" BI TÆjí ô€V:Ş	ˆ½8È¹&Nör ¤‡ÏÖ<u³ª‘(FoØUXo“
+¢¯càR‹ÇjÏn¬·6ó1ã3[ò63ƒö6í¢‹Ehgš ’Y]°ñ	|í4àn	(-½@°ÏB;Ém@é¹—§ôqĞ”z—Z&Wœr.	­¿—ssç©sÜİ5‚ñğ´rH—ÆS„“‰ÔÔÎ‡1†åÍ0ĞYÆ¾ƒÆT‰æÂSÅPNønİ:x0áâG °—b©h”b9€Ë¤Mÿ¢-ü(ÒF´šfğ°…Sx²Ou¿AÒlêRÓ1Ú_+AÍyÒ YeI0ûÖoM­[æô,ÔA1,	ÿËì£xUŒé²„]I5à+ïş±˜EY,×~À»òÄø­pO‹FŠh¦°>ßŸI?P•~«‡á|•)Ë#|îÇ¤Wÿ¢„ûG“^tºHUÅ®æV$.Êù©’”æû ` ¾Ep"‚âÙu ] ƒY¦DL{¥&°p‡…Ükw¤UøÎAƒ¤bªØL ş^t4`!@ş~„tıt pwãxëG%aÿb§*~®$T_Ò4)ò.8Y~:~Ê.Â~HÀMsƒa‰†êù[m	¨«‰€IJºˆ[ü¬M2†ğˆLÍ³‹÷Áè¼H:9“÷‘ìù0^FîÅƒ0œ¶~Œ${ĞÉ"—Ooy„²
+×şE)"\ÈBTÆÿ_„¦c
+=h¹òhıEGÒ)0/ÒÈ¹<ˆyèº`Œè·\öß¥FÔ0’Ã Qˆæc‹ŞIÖîÚH[5õ›vªŸH) Ö“€°èï¿'?ºd3£tï±ô§•lƒ ½Ä_š$ôNGøØQÈQŸçêô¹ì-°ŸXf¸åÖ
+ã‰U´q_ÿÛÀë®ê&{º)¹gènª“{çY^;ÂãU»CQ$z‰Å"‰¶4…Ô‚\(¡©2ø—QvzˆGEá«ò;ÀïåyûÓ–çå—«²¬Õ	;àdBNŞ0:ØÔœ3÷ƒyWä_€„Â|«•\®ƒ¾{ë”¿ğè1C?î„n	™gö®xÛ WÓb>ŸÕ£–KÄÂŠm07Šn¨±àÓõq ›­<"œ¶MJ
+EN„ª
+¡¶:(ºyl^çctŞA.ĞK—[ZFW™ÖX}Îûi«¡ NšÆ~EòB€¥Ûi™OÙE ›!ĞìïNe>MÄ†röDUÄsÚbYºš}@şAdius ¡\Gà©ä¦á¾ªq<B:»q7~xHB9ŸÇà·(“§|¾†8¹:,‘QÄÈdøÑÇvdPâÍãÎ¬¹û48¬xïúç n¢<WKD˜Vÿh^
+h@¬º9;›.ÆxÏhî¿là‘Z”	kYØ‰±Yvšh_|*§ê3íO÷Û0
+bRÓÕní¾—&îÔ¾ˆ@–š°XÅêÃë×j"V>[ÄlQ¸\s‘ßvšF`Y”)‘¦ó]T+v<lç¼ŠÈ°º¨‚RÙ6Ô{Ÿ5àáÛ`Ïå †	7§$<Ëı÷ãdE¶¡e¸İn¸/ŒĞBvù´*ÇB“Ø£0­×ØÚ@ËòßÎq°¾›¹ÒÌ¾;`Ş‡~bâ`ñg
+”Û6Pv¿jH€™¡
+O	H÷™„[HnÚ°FÛìÛr‹ó6¾ÃÏ-KßÙ9¡RöÈ"yéi_ĞGˆïºy4ûÛ0 [06G{ß÷æ·çó"åŞJ!Ã=buËğÏ…(Ù¥a<àq
+Laºşd¡ìOTk’ÕA÷«C^‡şÖë–°R˜–*ÅPtÇ'4À’9„¥íÔl¥‹{ğØÓ#Ø{A>®²fi>WÈ×¯£û-°µJ×› võV£»7Æíè:²_wwnØ²f†)¬»'üíüc ß:ïfo¸(¼¯p–ÉğEÛ°Júª›Ô}oYúPXíAGFt•¡³êäN›b7§“>UU÷+ÅêÛ—â˜òq‡ˆgó¹Us‹|B&ÇœÜ¾£Úî±#DôçN,vB,6ìlaŞ`İFHaëÖK‡…òÍÆVˆ"Û½um‰h)QoóÍ¯7Çd?¼(ÌUfš,Kb’t,•áºñÕËQ–Õêa:µ©s´"Ñ2óş&!é:åw2b?¦I– MRJUUŞ Şüé¼232ÅXÜ”µ¼V‚öµ3¬\bª.$ç0ÿ·'NÙæb"™Ën*mz¦ÂôIÎYˆyx¾ì…ÿùŞä¸Î©ü7!>Ã Œ8P}{…‰ñ°Uòk!YSÊRáà„E%ÅÁ´aåÊºeÍØ¦^
+Ğ†´N0G†w4Ü%U“UZ:¯|•zt¹°<¤ú½œ«&I,!
+§+‡hRÂVÀè¤JFj¢€)ÿeàÉWè_l‰H6ª|‡2ùJwl}2ômúÃ–»Sné~ä¨şî»“!õ[¼–µº!›£˜|©îÉë‘€eS§ÀFƒ³	S° –R$m‡4;ŞÕ²5”bÚ@NZÀ¶¦aXO.d²…Œ…Yq ‚Ä	§ç9!c<Ü˜k‰v_»bÏ9µTŸãj9ìÀ=ÖÊ$áĞ±TÈ1EQ¨4EŸ§Fä»RÍrŞÕzvËZ‘ÿ kBdKØõk˜Jê4"pÜ¹TmªUFi.¦Ö#<ZÆW'#5.È‡›«Íô¢EpÑc”cíÌ(RyÁ8lPè:‘«vÑÙ%‹}†•WV=|yl°øXÃĞlY¡ü«¶_³ÈÎ,BÊÉbm4æPgî,Ö1Ú>‰M™ŒÙ`¾æQÊ¾³WXã³aÊöÀKµ&&«=Zl§JzØëPö9¶(Ã^Ó%º}¢ò¿ˆ"bx0¶Gâ®£ÔÒ“M¬²ÏBÔEVÅ
+%ŒÌ4£´Â¥j‚»Ã„Â2ÁÀx?ÁŒ®&HÔ³»ÕšÄ×Ù•¶7¥“yŠ.l®UdP#4 µ)øx€Ú=Î¯8è²@Úõ˜»gp“ÔhÁ´´¦:b/çC•-%gv@E]ÖÉPï‚¤©”îó:XM©mp(šÅ}-À† 8*PŠØ·½e?§,2QÖ#šÒ×Taİ×Z%Õ·‘@›ã–nÉcÚÊ¹VîZ$y@lµÖöâxK²A¶íÒ ²D¦ÀäSb·ÿ¨.ÙúX&áäœO²dûŸV¤„I’Ì„‘•AäA­K²øÊZW@´¼CäŞúÔ"„Uˆ¶©hnÍ _ªàÂÒãQõsb#²ÌıĞŠ)6 Nby-ÎÍ*ßÀ YºpÑ ÆR3	#ûF@¤ÎØ&¡ Ê¨@*ƒuèÿ)³ò›²¨jµ¬Øªj|+l’…e‰ã¤Â…Ü€¶«À¯DgcùŠ>Ä?³—ço²>u¡%§æVê…FpñÙ×ÈÉLM8òïÌò£pe&z!³ô–œñVËçR›£c1\hŠHÈ/_—Ù¥Á¤^¢$ÖÑ†ßBË
+kAfÒ
+TS‰„n;ñ+Š´àës/1GºŸŞ†Š'Y&8‹<EÊôÖë¨d‰tjGÈw^˜–;ÅHZ_  ÚVëOlÏ†ÉÕÄ@Ì‚àú¨bDm.ÎÆÙ4••am3›¯2r£Dkå4‘eÆÉÖ¡Á€/`ì#;T
+ıŠ25–­É ‡™jFTq2UÓ~ÄL¿eØ`ÔÜÙñg|A1ë~¤dW–Ş”ë¯„Ñr~UC.
+¶‘a×9”æÑZ 9 ÀêGi·ë‹ãMU&-É=Â‹YÕW\–ì4	–:C	 È"ê6&Ş@Í\„O¤À Â }:'aˆØpFŸ[’ÒOdÄ‰nşcHØ²,lcÒ³HLÏ0 d‘–t·ªqI¤ë…5¢Ì<”U„ÌÑ9j1H{Ôé"Íœ&V©PCg†)_¯ª£˜»¨˜i™;a{Ğ?cª¦’wWM¶M­FÜfß†³”r7%0”Ú°w `Ù°e€!“Œº¢Ôj’©”²6µ&ÙîŞB?Z"ë\‘-©“*® ¬ Ûºùï¬x
+ÊÚ4Í²xÆÎ1KV©B¶¹¯f	XÙë.+ÑŒUJ­¶`xaÑ–D“œªh4VO¤•òkÿñl1=Ëò9”‡öÚhPÛ\ƒ˜C9‰OëOä™NÍN¬ ÕTÂï»6»„˜{(FÓ}Õ)XÅêt&õIj4S=©°Œğ‹’Î9Ì]¬ïÜß(D&¶BH ŒtÀ:±äã`í~êªNe_a¸ßÆ —¬rˆ“X?0Tx™Ì¼2uÌ¡£pv7Ö2Å7dª–|fóEYòÆuo®v2š¼*G09tCz,±qV,‹
+Å^î-Pe!?+Ôc²E)¦_îŒ»É{å†YWHìÇª¶ı‚ì‡Hñjg(,løàmıMOaíöZ\R“7i'ôMRdA1ôá?‘ÃXma‡ôA:Šøçø	IÈ‹
+6´|–zf}sRƒµ´;ò$©‘e +ğ:Ò'ÿÛè3e£·“F*UÙ^)ˆQDl¸e¿ïM&@'í Ñ¯ÿ2:G³Â±|––C£9á’	>Ëøá5äÃé¨Ñ´wÏšğXJÈ;v¨kìÎz(Ä¬"²«¬½XÜìƒ0bŸN‚šhÉ¨x_PÒ3kÈ™Y`Ä…ŒmF"‘…`X™O¢Ğ«JvDY˜ 	p¤7²Óè“¨Û÷a†l08ÁÌ˜ÒXôpİ]#¦XHaò;x ƒ2lâ™ÑÏº!¼Œ;cEÙæ VËc]Ø» L¢ûnjßT’Á'–v\¦UÙBK•‰P6²bM]DÚ28èÓä[(®4TÉø¬:6 ÔÜäÑ@ˆ‡¥ä|z/›-Ÿ„ Ú=àÈâÇü2„Ò·ÑF¤5QCˆ“†qÑûr•E–!ä²ÂÆ¡İQØ5Â5êˆPÃÕY„d¸Ê÷İ5d¥ô¢ô¨ô¶(°ÇK¥Aİ°†‚‡”hák:Üo¼Ei¤»éR
+¶r–ÂÀ½ †´ñaLP"Üm=@¿óö~Ú5Ğ0M‘eÿ=€¶.È°İà<+˜)ƒlÊ‰u¸º¸{…ÒÙ£=AÔfÓ–)r‰iòìX—@¢G7 £–·±±½Bï‘	TyõaœpäzÊCÀ™AØ%\
+(v/
+ÎPb‹ºİüÂs4sıò¶Š«±”­óM ƒ×¾Q´‹háí÷v3¬lœY°É&É˜Cöu ¤†°ĞZ¶&°`¥ªŒ
+ñ¬³B*é@$o‡:j<.L3MÆFÆåÌ¾(†
+îàÉ·¿<¯4:£ç şZtñİ««7½Wİë&¼{æALqqï*c! 3ŒËĞ_¬Õ=Æâ¥'»Ğ›^ßJY‘&bNÙÛ$CÎ™8@	ÖDJŒLvL‡@xÊ¡€™¼¹©³D‡QŒq˜‘s+ÅD`7İRö²Ûv~¥XVÂmâ	5Ğ~ÅÉÕ´!á™«Ù]Éˆ‘Õş¿îjÿo‹ŞíPNE¶İèvË²÷zq¢a³°ËIk¹zğ~‡ríë|{°6ÓDÂyÊ™ĞiµéfØã„ÍIh›=\Ø|ñt¦óß k¢ˆ‹|µ1ùˆû3/ÆÜñ7Âfuß ‡æg,Q+4ˆ>!@`eFÍ`Çxğ	ƒ:\è`4Ò°·†#[¸†H`’Å°Ú·¿Bº"¿±[±™aïŸÙÑÁ×5Ì7#¨]èËîÌû‹4ƒä#U÷<UÔf© {d¨@¼6.@Uá27~)‡R@\?¤¾ÈÉ)*"¥‚É!°ı	¦/Ğ.ÖùŒ±şe#ÛD|‘€j:ñğZQó-
+ñ­ıùwŸTté =€gk¤jã×°d˜JX€”¨d9ê=I[1sC6 b5m{Uñ×”¥`eR¬y"‰]Fß ‚Üœã¾÷lè”¬â.«Ïb×§tv¶ŒÓ‘5<Î3têIU‘ÒiÁIfz5GÌvÒ(ÙQW–T$®‘‡1ÃF[[äpY˜[Å êğIvOEmY‡ÖCÒ­¢¯ÇØÈpØAo^&Ò¦ÅN&a2+Ö@<$°Ú UšÁ0Ih ğiPdd”vúÈ¶Ç8Ád+*hç4’šŞËøÉŸÉü|˜P—  hş8›Ó.(4¶
+t¸á!ñbà²„T¿Â[«°ˆ1I×°˜õ#¦³J¸&R®¦Û¢ÏÙ©ÜÛQhb“k„¬+óAë¨İI}Ã€2ĞAv)ùŒqlØån£ÇĞH¬Æx›%o×gsñD(¨¤)û‡-q©öØ©­½ˆf`21V8ˆ–~ğhæŒƒ³²†á¾}Ü`ÉöæÕZº£¥£í0bm‰Pn¨3ÏıTbv  ´¦­Èm;ÍŸ@Piw]ÌEãÁOİÙ	¬TÙ]×¤W€ã$ü'²‡e:eY6ôec±öl&Ñ¹¦†ÏÂ1R[÷ñº:ã:"Ÿx5‡ ¥–àà:‡Ùæ(–Sá£"a’ 0øHŸ- Á¥)|4€ÆÓç™ÕJ¬˜h%u‚0O„BÏş¢tƒ4ay¥ì'RÆ—Î`£º‰YSD±o#-éÑ˜X3ñÚvã qÙˆÉ’Š:»è—ÿ«ã2IcÔ¢¨0pVbòşÚÄ{L±v_ÑMlzòŒµòo g©á%]Ì³<Ìõğİs²’R›ò'À%¦–’† Õ	!Î7&í7u\KDøg9Ï•NP¨îïÏ·g]eã¶ãº?vÏË‹—–À0C÷éëÙlY†N$“äi‚9&#å7ßóş	•—Îr‡7™óİæ»ş•&Ú@`k ëŞ£[„)É‹óxi	Œ’¸¬€ ¨	ğ‡Ş#BkD‘(C3ú/ÒÆQĞ•OäXk&Á'ığ;Ğ ¶LÌ‚TDD¹Ç_Ê«Q.BFt*€ÈÂ¸ËöKÆ“¸›ŒPË•C ½+ÍTƒĞ '¢N€³M!¾Á ô›@{|3a€LGh‡ÙbøYá`è87dæp“é±¼J=à ÄOmp½ÑğXù·ÆL‚ÍƒÉIÚl3ßmî„„İˆS€Ë½é·4"zsäQ$şYøÚà
+>`…¸1Iz1J3à•ãwüÈa)úh½o?©¢%h4‹ Á‡Êu5–&ÅÖU9$®Z¾—Y×M‘QĞ—ùÖPk6æ\™yE¯fÙ\·/GÈ±ç?7Wv=¶Àg³¶Ã—Ùd E1d3Aš–hM‹ìÄK=Ë´ƒĞŠøW0]¨i% Tõyüî¹•í˜EL–ëş¼–&0íŞœ$¬ô,‰qa fúPˆ'c*!Ó¼ç£{.Xï‘bm†_ÚŸ
+‚Ââ$(¯“RÌĞCëš+zmÀÂ¥ Óy‚J4nçQürgL’‘Ä#!7Ä×­ƒjå Ì¸´!¨j0ë%6u¦Š	å¬1_à9#©£ÔÓ{xáåb:
+,LßH e‹Ñ"™Póy÷ j÷]ólnG§É°e¹iñfÂ(ÍQÃ <£:Ñ¶w×Fä0Ù«pÃ½‹Zy_«Mæ-ÿ°ùæâÁÆÉ“IåÏ²],Ì™Ãéo²¤µ­'vK¬gM4ÈOÎ¿ApbŒÓŸvÄ(kNXœºÚûÅ‚…fİ*K<­•–ŠªÉñ3×[¦RÁúsEá`:Vf—ú”*!çldlâTÎìg•öö¡Šã)¤ˆÈgœƒîV¸Ê]ù]wªçIqÄ…†ÙÒA.ùüğS]­›vkõÒ>º±´.$Ü Ø²ë uóá§RƒÌTj¨ñÖ$ªå6Ÿ\ÚHÚ*ß¬w­è™Öxjwÿqjı‚N Ÿ¶Æl¶ôÕ¼"±Ô½^í‹¼ÈROeã‰ß0åõ0‘1z\Ä\9ˆİ•å§°N¢hâ¬ÂÏ‘øíjrò­øSD`QĞ±¢ØTAª¼ÚŞú—î®Ì
+/Í<ZZ;»l›¾ tc{¯8jTËg	Íä.y>È˜wİT%K7Ñ©¨ò–ÏbiÒ×£i4Ş¥¹91zÊÄ|áê|É*fak–Ë"5Øš‰«6wì|Ìùç;Íà‚Sç¯ø»‚ì±%Ê&!Ü	WVl$eKv³v›í<±¬M’2µœ(Ù ©ê•
+­øÃ•”6%&Ñhé)«UÍ3ÄâgØ¥Ê$¨6İ´‘Ü„z%Hâ h. ã©méVTÚ1nM›="k:¬I…ØlÁY®”:*7<é’Ø—Êq ç×©>aD$Ö+@(àAë°Z¤_Fq²F)ĞjùŒ³ğ#æ°VøˆNå8«IÁ1@LA»™_¾ÚF¤]·¨w£Ò´ Á<s8LĞYíN"­6“m6ôhˆ¼kà4š,6¢± K9È-ÌGóA®Î±JI X™¹Bø`´ÉÄ®Ä6£Cä&¤x"›;Åæ^ÑS¸mÁ|#p‡İ€ŸEW…@ìWÂ9é9ã‘”ë©Úš.ÎÆ<§aæ	.kYT+U¾3÷Bgm6W[-Óç)Í¢$ãˆO×Y¿‰©³`,îÉÄe!õË‹Úë¿·Y^¬cİßB}\±É°yöúq­%htLü”Y:Î~&bYá6û”221!Àº;úg‰Ä€ÿƒ€¦ËÑhZfQĞ¹Í÷¡9ê‰¥£Î5Æğ‰–‹Cp÷<”äYÙãgäe9ÇM±Z×ˆÀ€÷§¶—|”æ™*(óŒEdfŞ~Ô¤ŸQhÍ8û/(ŞÉÒ²í†ınÌ©(É$œ½»¹¬^$ïEr˜t{òCå¸“(õ“Ùl(T™„§á©q¢ ÂÙuã&5b@µ·+äJt¦ıt„Ğ™š‹šDØZ¬¡ÅKüÖ”s­ƒ46Ôîå`‰é%]åûKüß`§%“S–H¡J‘ƒŞØÊ5‹$x‡oo²}@ŞÓ¦òÛïŞÑõ`î{ãñhòMF“ÜÓ¤“¹g*sÇ·qËÚqW(’İ¨êÊ¶´©ûÆj»óäîö]Œ,é(ó”—Ä¼¯-ò1É\±JŠıÛ}Í‚8gw$æiìd«æ|†N¸ ­;¥_D{ƒ›‘vù‰:±M*ÄÚ3	„KkôbR­}Iëmû5
+«Óˆ&’€­Saâ¼D@,0ÑÅôêwõŠÍ«×èÖY‚TõñŞzm‚åõ«ŞÅUŞ±zO¦(ÑI “µ—B­Eô0º X¤íÏ¶BÙƒ{[â¡İó °¸—A#%Ù…¨Ù·iÉõì0ÒÙ¶Qöñ¿Ú¸€	²‰ë–üLCp¤aJêÑf›ˆuh!lxğY'ò¡îÚîB^ŞgPdp¢İÕ|§@ûG´b‚ş~~;e4e€İ,ß¼:Ş¦?,4îáü´æ·Dâ3à¤¼SÌFM\ğ†W7›AàÛÈä‡xp?ÏaúÉl{Ç³ØèË©G®®"!&3V´úäôìrµmùıCZ ´ö¾kÿÃWQİŒÔFYw“`÷Ã±D®yn!mÛ=—´Óá³ù™åûÃ÷4ønï9lCÿ,«-dÛ}ûëí·>2~r3,„loy¦ø7ÌO:Ôu8•¬N_^Ü¢õ—•‰&P>Ó‰dìN1wJ!qEË¡giGwµlUR·qk,&³êWÌ¦mÛm×^;[
+Gƒa4\şş¬DŠ¨‡vXš&£ÜªšG‹ÿ¡zlòtsÉX[÷òA¨ŞÛ?Qmh„jŠ?Y·‰-¬É;.›£TW*‹ÿ@Ù&ìˆ2F%äÆ†zŒÍóˆÜÊQ
+]ïWFÆ!¤}(71Èø"">aŒ‹œÌ87“I¬\”‰C<K?#nLdsâ;&3)“[&7SB-.óÏ9êƒm¾Û½‘œÁÆ JDÖeöEÂVH³ø³´`¢´zc		<—	ŸÈ•ĞeiêÒhãÇwa(÷ÕĞø	áe:Œ-ÌÒdüÇl ‘şˆætİ¨MW·<’ÌÙpAPè7@ä±
+Ğ1¶Sq™a-Y1VmùWñY8i¹eÄDK“C@\Ò¼B ¤à+öEw‚ùƒ,’IÑ€JÃƒÈ†¤”ŞÒ0«†Â¦±±Á··8a)ª*7Æ¸Q=Ë¶Ä…¡ÍöÊî‰æ’>ˆWƒÚUŠjFÃŞ$¹XšËv³›\QN\V “nÔ ™gGÍ`+½D)ƒêµ œ«¥¶AòË‹Í.ß~€Ûæ‰}jRøŞ\>âfğ©Ïô·b.¬Ñ…*IKpkB@ìîİ#Ûáİó²Ò,5âZAR|.mW´¼â²i/Ù0sÑO/'øQô„@ ‰`šYÇÈJUn·İyäØ/›á•c.°Ñwã%b¥tØw†«m\Ek!Ú0SK2¸4Ì…¯€?PL$¿u¾dkdĞ!‘¢ÜÃõ«‘gÖTiˆWóºlì‹ş9‡]É(m1á3Ÿb^@ÀApŠ—ÇbJŒé ß¾{‚EŒ&~ga‚D%z”r`Ê\O€AÃY<S³ÑV éÌCajLæY: èa³PÁañØ1mÌËHŸ€!ƒl RöˆÖ4$\?ÀÀ¡>Œ—ˆ#X†¶„ööh‹í–‡B[…6­¼>ÄŠó)ËĞ£ ÆwÍxk+Ğ{şÄpY‰…1‡Î¼æº«]1ï¼]!,’Üyœà|’Ó£*]1‘‘ßèÔ]zöˆÜœÄ¾èÃ•Mïíäá±)/*7±eÚ‘³’	!?
+”{Â÷y‘Öõ¸C­ç¶‹´¨Ë—d½×ˆx"ŸØÏºáípOáÎ$Øói‘nİ¨éİC~y(Š4!VÃİWŠ+ §ût‰Ù”ÇÅWÚp,Hy,šTÑ“S¢9ˆs˜ 	I—pB&‰'LÎ’]Ü)	¦RKç( Œìö¥C÷;¤ú[üyÙ8O›y×$šhP*ÊzOaH,ô¶#^ä]Ê
+ˆî !ü­yÉ¸l«È)Ao¾NÒ7‘íesûmk×µÏ ¼ê@ç·½y<’ÚÛğ=ığé
+ñXZÆİåLï$
+u!Ú¼¯ÅQ`ãUvò©)>2ŒíöFÆßĞèÚ_6zkÜw½ËëoŞæ…İ÷\¼aÛ×Æ~H­Ë´´Ñ¡OúâÕÅ/ËÖŠ×,?'î{…·E]·©Å££v>u]õ§"j˜˜cWìUDÂ&˜K»İ¢ŸÌî…ª§†jòÇ³CyÜõj»5Û*Ï|Ş›ûWïÊ;šzm ò÷8uë+Ø	SÕó·ÂS1¸ó²œ{Y]¬¿zHåïÿ}BÄNE A¬@ò¯ï.npÊC¨”Áş÷	‘Ü¨ –Py»º¹¼ìu°É2û#&ªvş>Cù GÌiœ——êïÃaÔí÷ÏZÉ“è3fO—ñ·ıET›$u"|vU4“3îhÇ9¨¿xüü˜„—³S.¿©iìÃ(nÑdtv#¨âÆÛİ]™…õnT¶TiUÕÕb\t¢¿ıeÓªÖßÕV¾“Ù·.!¾Ûy—!ÿCóÖáŒLxÒ"ƒ”åœ23Ì«íaùòòÒ[ÜÄ¢’¤_UñğSš±Ûbëg%•[¥ö©tQ-Í?LX@ç¬GmÖûtªf¶.á±I% 4›©‰OgÑÈ‹°ÓÉØJa¦,Ç<9A[1“fĞ¾Ë–igÎÆiâé»©Ï›ë¾ªª€38NI'[k08Go¬}foÒ)áà¦Õ	W(?5ÂA\d¼ùyUgÀ~&Ös…DPíNeÚ.9ßl9Ua4V@Zlº¼îl-´Û|ò`Á€ù—ì#ÑËËõúa” 66NÄ°¢ÈAy¿ªæL™D³SX-,`è‡¼„Ú»"Šv—2³+ÌWQò,t`‡1¹¶@©¢ìUG«X®'° ¡c5ç"¡ÆKÌXÏ3ú“tÇŞŒ-—U#\†ø
+•³çîq?»Î\à,Öq¶ÔN•q­Õ–!H.o­N\¢Cl(Y©®ùKL]¡¬€ÌH+ì£›_Á.6U8$€¤Á’e£±$³VËå˜ÁÆ€WØŸ2ŞYçÄb†ÆşÙ	.ˆ<w%¯Î4emk*—j×‚”¦ÕfQÀTocµk¶º'_•P´¿D’–jg:­ÒÁşd™œ#Ï)¥}^7Cãƒ}ş;cŠ¯’,hj•9Å+ÊÒQè”bTiñÉìœS-)
+òÄXÈ2©E„òå‚œoÁbxœŸç40TºUÍıÖËÄrN¹©|¯oÖe¢@Iã¨ïE½ğkj=lü­ª¨“QÒ°wœÏ™\ãèñSí”î®ŞÆ“»çYOUé¾xDálTÃo—ÏH	‰x‡Q¢5(ŠÇ†EÔWü$ZKNßû¨îõ§à1[Ñü9†¦U?ÌĞx½¼»º¼é-ßİÜ>HO&µçoÔ
+ªO¦¦1*¦FçS†-n]ÂlaâvÚ¹ö—ÜU;ß%ŒìŠçÅäï1>6m¼ŸhV:[7œõ|aúH)¾Æîx!¾{j[ó)Å¯OlQ!qf–b¶Ón©¿8R±ªv˜ÇÇ­ª@®¢­q•}DâÈ…Ğbôz-6‡œ¦8Ş¥Qwa7•¹§"÷¥Â¡ZJ‘|€ /d-³xÔëGÏR ¢®²kD*æĞ@ÆlAÈ¸2q•ì ô€z$ŠÓC¨&ŒÒ9£eEŒ‹FbÇJRÆıg*1oéy†#‘F¹â"w\U€šÂ%ÌåÁÔr“ëb‚™4`ÅMr=‘”è€ğ>‹*(°Ã .OóXLä…wƒ*ü…?!¼«íÛÔøØí/É6ÊÇ&ÔÁ4Z÷Ê{?Ôît\ïC(‡ÿ^«{~g5vg‰qìÍèÛ÷¬âÃ—5ÜÂ•oTèµVÌàLë(æ¬ıÌ·Ö÷‰í–]ìüºè1ñ;Z‘ršÜvíj"Dì\F(¯¿Ì™„ÓÂòÉé”4:Z3ÏZâ‰
+yµüÎ‹´·—'QE2ÛÁã(Ô’ãÔ´(¬R"Š:¶„²ZªAĞÖ–Tãx‘½2ÉOŒAÉMü¦…äª¸ !M¢ÿD™R5Cò‘¤^;qQ\‹­šŒdû[q$¦jæ‰ì9SÔ®±¥úÃ[CëìÛãt%é+@lÿÁğp6z­%Q³¬”Z#Ğğm¥Æ²ÆÏæ#nì‡^ˆh¢&e=Æ°9ÙĞ~A¾ôx·¢€úMÓuit’C´(Iªo?8õu¹ë#õ³ÄS4ıeÏ;óPÄÖıÔW+ğ)ÎšÍSh‰!·€’îr†cğç>ÇÙEmšÅKFÈ„¢ -<¬–yç…Ï°4º8DB2g©û#ÿ§ì³çzíŸWÕI1OIªª
+ó¦ñgZ½FR"¿T*fØDñ+¿G+º÷©Ç:îûÈÚl¶’ß3R8¹0†Ş4»Ì˜‹TbTV^ˆú£òót»€^R˜ïè~;%e2Q?“{R@¦±ì»“ŸneÇÈPöµ¢Ê²Ñ¯â… p’õ–šJ"<Õ‚hŒ­lš˜ëÈšİºˆ¨ë¬æ¶PæGF¨ïyu›¸ôÛp5/µ5_æ¶Î(Z¼™h†*ˆ¶ÔcÂÌºéşâL5hª²Ş2[ÑEßƒôÔnBRQµ"‹‘õ1 hÊø¢í‘$`†¾ïx—l4qÿˆV|V&ÜgcF/šµ·÷E=z|È‘íoÈÌÁ©×0²Îx®&`…Æ11İX9†”‡ÄnTßsBQcPßO9Şä" fn:…§o,lH<Î¹ûÜ…,¤°†‘ÇõårÉ@¼5‚õB{„“ ·æË°6Š¶<}‚tš`±ö1g¤Šâi 4Gõ}İ\iŠºµ°<W·ÆÒõœÌJ%—ô2UÊZ²uR6{ÊWùàÕ<Ëõˆ±Y‹ã„¹ºè«¡b3¤Ÿ’{kä[ÖŒâr1$àO“óy•m¾¼zıfùn]Edé>Î1hÅĞ‚³1d‹ßìäcùZ)ªGİUKÇå…¶-‹3‘–¤Ğø[,ìé”¥2°eãmÜÿkØfyû/<æQT<)½~á,‰È®G´>m! ¯Ó”mäv¼ê¶º‘äŞvüŒé/ƒÓ×C¾~ôèÄ¥ŠÄÇL`œ;L¨‰)Èìhs€›IñşÊy?HEÅİuL\–`2"^CeÄM{¾Y]ÜÕhFé¿³yÛ æÁût>Ó3ñ7zš„§«‰åìûBÆáß$7šxŠ.r„WK”——«¬nw±Å“õôíè12‘Û™³¨ ÇÉ™; \ª£”H¤±T5“/$(ë—oõCä8åğ.”HøÍÔD3˜pªb&G¦ˆÊ§.‹	à<ZŠ^FpB1´i~Z4ÜØnÍ:0Ü„NÊó$ô©Äif¹ .`ª´(‘‰†½ŸR¬'Íj$BæG(µ†2ÙM*?)^ãJšÛYÛœ«$[µ¡[Ò'ô‡J#øe&ã("¨ÍÅ¼“.ÎpÒŸ
+ào°(µªö-~›™	Zdjè- JİjåpE¾®ç±róCé.ëyE7j„3˜À_Ş^U}aT1×@†ÀÚ^h	cLÜ'§œ€Ñ!G‘¿Î)ÉÕ¤ÅTVÏÑÙ 6Å|³1*Bb©ŞÍ;­Dçi<À“ª
+çõë–Ò$	ë,µ|ªê¶J~â>ESÙ®¾ò¢#×‰?è•g­vÍƒêæÅüP<~jn&Hè-K7ğ0„°£3“-yo(	˜°JÕ¯¤¡“œÉ¸5ÈNñ[ ƒ }@¦b’è9ƒJq/
+Õ$ ä9æ‚[
+áæë
+²îM $Mª0A[diÃ|Qk “¥2!9ø„Y”!{‰Jà¶ÈË)“-ÌÏ(¯CJpBÆhãd|Åf‰F³”šDò €œTR4NÔ°s&wP«×}äĞh,–†‘CÏW˜Uô lIeÖ	Ô¹b¸ENú¯§ºv,S6µ,nlzã<t2›¬”öD0[°´^!ë\Z"ú©…Ù±ĞÜÍ80>jšnJ–dFF‰xÊŒ?û`a0+0h/‘**#Á±èqB
+ØAŒB
+sÙ
+¹Æ:"¸#»ÈwwÛîBa^İ¼]½ºÈºÓ?$pÄ®ŞËñÁW­4ÄÃ\U~¦ÇØ¢<+ãJiH ’Î8Bsñ‡v…=ê b¦ü†NiFˆæ©¬¬)é6¯İˆ±!™Ô®µÇàF·­¯lùwøH	VwµCbwÍó·±C[V¼æİ@àÓBİÔµPbUX]ö¾_\©ØûÀ»µœ#eœÌ~Åb:@	GA(wƒq¶YÈqQ9ÿ€Š¼½–‚{hEx3-»çªÄ&Af{"ï_¸÷XºK5àãİ¥~§=Ç"kÏBzÖ×'ÓYÒN€´”B6E\ÆîTPO‘¶.Ş8ÎŞmù]¥<åÀ3'ÿ?n“qğ×—¯_%ÑvÏ Z`‡VM	x°hQq°m-0å¨·pFôa…•`ôÃÛ…ã˜è-(¡Âj±Eº€µıaà€®CG·ySÙˆ$MĞÑ6o
+˜vôÛîÜ]b›E»NQ7Q0>7É±¿ùWÆ³~{”èKÙ™¡íJlwBæ^!WX÷d¥wª{Ö¦Æ¸L9|¶æã<„R¢ ¹şİ’‚æXçÛ9‹±5d°6sş‰“ì£?Ûó‹Ä5;æ ÜEÂÑ+Å¨ö>fÆ-ÏÅf›¨k¤Ğûfõæu-¯?4Y§/+äc?íDg¶àd8÷Ûª‹lX4?œW¶¡ıÉ@ùQåÑ‡ß”½N®¢Ä~^’Äü¥°¡š4 ££¼Å€+ZX,ÚZ­Wb;4q–Ò@|ñù>ad320MEËF>g7E›ÜŒnXìÆ„Ë.‰í"Kê¢s£Yén‹'©TÚŒcÎÏi?Ô™ÊUkË(uæ­‹6Q«xÅÍ¼Õ(GÂ1dÌrKí!Ím›è>½©p4Ïš%}H³Æpã¢eš04¼ÖË4Í¥˜”*xÙõ“âg2”©ÈFÈÀî×;z#7‚Š/7²-Z	”)7Ää>–Ü(Éxõúxïªá¢şŒEf²í¾ äÃ­D	c	• €Ì³å;TŠiˆ–¢‘™•¦2\äcûjO°[Ixi(ÑÓtU¡b`óƒv«Á`ÇnÊwÏ³ğ41ŸÚW3Ï:Ì’Ùj%N$ôeíí|’×`&àÇ#`%MÖ£Aa-›Bƒ.%8Rî!åê
+qäãÎıE›îHPg–"ñxd)Öˆ–­¬èN{dzÄ^  `gG†ë4›²,m¶$Ú72öV»ìh<ŞìîõÃ½×Q$+/£¡D<”à)£(©F àk$jjJÓã:x ?Ã,Sš°UvÒ`H;¸E)0$öa.W#”‚“Ï™+Yë3ŞŠ`LÁ)Ã’7¯™Š¯1aéK(Øª0c<¤;<–)‡ÕŞóN'M®ÅâµÌ,*6übnKˆ…@šØ„k³A­D…keÏB‘‘øª!¨Ø+>Ì—]æâE2+İm_³ºÓ»Àê†òfFó¼\Í˜@w4÷¶?ìë;1EÍÅ½bdèÖÚ0¥¹dƒŒpªb1Jb£	ÖšÿD¤(x-'¡éÜ„SHbîàæÚsÎ3åz3±Ü–ğÒBAp»¹Â ë7_v$¬m„Z¡<ºY_1xå*u{Ağ ¾c¼hMª6‹Ÿ¯+·k!œÅ€ªvd­è´¬ÿY¿aíøb6±ˆ9èDx€ˆk÷ßÁ–¾sMû^„“š‹,ÖO0 Ì“qÙ‰HO€	ã€Ï‚‚V‰áñ•ùÏñ­âS¡ÛÊx—Ç¬»ç
+æc;Fès®Éå+É#ò8}G¼ÇCª|ıVd¥®²Ë"ò
+F¤…Lr_`V^àöş	Í‚ı„(âÆ	MZif7âj$tcay<^¸‘İ]s­ -Òİ~ÃE;ĞUpi7Ã,ß2Ã+u§ñTô·ƒp¥}{Roñ)ÉÄ{ Í@Í.!ˆ65Gl"÷ñtÂ˜Ê~ª'0$•E¸3€g°—šÏY‘á›õ±<ø­Wê³jGFŠy¾,pš `&ŠHº)Ù˜´®tzûQâ¢<:%ÖŸøĞFÍñ3¥|eÛ0/18KÒ!3ÅºDdp2§oÙ­Y‘”ƒôxâñïÉvŒ zAó‘Œ—«âOè"cı@3/È¯÷µ1¨ÙD†gmpd8‰
+4g¨³}BÄÁ™7†<b˜0Q]ê!	"yà:‰®ö­BØB 1T #{3 Úä;ã´!‘‚jz,r¹½Ùl±5‹ÚÂªõá]Eoi¼Òs¨~–'ØBÄ%¬Ë~w½‡F_Äd÷+5õâ‚˜v* ¢†â©e/
+8tªığxs~m…á%84Pì™l!g‰‘7®KÈ*!œ¾‰°YÖt§Gid+E—Òˆf7ÙôŠ~V‰öË‘a ¬©Z´äH¢T½øÑ¾*a

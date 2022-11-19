@@ -1,0 +1,22 @@
+ty by also
+ * handling arrays and plural conditionals. Arrays can be indexed as follows:
+ *
+ * - Format: 'This is the first index: {myArray[0]}. The last: {myArray[-1]}.'
+ *
+ * - Context: { myArray: [0, 1, 2, 3, 4, 5] }
+ *
+ * - Result: 'This is the first index: 0. The last: 5.'
+ *
+ *
+ * They can also be iterated using the #each() function. This will repeat the
+ * contents of the bracket expression for each element. Example:
+ *
+ * - Format: 'List contains: {#each(myArray)cm }'
+ *
+ * - Context: { myArray: [0, 1, 2] }
+ *
+ * - Result: 'List contains: 0cm 1cm 2cm '
+ *
+ *
+ * The #each() function optionally takes a length parameter. If positive, this
+ * parameter 
