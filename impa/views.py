@@ -1,3 +1,4 @@
+import time
 from re import  template
 from django.http import request 
 from django.shortcuts import redirect, render, get_object_or_404
@@ -19,6 +20,7 @@ class impview(LoginRequiredMixin, generic.ListView):
     context_object_name = "obj"
     login_url = "bases:login"
 
+
 class impnew(LoginRequiredMixin, generic.CreateView):
     model = ImpGuias
     template_name = "impa/imp_new.html"
@@ -26,18 +28,6 @@ class impnew(LoginRequiredMixin, generic.CreateView):
     form_class = ImpresionForm
     success_url = reverse_lazy("impa:imp_list")
     login_url = "bases:login"
-
-    def form_valid(self, form, *numini, **numfin):
-        form.instance.uc = self.request.user
-        rango= []
-        impguias = ImpGuias
-        for imp in range(numini,numfin):
-            if numini>=numini.objects.filter(numini).exists() and numfin>=numfin.objects.filter(numfin).exists():
-                mensaje = "Rango ya existe"
-            else:
-                rango.append(impguias)
-        ImpGuias.objects.bulk_create(rango)
-        return super().form_valid(form)
     
 class impedit(LoginRequiredMixin, generic.UpdateView):
     model = ImpGuias
