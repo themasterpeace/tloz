@@ -24,6 +24,7 @@ urlpatterns = [
     path('impa/', include(('impa.urls','impa'), namespace='impa')),
     path('link/', include(('link.urls','link'), namespace='link')),
     path('zelda/', include(('zelda.urls','zelda'), namespace='zelda')),
+    path('imphija/', include(('imphija.urls','imphija'), namespace='imphija')),
     path("accounts/", include("django.contrib.auth.urls")),
     path('tests/', include(('tests.urls','tests'), namespace='tests')),
    

@@ -107,14 +107,10 @@
                                     <input type="text" name="rutades" maxlength="3" class="form-control" id="id_rutades">
                                   </p>
                                 </div>
-                                <div class="ing_guiGrid col2">
+                                <div class="ing_guiGrid">
                                   <p>
-                                    <label for="id_codigo">Codigo:</label>
-                                    <input type="text" name="codigo" maxlength="8" class="form-control" id="id_codigo">
-                                  </p>
-                                  <p>
-                                    <label for="id_cliente">Cliente:</label>
-                                    <input type="text" name="cliente" maxlength="150" class="form-control" id="id_cliente">
+                                    <label for="id_fpago">Forma de pago:</label>
+                                    <input type="text" name="fpago" maxlength="8" class="form-control" id="id_fpago">
                                   </p>
                                 </div>
                                 <div class="ing_guiGrid col1 alt1">
@@ -136,8 +132,8 @@
                                 <div class="col">
                                     <button type="submit" class="btn btn-danger"><span class="fa fa-print"></span> Imprimir</button>
                                     <!--<a href="{% url 'link:departamento_list' %}" class="btn btn-success"><span class="fa fa-undo"></span>Cancelar</a>-->
-                                    <button type="button" class="btn btn-success" onclick="cerrar_modal()"><i class="fas fa-window-close"></i>
-                                     Salir   
+                                    <button type="button" class="btn btn-success">  <i class="fas fa-window-close"></i><a href="{% url 'bases:home' %}"> Salir</a>
+                                    
                                     </button>
                                 </div>
                             </div>
@@ -191,6 +187,7 @@
                     $("#id_tel").val("");
                     $("#id_muni").val("");
                     $("#id_origen").val("");
+                    $("#id_fpago").val("");
                     $("#id_codigo_cliente").focus();
                     return false;
                 }else{
@@ -200,6 +197,7 @@
                 $("#id_tel").val(r.telefono);
                 $("#id_muni").val(r.municipio);
                 $("#id_origen").val(r.depto);
+                $("#id_fpago").val(r.fpago);
                 $("#id_zona").focus();
                 }
 

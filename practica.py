@@ -1,6 +1,12 @@
-alto = int(input("Proporciona el alto: "))
-ancho=int(input("Proporciona el ancho: "))
+numini = int(input("Numero Inicial: "))
+numfin = int(input("Numero Final: "))
+# total = 0
+# for i in range(numini,numfin):
+#     print(i)
 
-area = alto * ancho
-ancho = (alto + ancho )*2
-print ("El area es:", area, "y el ancho es:", ancho )
+def rango(numini, numfin):
+    for i in range(numini, numfin):
+        print(i)
+
+if __name__ == '__main__':
+    rango(numini,numfin)

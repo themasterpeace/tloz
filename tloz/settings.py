@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     #'rcp',
     'tests',
     'impa',
+    'imphija',
     'crispy_forms',
     'django_userforeignkey',
     'django.contrib.humanize',

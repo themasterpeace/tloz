@@ -1,7 +1,7 @@
 import re
 from django import forms
 from django.db.models import fields
-from django.forms import CharField, widgets
+from django.forms import CharField, widgets, ValidationError
 #from pyparsing import Char
 from impa.models import *
 from bases.models import ClaseModelo 
