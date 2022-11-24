@@ -41,7 +41,7 @@
                 <th>Email</th>
                 <th>Nit</th>
                 <!-- <th>Vendedor</th> -->
-                <!-- <th>Forma de Pago</th> -->
+                <th>Forma de Pago</th>
                 <!-- <th>Minimo Facturacion</th> -->
                 <th>Observaciones</th>
                 <th>Estado</th>
@@ -62,7 +62,7 @@
                     <td>{{ item.email}}</td>
                     <td>{{ item.nit}}</td>
                     <!-- <td>{{ item.vendedor}}</td> -->
-                    <!-- <td>{{ item.fpago}}</td> -->
+                    <td>{{ item.fpago}}</td>
                     <!-- <td>{{ item.minimofac}}</td> -->
                     <td>{{ item.observa}}</td>
                     <td onclick="inactivarcli({{item.id}})">{#item.estado|yesno:"Activo,Inactivo"#}

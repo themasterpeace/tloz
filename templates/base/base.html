@@ -19,6 +19,7 @@
         <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
         {% comment %} <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"> {% endcomment %}
         {% endblock %}
+        <script src="{% static  'base/js/msj.js' %}"></script>
         <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.js'></script>
         <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
         <script src="//ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -113,7 +114,6 @@
             <div class="user">
               {% if user.is_authenticated %}
               <span id="userName">{{ user.username }}</span>&nbsp;&nbsp;<a title="Salir de la sesión" href="{% url 'bases:logout' %}"><i class="fas fa-sign-out-alt"></i></a>
-
               {% else %}
               <span id="userName"><a href="{% url 'bases:login' %}">Iniciar Sesión</a></span>&nbsp;&nbsp;<i class="fas fa-user-alt"></i>
               <span id="userName"><a href="{% url 'link:registro' %}">Registrate</a></span>&nbsp;&nbsp;<i class="fas fa-user-alt"></i>
@@ -235,6 +235,7 @@
 
 <!-- Custom scripts for all pages-->
 <script src="{% static  'base/js/sb-admin-2.min.js' %}"></script>
+
 
 <!-- Page level plugins -->
 <script src="{% static 'base/vendor/datatables/jquery.dataTables.min.js'%}"></script>
