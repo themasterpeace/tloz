@@ -7,7 +7,7 @@
     <!-- Card Header - Dropdown -->
     <div
         class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-        <h6 class="m-0 font-weight-bold text-primary">Listado de Departamentos</h6>
+        <h5  class="alert alet-info" role="alert">Listado de Departamentos</h5>
         <div class="dropdown no-arrow">
             <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -18,14 +18,14 @@
                 <a class="dropdown-item" onclick="return abrir_modal('{% url 'link:departamento_new' %}')" href="#"><i class="far fa-calendar-plus"></i> Nuevo Departamento</a>
                 <a class="dropdown-item" href="#"></a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#"></a>
+                <a class="dropdown-item" href="{% url 'bases:home'%}"><i class="fa-solid fa-house-user"></i> Regresar a Home</a>
             </div>
         </div>
     </div>
     <!-- Card 5Body -->
     <div class="card-body"> 
         {% if not obj  %}
-           <div class="alert alert-info">No hay Departamentos Registrados</div>
+           <div class="alert alert-primary">No hay Departamentos Registrados</div>
         {% else %}
 
         <table class="table table-striped table-hover">
